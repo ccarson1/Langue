@@ -143,7 +143,7 @@ export default function Home() {
       document.getElementById("overlay").classList.remove("hidden");
       animating = true;
       animateDots();
-      fetch('/api/translate', {
+      fetch('http://localhost:8000/api/translate/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

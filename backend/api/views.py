@@ -9,6 +9,7 @@ from django.contrib.auth.hashers import check_password
 from .models import User, Language, Word, WordTranslation
 from .serializers import UserSerializer, SignupSerializer
 from django.views.generic import TemplateView
+from .w_translate import translate_word
 
 @api_view(['POST'])
 def api_login(request):
@@ -47,6 +48,10 @@ def translate(request):
     nat_id = request.data.get('native_id')
     tar_id = request.data.get('target_id')
 
+    print(f"Text: {text}")
+    print(f"Native: {nat_id}")
+    print(f"Target: {tar_id}")
+
     if not text or not nat_id or not tar_id:
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -58,7 +63,7 @@ def translate(request):
             return Response({'translated': word_translation.definition, 'inDatabase': 1})
 
     # Replace with your translation function:
-    translated_text = tr.translate(text)
+    translated_text = translate_word(text)
 
     return Response({'translated': translated_text, 'inDatabase': 0})
 
