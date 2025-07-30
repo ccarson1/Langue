@@ -1,0 +1,35 @@
+/* Overlay fills the screen */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5); /* semi-transparent black */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+/* Spinner animation */
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 6px solid #ccc;
+  border-top-color: #28a745; /* green highlight */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Hide by default */
+.hidden {
+  display: none;
+}
+
+/* Spinner rotation animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

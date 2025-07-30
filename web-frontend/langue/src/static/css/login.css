@@ -1,0 +1,103 @@
+/* login.css */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #222831;
+  color: #eeeeee;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.login-container {
+  background: #393e46;
+  padding: 2rem 3rem;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  width: 320px;
+  text-align: center;
+}
+
+h2 {
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+label {
+  display: block;
+  text-align: left;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1.2rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  background-color: #222831;
+  color: #eeeeee;
+  outline: none;
+  transition: background-color 0.3s ease;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus {
+  background-color: #30475e;
+}
+
+button {
+  width: 100%;
+  padding: 0.7rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #222831;
+  background-color: #00adb5;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #019ca1;
+}
+
+.forgot-password {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #eeeeeecc;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+#back-link {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  font-weight: 300;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 1.1rem;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+  z-index: 9999;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+
+#back-link:hover {
+  color: #cce4ff;
+  text-decoration: none;
+}
