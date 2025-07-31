@@ -10,6 +10,9 @@ from .models import User, Language, Word, WordTranslation
 from .serializers import UserSerializer, SignupSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
 
 @api_view(['POST'])
 def api_login(request):
@@ -32,16 +35,20 @@ def api_login(request):
         "user": UserSerializer(user).data
     })
 
-
+@csrf_exempt
 @api_view(['POST'])
 def api_signup(request):
+    print("Incoming data:", request.data)
+
     serializer = SignupSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
         return Response({'message': 'Account created successfully!'}, status=status.HTTP_201_CREATED)
+    
+    print("Serializer errors:", serializer.errors)  # <-- key line
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+@csrf_exempt
 @api_view(['POST'])
 def translate(request):
     text = request.data.get('text', '').strip().lower()
@@ -67,17 +74,19 @@ def translate(request):
 
     return Response({'translated': translated_text, 'inDatabase': 0})
 
-
+@csrf_exempt
 @api_view(['POST'])
 def save_word(request):
-    required_fields = ['word', 'nat_id', 'tar_id', 'user_id', 'definition']
+    user = request.user
+    print(f"User: {user.id}")
+    required_fields = ['word', 'nat_id', 'tar_id', 'definition']
     if not all(field in request.data for field in required_fields):
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
-
+    
     word_text = request.data['word'].strip()
     nat_id = request.data['nat_id']
     tar_id = request.data['tar_id']
-    user_id = request.data['user_id']
+    user_id = user.id
     definition = request.data['definition'].strip()
 
     try:
@@ -111,3 +120,7 @@ class FrontendAppView(TemplateView):
 @permission_classes([IsAuthenticated])
 def hello_user(request):
     return Response({"message": f"Hello, {request.user.username}!"})
+
+@ensure_csrf_cookie
+def get_csrf(request):
+    return JsonResponse({'message': 'CSRF cookie set'})

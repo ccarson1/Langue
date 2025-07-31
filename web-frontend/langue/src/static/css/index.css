@@ -31,6 +31,10 @@ body {
     background-color: var(--bg-color);
 }
 
+.main-container {
+    width: 100vw;
+}
+
 #lesson-word-container {
     display: flex;
     flex-wrap: wrap;
@@ -56,6 +60,7 @@ body {
     padding: 15%;
     border-radius: var(--border-radius);
     transition: var(--transition-speed);
+    width: fit-content;
 }
 
 #audio-container div i:hover {
@@ -205,6 +210,7 @@ body {
     font-size: var(--text-size-word);
     padding: var(--padding);
     border-radius: var(--border-radius);
+    width: fit-content;
 }
 
 #pagination-container div>i:hover {

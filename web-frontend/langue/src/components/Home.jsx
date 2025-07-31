@@ -1,50 +1,42 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from 'react-router-dom';
+import { useDotAnimation } from '../static/js/useDotAnimation';
 import "../static/css/index.css";
 import "../static/css/spinner.css";
 
 
-//import { fetchLessonData } from "../static/js/lessonUtils.js";
 
 export default function Home() {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [languageMenuVisible, setLanguageMenuVisible] = useState(false);
-  const [translatedText, setTranslatedText] = useState("Pikta");
-  // const [rows, setRows] = useState([]);
-  // const [index, setIndex] = useState(0);
+  const [translatedText, setTranslatedText] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+
+  const [partOfSpeechText, setPartOfSpeechText] = useState(".");
+  const [wordDefinitionText, setWordDefinitionText] = useState(".");
+  const { startAnimation, stopAnimation } = useDotAnimation(
+    [setTranslatedText, setPartOfSpeechText, setWordDefinitionText]
+  );
+
+
+
 
   useEffect(() => {
     let index = 0;
     let lessonLength = 0;
     let rows = [];
     let currentAudio;
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(loggedIn);
 
-    let button = document.getElementById("language-button");
-    let menu = document.getElementById("language-menu");
-
-
-    let dotCount = 0;
-    let maxDots = 3;
-    let animating = true;
+    // let button = document.getElementById("language-button");
+    // let menu = document.getElementById("language-menu");
 
 
     console.log("page is fully loaded");
     currentAudio = document.getElementById("current-audio").textContent;
 
-
-
-
-    function animateDots() {
-      let t_text = document.getElementById('translated-text');
-      let p_speech = document.getElementById('part-of-speech');
-      let w_def = document.getElementById('word-definition');
-
-      if (!animating) return;
-      dotCount = (dotCount + 1) % (maxDots + 1);
-      t_text.textContent = '.'.repeat(dotCount) || '.';
-      p_speech.textContent = '.'.repeat(dotCount) || '.';
-      w_def.textContent = '.'.repeat(dotCount) || '.';
-      setTimeout(animateDots, 500);
-    }
 
     fetch('http://localhost:8000/media/data/metadata.csv').then(response => {
       if (!response.ok) throw new Error('Network response was not ok');
@@ -141,8 +133,9 @@ export default function Home() {
 
     function callTranslation(text) {
       document.getElementById("overlay").classList.remove("hidden");
-      animating = true;
-      animateDots();
+      // animating = true;
+      // animateDots();
+      startAnimation();
       fetch('http://localhost:8000/api/translate/', {
         method: 'POST',
         headers: {
@@ -161,7 +154,8 @@ export default function Home() {
         .then(data => {
           console.log(data);
           document.getElementById("overlay").classList.add("hidden");
-          animating = false;
+          // animating = false;
+          stopAnimation();
           if (data.translated) {
             console.log(data.inDatabase)
             if (data.inDatabase == 0) {
@@ -174,7 +168,7 @@ export default function Home() {
               document.documentElement.style.setProperty('--status-active-shadow-1', 'var(--status-green-shadow-1)');
               document.documentElement.style.setProperty('--status-active-shadow-2', 'var(--status-green-shadow-2)');
             }
-            document.getElementById('translated-text').textContent = data.translated;
+            setTranslatedText(data.translated);
           } else {
             console.error('Unexpected response:', data);
           }
@@ -206,7 +200,8 @@ export default function Home() {
       let word = document.getElementById("source-text").textContent;
       let definition = document.getElementById("translated-text").textContent;
       let user = JSON.parse(localStorage.getItem('user'));
-      let userId = user.id
+      // let userId = user.id
+      let userId = 1;
       let nat_id = 1;
       let tar_id = 2
 
@@ -219,8 +214,8 @@ export default function Home() {
       let payload = {
         word: word,
         definition: definition,
-        user_id: user.id,
-        nat_id: 1, // You might want to set these dynamically
+        user_id: userId,
+        nat_id: 1,
         tar_id: 2
       };
 
@@ -255,9 +250,9 @@ export default function Home() {
 
 
 
-    button.addEventListener("click", () => {
-      menu.classList.toggle("hidden");
-    });
+    // button.addEventListener("click", () => {
+    //   menu.classList.toggle("hidden");
+    // });
 
     // Optional: Hide dropdown when clicking outside
     document.addEventListener("click", (e) => {
@@ -275,74 +270,39 @@ export default function Home() {
     alert("Save clicked: " + translatedText);
   };
 
-
-
+  const handleSignOut = () => {
+    localStorage.clear();
+    setIsLoggedIn(false);
+    navigate('/login');
+  };
 
 
   return (
-    <div>
+    <div className="main-container">
       <div id="overlay" className="overlay hidden">
         <div className="spinner"></div>
       </div>
-
-      <a
-        href="/login"
-        id="login-link"
-        className="nav-link"
-        style={{ position: "fixed", top: "2%", right: "5%" }}
-      >
-        Login
-      </a>
-      <a
-        href=""
-        id="profile-link"
-        className="nav-link"
-        style={{ position: "fixed", top: "2%", right: "5%" }}
-      ></a>
-
-      <div
-        className="language-dropdown"
-        style={{ position: "fixed", top: "2%", right: "12%" }}
-      >
-        <button id="language-button" className="nav-link">Language</button>
-        <div id="language-menu" className="dropdown-menu hidden">
-          <a href="#" data-lang="en"><img src="https://cdn.countryflags.com/thumbs/united-kingdom/flag-square-250.png"
-            alt="" className="menu-flag"></img> English</a>
-          <a href="#" data-lang="lt"><img
-            src="https://www.countryflags.com/wp-content/uploads/lithuania-flag-png-large.png" alt=""
-            className="menu-flag"></img> Lietuvių</a>
-          <a href="#" data-lang="fr"><img src="https://cdn.countryflags.com/thumbs/france/flag-square-250.png" alt=""
-            className="menu-flag"></img>Français</a>
-        </div>
-        {languageMenuVisible && (
-          <div id="language-menu" className="dropdown-menu">
-            <a href="#" data-lang="en">
-              <img
-                src="https://cdn.countryflags.com/thumbs/united-kingdom/flag-square-250.png"
-                alt=""
-                className="menu-flag"
-              />{" "}
-              English
-            </a>
-            <a href="#" data-lang="lt">
-              <img
-                src="https://www.countryflags.com/wp-content/uploads/lithuania-flag-png-large.png"
-                alt=""
-                className="menu-flag"
-              />{" "}
-              Lietuvių
-            </a>
-            <a href="#" data-lang="fr">
-              <img
-                src="https://cdn.countryflags.com/thumbs/france/flag-square-250.png"
-                alt=""
-                className="menu-flag"
-              />
-              Français
-            </a>
-          </div>
-        )}
+      <div id="logo">
+        Langue
       </div>
+      {isLoggedIn ? (
+        <a href="#" onClick={(e) => { e.preventDefault(); handleSignOut(); }} className="nav-link" style={{ position: 'fixed', top: '2%', right: '5%' }} > Sign Out </a>
+      ) : (
+        <a href="/login" id="login-link" className="nav-link" style={{ position: 'fixed', top: '2%', right: '5%' }} > Login </a>
+      )}
+      <div
+        style={{ position: 'fixed', top: '2%', right: 0, justifyItems: 'flex-end', width: '40%', alignItems: 'end', gap: '22px', display: "flex" }} >
+        <a href="/login" id="login-link" className="nav-link" style={{ display: 'none' }} > Login </a>
+        <a href="/account" id="account-link" className="nav-link"> Account </a>
+        <a href="/settings" id="settings-link" className="nav-link"> Settings </a>
+        <a href="/lessons" id="lessons-link" className="nav-link"> Lessons </a>
+        <a href="/import" id="import-link" className="nav-link"> Import </a>
+      </div>
+
+      {/* <a href="" id="account-link" className="nav-link" style={{ position: "fixed", top: "2%"}} >Account</a>
+      <a href="" id="lessons-link" className="nav-link" style={{ position: "fixed", top: "2%"}} >Lessons</a>
+      <a href="" id="setting-link" className="nav-link" style={{ position: "fixed", top: "2%"}} >Settings</a>
+      <a href="" id="import-link" className="nav-link" style={{ position: "fixed", top: "2%" }} >Import</a> */}
 
       <div id="audio-container">
         <div>
@@ -360,7 +320,7 @@ export default function Home() {
         </button>
         <div className="entry-header">
           <h1 id="target-word">Mean</h1>
-          <h3 id="part-of-speech">adjective</h3>
+          <h3 id="part-of-speech">{partOfSpeechText}</h3>
         </div>
         <div className="translation-pair">
           <span className="source-lang">Lithuanian:</span>
@@ -379,7 +339,7 @@ export default function Home() {
         </div>
         <div>
           <p id="word-definition">
-            Unkind, spiteful, or unfair. Example: "She was mean to her classmates."
+            {wordDefinitionText}
           </p>
         </div>
       </div>

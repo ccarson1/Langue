@@ -16,6 +16,7 @@ urlpatterns = [
     path('save_word/', views.save_word, name='save_word'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/csrf/', views.get_csrf),
     path('hello/', views.hello_user),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

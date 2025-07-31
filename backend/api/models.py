@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import JSONField # Use if on PostgreSQL; else see notes below
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 class Language(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -13,20 +14,19 @@ class Language(models.Model):
         return self.lang_name
 
 
-class User(models.Model):
-    id = models.AutoField(primary_key=True, db_column='ID')
-    username = models.CharField(max_length=60, unique=True)
-    first_name = models.CharField(max_length=20, blank=True, null=True)
-    last_name = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField(max_length=100, unique=True)
-    password = models.CharField(max_length=100)
-    native_language = models.ForeignKey(Language, db_column='native_id', on_delete=models.SET_NULL, null=True, related_name='users_native')
+# class User(models.Model):
+#     id = models.AutoField(primary_key=True, db_column='ID')
+#     username = models.CharField(max_length=60, unique=True)
+#     first_name = models.CharField(max_length=20, blank=True, null=True)
+#     last_name = models.CharField(max_length=20, blank=True, null=True)
+#     email = models.EmailField(max_length=100, unique=True)
+#     password = models.CharField(max_length=100)
 
-    class Meta:
-        db_table = 'Users'
+#     class Meta:
+#         db_table = 'Users'
 
-    def __str__(self):
-        return self.username
+#     def __str__(self):
+#         return self.username
 
 
 class Editor(models.Model):
@@ -71,6 +71,8 @@ class Profile(models.Model):
     creation_date = models.DateField(default=timezone.now)
     logged_hours = models.IntegerField(default=0)
     graph_type = models.CharField(max_length=20, blank=True, null=True)
+    native_language = models.ForeignKey(Language, db_column='native_id', on_delete=models.SET_NULL, null=True, related_name='users_native')
+
     # For languages field:
     # If you use PostgreSQL, you can use JSONField as below.
     # If not, consider using TextField with JSON serialization/deserialization in code.

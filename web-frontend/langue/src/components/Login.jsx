@@ -4,32 +4,62 @@ import { useNavigate } from 'react-router-dom'; // If using React Router
 import "../static/css/login.css";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [username, setUser] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate(); // remove if not using react-router
+
+
+  const logout = () => {
+    localStorage.clear();
+    navigate('/login'); // or window.location.href = "/login"
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
+      // const response = await fetch('http://localhost:8000/api/login', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify({ email, password })
+      // });
+
+      // const data = await response.json();
+
+      // if (response.ok) {
+      //   alert('Login successful!');
+      //   localStorage.setItem('user', JSON.stringify(data.user));
+      //   localStorage.setItem('isLoggedIn', 'true');
+      //   localStorage.setItem('username', 'ccarson');
+      //   navigate('/'); // or use window.location.href = '/'
+      // } else {
+      //   alert(data.error || 'Login failed.');
+      // }
+
+      const response = await fetch("http://localhost:8000/api/token/", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({
+          username: username,  // or username if using default User model
+          password: password
+        }),
       });
 
       const data = await response.json();
-
+      // console.log("Access Token:", data.access);
+      // console.log("Refresh Token:", data.refresh);
       if (response.ok) {
-        alert('Login successful!');
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('username', 'ccarson');
-        navigate('/'); // or use window.location.href = '/'
+        localStorage.setItem("accessToken", data.access);
+        localStorage.setItem("refreshToken", data.refresh);
+        localStorage.setItem("username", username);
+        localStorage.setItem("isLoggedIn", 'true');
+        navigate('/'); // Go to home or dashboard
       } else {
-        alert(data.error || 'Login failed.');
+        alert('Invalid username or password.');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -43,15 +73,15 @@ export default function Login() {
       <div className="login-container">
         <h2>Login</h2>
         <form id="login-form" onSubmit={handleSubmit}>
-          <label htmlFor="email">Email address</label>
+          <label htmlFor="username">Username</label>
           <input
-            type="email"
-            id="email"
-            name="email"
+            type="text"
+            id="username"
+            name="username"
             required
             autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={username}
+            onChange={(e) => setUser(e.target.value)}
           />
 
           <label htmlFor="password">Password</label>
