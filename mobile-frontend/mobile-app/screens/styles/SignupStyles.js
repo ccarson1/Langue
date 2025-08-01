@@ -1,0 +1,71 @@
+import { StyleSheet } from "react-native";
+export default StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#222831',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backLink: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 100,
+  },
+  signupBox: {
+    backgroundColor: '#393e46',
+    padding: 24,
+    borderRadius: 10,
+    width: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  heading: {
+    fontSize: 24,
+    color: '#eeeeee',
+    fontWeight: '600',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  label: {
+    color: '#eeeeee',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  input: {
+    backgroundColor: '#222831',
+    color: '#eeeeee',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#00adb5',
+    paddingVertical: 12,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  buttonText: {
+    textAlign: 'center',
+    color: '#222831',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  loginLink: {
+    marginTop: 16,
+    fontSize: 14,
+    color: '#eeeeeecc',
+    textAlign: 'center',
+  },
+  loginLinkText: {
+    color: '#00adb5',
+    textDecorationLine: 'underline',
+  },
+});
