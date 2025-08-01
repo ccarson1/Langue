@@ -2,7 +2,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import check_password
@@ -10,9 +10,11 @@ from .models import User, Language, Word, WordTranslation
 from .serializers import UserSerializer, SignupSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
-from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.http import JsonResponse
+from rest_framework.views import APIView
+from rest_framework.authentication import TokenAuthentication
+
 
 @api_view(['POST'])
 def api_login(request):
@@ -62,10 +64,14 @@ def translate(request):
     if not text or not nat_id or not tar_id:
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
-    word = Word.objects.filter(word=text, language_id=nat_id).first()
+    word = Word.objects.filter(word=text, language_id=tar_id).first()
 
     if word:
-        word_translation = WordTranslation.objects.filter(word_id=word.id, nat_id=nat_id, tar_id=tar_id).first()
+        word_translation = WordTranslation.objects.filter(
+            word_id=word.id,
+            native_language_id=nat_id,
+            target_language_id=tar_id
+        ).first()
         if word_translation:
             return Response({'translated': word_translation.definition, 'inDatabase': 1})
 
@@ -76,6 +82,18 @@ def translate(request):
 
 @csrf_exempt
 @api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+def import_lesson(request):
+    
+    url = request.data.get('url')
+    nativeLang = request.data.get('nativeLang')
+    targetLang = request.data.get('targetLang')
+
+    return Response({'url': url, 'nativeLang': nativeLang, 'targetLang': targetLang,})
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def save_word(request):
     user = request.user
     print(f"User: {user.id}")
@@ -96,13 +114,13 @@ def save_word(request):
     except (User.DoesNotExist, Language.DoesNotExist):
         return Response({'error': 'User or language not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    word, created = Word.objects.get_or_create(word=word_text, language=nat_lang)
+    word, created = Word.objects.get_or_create(word=word_text, language=tar_lang)
 
     word_translation = WordTranslation.objects.create(
-        nat_id=nat_lang.id,
-        tar_id=tar_lang.id,
-        user_id=user.id,
-        word_id=word.id,
+        native_language=nat_lang,
+        target_language=tar_lang,
+        user=user,
+        word=word,
         definition=definition
     )
 
@@ -116,11 +134,21 @@ class FrontendAppView(TemplateView):
     template_name = 'index.html'
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def hello_user(request):
-    return Response({"message": f"Hello, {request.user.username}!"})
+
 
 @ensure_csrf_cookie
 def get_csrf(request):
     return JsonResponse({'message': 'CSRF cookie set'})
+
+
+class UserProfileView(APIView):
+
+
+    @csrf_exempt
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+
+
+

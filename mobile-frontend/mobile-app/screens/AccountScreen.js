@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import styles from './styles/SignupStyles'
 import AntDesign from '@expo/vector-icons/AntDesign';
+import LogoutButton from './components/LogoutButton'; //
 
 export default function SignupScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -91,8 +92,8 @@ export default function SignupScreen({ navigation }) {
 
         <Text style={styles.loginLink}>
           Want to log out?{' '}
-          <Text style={styles.loginLinkText} onPress={() => navigation.navigate('Login')}>
-            Sign out
+          <Text style={styles.loginLinkText}>
+            <LogoutButton style={styles.loginLinkText} />
           </Text>
         </Text>
       </View>

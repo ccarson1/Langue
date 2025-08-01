@@ -1,17 +1,30 @@
 import React, { useState } from 'react';
-import { View, Button, Alert, ActivityIndicator } from 'react-native';
+import { View, Alert, Text, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import styles from '../styles/HomeStyles';
 
-export default function SaveWordButton({ payload }) {
+export default function SaveWordButton({ payload, onSuccess, onError }) {
   const [loading, setLoading] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
 
+
   const saveWord = async () => {
+
+    const hasEmptyField = Object.values(payload).some(
+      value => value === null || value === undefined || value === ''
+    );
+
+    if (hasEmptyField) {
+      onError?.('Please fill in all fields.');
+      return;
+    }
+
     setLoading(true);
     setButtonDisabled(true);
 
     try {
       const accessToken = await AsyncStorage.getItem('accessToken');
+      console.log(accessToken);
 
       const response = await fetch('http://localhost:8000/api/save_word/', {
         method: 'POST',
@@ -25,14 +38,17 @@ export default function SaveWordButton({ payload }) {
       const data = await response.json();
 
       if (data.error) {
-        Alert.alert('Error', data.error);
+        onError?.(data.error);
+        //Alert.alert('Error', data.error);
       } else {
-        Alert.alert('Success', 'Word saved successfully!');
+        onSuccess?.('Word saved successfully!');
+        //Alert.alert('Success', 'Word saved successfully!');
         console.log(data);
       }
     } catch (error) {
       console.error('Error saving word:', error);
-      Alert.alert('Error', 'Failed to save word. Please try again.');
+      onError?.('Failed to save word. Please try again.');
+      //Alert.alert('Error', 'Failed to save word. Please try again.');
     } finally {
       setLoading(false);
       setButtonDisabled(false);
@@ -40,9 +56,15 @@ export default function SaveWordButton({ payload }) {
   };
 
   return (
-    <View style={{ marginTop: 10 }}>
-      <Button title="Save Word" onPress={saveWord} disabled={buttonDisabled} />
-      {loading && <ActivityIndicator style={{ marginTop: 5 }} />}
+    <View style={styles.saveBtn}>
+      <TouchableOpacity
+
+        onPress={saveWord}
+        disabled={buttonDisabled}
+      >
+        <Text style={styles.buttonText}>Save Word</Text>
+      </TouchableOpacity>
     </View>
+
   );
 }

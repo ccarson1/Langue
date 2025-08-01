@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'api',
+    'django_rest_passwordreset',
 ]
 
 MIDDLEWARE = [
@@ -143,3 +144,16 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'api', 'media')
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+#Email Parameters
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # for dev
+DEFAULT_FROM_EMAIL = 'no-reply@example.com'
+
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your_email@example.com'
+# EMAIL_HOST_PASSWORD = 'your_password'

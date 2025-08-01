@@ -2,15 +2,26 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import styles from './styles/SignupStyles'
 import AntDesign from '@expo/vector-icons/AntDesign';
+import CustomPopup from './components/CustomPopup';
 
 export default function SignupScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+
+  const showSuccess = (message) => {
+    setPopup({ visible: true, message: message, type: 'success' });
+  };
+
+  const showError = (message) => {
+    setPopup({ visible: true, message: message, type: 'error' });
+  };
 
   const handleSignup = async () => {
     if (password !== confirmPassword) {
+      showError('Error: Passwords do not match!')
       Alert.alert('Error', 'Passwords do not match!');
       return;
     }
@@ -25,12 +36,15 @@ export default function SignupScreen({ navigation }) {
       const data = await response.json();
 
       if (!response.ok) {
+        showError(`Signup failed ${data.error || 'Unknown error'}`)
         Alert.alert('Signup failed', data.error || 'Unknown error');
       } else {
+        showSuccess(`Signup successful! You can now log in.`)
         Alert.alert('Success', 'Signup successful! You can now log in.');
         navigation.navigate('Login');
       }
     } catch (error) {
+      showError(`Signup error ${error.message}`)
       Alert.alert('Signup error', error.message);
     }
   };
@@ -96,6 +110,12 @@ export default function SignupScreen({ navigation }) {
           </Text>
         </Text>
       </View>
+      <CustomPopup
+        visible={popup.visible}
+        message={popup.message}
+        type={popup.type}
+        onClose={() => setPopup({ ...popup, visible: false })}
+      />
     </View>
   );
 }

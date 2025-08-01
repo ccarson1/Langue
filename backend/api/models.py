@@ -14,19 +14,6 @@ class Language(models.Model):
         return self.lang_name
 
 
-# class User(models.Model):
-#     id = models.AutoField(primary_key=True, db_column='ID')
-#     username = models.CharField(max_length=60, unique=True)
-#     first_name = models.CharField(max_length=20, blank=True, null=True)
-#     last_name = models.CharField(max_length=20, blank=True, null=True)
-#     email = models.EmailField(max_length=100, unique=True)
-#     password = models.CharField(max_length=100)
-
-#     class Meta:
-#         db_table = 'Users'
-
-#     def __str__(self):
-#         return self.username
 
 
 class Editor(models.Model):

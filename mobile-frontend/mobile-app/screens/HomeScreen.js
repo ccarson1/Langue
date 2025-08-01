@@ -1,7 +1,7 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
 
-import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Alert } from 'react-native';
 import { Audio } from 'expo-av';
 
 import logo from '../assets/favicon.png';
@@ -17,6 +17,9 @@ import SaveWordButton from './components/SendSaveWord';
 import LoadingOverlay from './components/LoadingOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+import * as Clipboard from 'expo-clipboard';
+import CustomPopup from './components/CustomPopup';
+
 
 import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync();
@@ -35,10 +38,18 @@ export default function HomeScreen({ navigation }) {
     const [appIsReady, setAppIsReady] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+
     const soundRef = useRef(null);
 
 
+    const showSuccess = (message) => {
+        setPopup({ visible: true, message: message, type: 'success' });
+    };
 
+    const showError = (message) => {
+        setPopup({ visible: true, message: message, type: 'error' });
+    };
 
     useEffect(() => {
 
@@ -49,7 +60,8 @@ export default function HomeScreen({ navigation }) {
             if (storedToken) {
                 try {
                     const decoded = jwtDecode(storedToken);
-                    setUser(decoded); // Save decoded user info (e.g., id, username, etc.)
+                    // Save decoded user info (e.g., id, username, etc.)
+                    fetchUserProfile();
                     console.log(user)
                 } catch (err) {
                     console.error('Failed to decode token:', err);
@@ -57,6 +69,32 @@ export default function HomeScreen({ navigation }) {
             }
         };
         fetchToken();
+
+        const fetchUserProfile = async () => {
+            const token = await AsyncStorage.getItem('accessToken');
+            if (!token) return;
+
+            try {
+                const res = await fetch('http://localhost:8000/api/profile/', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    console.error('Unauthorized or error:', await res.text());
+                    return;
+                }
+
+                const data = await res.json();
+                setUser(data);  // Now should include username, email, etc.
+            } catch (err) {
+                console.error('Fetch error:', err);
+            }
+        };
+
+
+
 
         async function prepare() {
             try {
@@ -75,8 +113,7 @@ export default function HomeScreen({ navigation }) {
         fetch('https://langue.pages.dev/metadata.csv')
             .then(res => res.text())
             .then(text => {
-                console.log("RAW RESPONSE:");
-                console.log(text);
+
                 let parsed = text.trim().split('\n').map(row => row.split('|'));
 
                 setRows(parsed);
@@ -96,6 +133,12 @@ export default function HomeScreen({ navigation }) {
 
         const translation = await translateWord(word); // pass word to function
         setTranslatedText(translation);
+    };
+
+    const copyToClipboard = async () => {
+        await Clipboard.setStringAsync(selectedText);
+        showSuccess('Text has been copied to clipboard.')
+        //Alert.alert('Copied!', 'Text has been copied to clipboard.');
     };
 
     const playAudio = async () => {
@@ -120,6 +163,7 @@ export default function HomeScreen({ navigation }) {
                 }
             })
         } catch (e) {
+            showError('Audio error:', e)
             console.error('Audio error:', e);
         }
     };
@@ -147,10 +191,12 @@ export default function HomeScreen({ navigation }) {
 
                 return data.translated; // return the translated text
             } else {
+                showError('API Error:', data.error || data)
                 console.error('API Error:', data.error || data);
                 return 'Translation error';
             }
         } catch (error) {
+            showError('Fetch Error:', error)
             console.error('Fetch Error:', error);
             return 'Error connecting to API';
         }
@@ -210,8 +256,8 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 <Text style={styles.topNavText}>Langue</Text>
                 {user && (
-                    <Text style={{ color: 'white', position: 'absolute', left: 10, top: 10 }}>
-                        Hello, {user.username || `User ${user.user_id || user.id}`}
+                    <Text style={{ color: 'white', position: 'absolute', left: 10 }}>
+                        Hello, {user.username}
                     </Text>
                 )}
                 <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerIcon}>
@@ -254,6 +300,8 @@ export default function HomeScreen({ navigation }) {
                             nat_id: 1,   // You can adjust as needed
                             tar_id: 2,   // Adjust this too
                         }}
+                        onSuccess={showSuccess}
+                        onError={showError}
                     />
                     <StatusIndicator />
                     <Text style={styles.partOfSpeech}>adjective</Text>
@@ -261,11 +309,15 @@ export default function HomeScreen({ navigation }) {
 
                     <View style={styles.textRow}>
                         <Text style={styles.leftText}>Target:</Text>
+                        <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
+                            <AntDesign name="copy1" size={24} color="black" />
+                        </TouchableOpacity>
+
                         <Text style={styles.rightText}>{selectedText}</Text>
                     </View>
 
                     <View style={styles.textRow}>
-                        <Text style={styles.leftText}>English:</Text>
+                        <Text style={styles.leftText}>Native:</Text>
                         <Text style={styles.rightText}>{translatedText}</Text>
                     </View>
                     <View style={styles.separatorDotted} />
@@ -295,22 +347,38 @@ export default function HomeScreen({ navigation }) {
                     >
                         <Text style={styles.navText}>Lessons</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Login');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Login</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Signup');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Signup</Text>
-                    </TouchableOpacity>
+                    {user ? (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Account');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Account</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Login');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Login</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {!user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Signup');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Signup</Text>
+                        </TouchableOpacity>
+                    )}
+
+
                     <TouchableOpacity
                         onPress={() => {
                             navigation.navigate('Settings');
@@ -320,14 +388,7 @@ export default function HomeScreen({ navigation }) {
                         <Text style={styles.navText}>Settings</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Account');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Account</Text>
-                    </TouchableOpacity>
+
 
                     <TouchableOpacity onPress={() => setShowExitModal(true)}>
                         <Text style={styles.navText}>Exit</Text>
@@ -357,6 +418,13 @@ export default function HomeScreen({ navigation }) {
                     setShowExitModal(false);
                     BackHandler.exitApp();
                 }}
+            />
+
+            <CustomPopup
+                visible={popup.visible}
+                message={popup.message}
+                type={popup.type}
+                onClose={() => setPopup({ ...popup, visible: false })}
             />
 
             <LoadingOverlay visible={loading} />

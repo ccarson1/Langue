@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   View,
@@ -13,6 +13,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { Picker } from '@react-native-picker/picker';
 import styles from './styles/ImportStyles';
+import CustomPopup from './components/CustomPopup';
+import LoadingOverlay from './components/LoadingOverlay';
 
 export default function ImportLessonScreen({ navigation }) {
   const [url, setUrl] = useState('');
@@ -24,8 +26,43 @@ export default function ImportLessonScreen({ navigation }) {
   const [audioUploaded, setAudioUploaded] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [urlReference, setURLReference] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+
+
+
+  useEffect(() => {
+    setPopup({ visible: false, message: '', type: 'success' });
+
+    const fetchToken = async () => {
+      const storedToken = await AsyncStorage.getItem('accessToken');
+      setToken(storedToken);
+
+      if (storedToken) {
+        try {
+          const decoded = jwtDecode(storedToken);
+          // Save decoded user info (e.g., id, username, etc.)
+          fetchUserProfile();
+          console.log(user)
+        } catch (err) {
+          console.error('Failed to decode token:', err);
+        }
+      }
+    };
+    fetchToken();
+
+  }, []);
+
+  const showSuccess = (message) => {
+    setPopup({ visible: true, message: message, type: 'success' });
+  };
+
+  const showError = (message) => {
+    setPopup({ visible: true, message: message, type: 'error' });
+  };
 
   const handleFilePick = async () => {
+    setLoading(true);
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
       console.log("File upload pressed:", result);
@@ -38,12 +75,15 @@ export default function ImportLessonScreen({ navigation }) {
         setLessonFile(null);
       }
     } catch (error) {
+      showError(`File pick error: ${error}`)
       console.error("File pick error:", error);
       setLessonFile(null);
     }
+    setLoading(false);
   };
 
   const handleAudioPick = async () => {
+    setLoading(true)
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'audio/*',
@@ -53,20 +93,28 @@ export default function ImportLessonScreen({ navigation }) {
       if (result && result.assets && result.assets.length > 0) {
         const audioFile = result.assets[0];
         console.log("Selected audio file:", audioFile);
+
         setAudioFile(audioFile);
+        // if (audioUploaded) {
+        //   showSuccess("Audio uploaded successfully");
+        // }
       }
     } catch (error) {
+      showError(`Audio pick error: ${error}`);
       console.error('Audio pick error:', error);
     }
+    setLoading(false);
   };
 
   const handleImport = async () => {
     if (!url && !file) {
+      showError(`Missing input: Please provide a URL or upload a file.`);
       Alert.alert('Missing input', 'Please provide a URL or upload a file.');
       return;
     }
 
     if (!nativeLang || !targetLang) {
+      showError(`Missing language: Please select both languages.`);
       Alert.alert('Missing language', 'Please select both languages.');
       return;
     }
@@ -93,11 +141,13 @@ export default function ImportLessonScreen({ navigation }) {
       formData.append('url', url);
       formData.append('nativeLang', nativeLang);
       formData.append('targetLang', targetLang);
+      formData.append('lessonPrivate', lessonPrivate);
 
-      const response = await fetch('https://your-api.com/api/import-lesson', {
+      const response = await fetch('http://localhost:8000/api/import-lesson', {
         method: 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: formData,
       });
@@ -105,12 +155,15 @@ export default function ImportLessonScreen({ navigation }) {
       const data = await response.json();
 
       if (!response.ok) {
+        showError(`Import failed: ${data.error || 'Unknown error'}`);
         Alert.alert('Import failed', data.error || 'Unknown error');
       } else {
+        showSuccess(`Success: Lesson imported successfully!`);
         Alert.alert('Success', 'Lesson imported successfully!');
         navigation.goBack();
       }
     } catch (error) {
+      showError(`Error ${error.message}`);
       Alert.alert('Error', error.message);
     }
   };
@@ -239,6 +292,18 @@ export default function ImportLessonScreen({ navigation }) {
         <TouchableOpacity style={styles.button} onPress={handleImport}>
           <Text style={styles.buttonText}>Import Lesson</Text>
         </TouchableOpacity>
+
+        {popup.visible && popup.message && (
+          <CustomPopup
+            visible={true}
+            message={popup.message}
+            type={popup.type}
+            onClose={() => setPopup({ ...popup, visible: false })}
+          />
+        )}
+
+        <LoadingOverlay visible={loading} />
+
       </View>
     </View>
   );

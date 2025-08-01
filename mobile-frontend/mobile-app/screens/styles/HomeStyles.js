@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { HoverEffect } from 'react-native-gesture-handler';
 
 // Alternative approach using flex properties for stable layout
 export default StyleSheet.create({
@@ -145,8 +146,14 @@ export default StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 6,
 
+
         // Android shadow
         elevation: 4,
+    },
+
+    buttonText: {
+        color: 'black',
+        fontWeight: 'bold',
     },
 
     textRow: {
@@ -211,5 +218,14 @@ export default StyleSheet.create({
     menuHeader: {
         color: 'white',
         fontSize: 24,
+    },
+
+    copy1: {
+        position: 'absolute',
+        marginLeft: "80%",
+        top: 18,
+        width: 'fit-content',
+
+        padding: 3
     }
 });

@@ -8,6 +8,7 @@ import LessonsScreen from './screens/LessonsScreen';
 import ImportScreen from './screens/ImportScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import AccountScreen from './screens/AccountScreen';
+import ResetPasswordScreen from './screens/ResetPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,7 +24,8 @@ export default function App() {
           <Stack.Screen name="Lessons" component={LessonsScreen} />
           <Stack.Screen name="Import" component={ImportScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="Account" component={AccountScreen}/> 
+          <Stack.Screen name="Account" component={AccountScreen}/>
+          <Stack.Screen name="ResetPasswordScreen" component={ResetPasswordScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </>

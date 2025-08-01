@@ -1,6 +1,7 @@
 // screens/LoginScreen.js
 import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -12,11 +13,22 @@ import {
 import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from './styles/LoginStyles';
 import LoadingOverlay from './components/LoadingOverlay';
+import CustomPopup from './components/CustomPopup';
+
 
 export default function LoginScreen({ navigation }) {
   const [username, setUser] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+
+  const showSuccess = (message) => {
+    setPopup({ visible: true, message: message, type: 'success' });
+  };
+
+  const showError = (message) => {
+    setPopup({ visible: true, message: message, type: 'error' });
+  };
 
   const handleLogin = async () => {
     setLoading(true)
@@ -32,7 +44,7 @@ export default function LoginScreen({ navigation }) {
       const data = await response.json();
       setLoading(false)
       if (response.ok) {
-        
+
         await AsyncStorage.setItem('accessToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
         Alert.alert('Success', 'Login successful!');
@@ -40,9 +52,11 @@ export default function LoginScreen({ navigation }) {
         // Simulate saving and redirect
         // AsyncStorage.setItem(...), navigation.navigate('Home'), etc.
       } else {
+        showError(`Error: ${data.error || 'Login failed.'}`)
         Alert.alert('Error', data.error || 'Login failed.');
       }
     } catch (err) {
+      showError(`Login error: ${err}`)
       console.error('Login error:', err);
       Alert.alert('Error', 'An error occurred during login.');
     }
@@ -83,7 +97,7 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.buttonText}>Log In</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert('Reset password flow coming soon!')}>
+        <TouchableOpacity onPress={() => navigation.navigate('ResetPasswordScreen')}>
           <Text style={styles.forgot}>Forgot password?</Text>
         </TouchableOpacity>
 
@@ -94,6 +108,12 @@ export default function LoginScreen({ navigation }) {
           </Text>
         </Text>
       </View>
+      <CustomPopup
+        visible={popup.visible}
+        message={popup.message}
+        type={popup.type}
+        onClose={() => setPopup({ ...popup, visible: false })}
+      />
       <LoadingOverlay visible={loading} />
     </View>
   );
