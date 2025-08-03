@@ -18,5 +18,8 @@ urlpatterns = [
     path('csrf/', views.get_csrf),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
+    path('languages/', views.get_languages, name='get_languages'),
+    path('settings/', views.user_settings, name='user_settings'),
+    path('account/', views.account, name='account'),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

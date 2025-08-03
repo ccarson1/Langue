@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export default StyleSheet.create({
   container: {
@@ -38,17 +38,38 @@ export default StyleSheet.create({
     marginTop: 12,
   },
   pickerWrapper: {
+    position: 'relative',
     backgroundColor: '#222831',
     borderRadius: 6,
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: 2,
+    marginBottom: 2,
     overflow: 'hidden',
   },
   picker: {
     color: '#eeeeee',
-    height: 55,
+    height: 52,
     width: '100%',
+    padding: 0,
+    margin: 0,
+    backgroundColor: '#393e46',
+    borderWidth: 0,
+    borderRadius: 6,
+    ...(Platform.OS === 'web' && {
+      appearance: 'none',
+      WebkitAppearance: 'none',
+      MozAppearance: 'none',
+      outline: 'none',
+      border: 'none',
+      boxShadow: 'none',
 
+    }),
+  },
+  arrowWrapper: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -8 }],
+    pointerEvents: 'none', // Let clicks go through to Picker
   },
   checkboxRow: {
     flexDirection: 'row',

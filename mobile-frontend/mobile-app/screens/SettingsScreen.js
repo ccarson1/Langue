@@ -1,31 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   Switch,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SettingsStyles';
 
 export default function SettingsScreen({ navigation }) {
-  const [nativeLanguage, setNativeLanguage] = useState('english');
-  const [targetLanguage, setTargetLanguage] = useState('spanish');
+  const [nativeLanguage, setNativeLanguage] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [profilePrivate, setProfilePrivate] = useState(false);
+  const [token, setToken] = useState(null);
+  const [languages, setLanguages] = useState([]);
+
+  const fetchLanguages = async () => {
+    try {
+      const res = await fetch('http://192.168.1.5:8000/api/languages/');
+      const data = await res.json();
+      setLanguages(data); // assuming data is an array of { id, lang_name }
+    } catch (err) {
+      console.error('Failed to fetch languages:', err);
+      Alert.alert('Error', 'Failed to load language options.');
+    }
+  };
+
+  useEffect(() => {
+    const loadTokenAndSettings = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('accessToken');
+        if (!storedToken) {
+          Alert.alert('Error', 'No access token found. Please log in.');
+          return;
+        }
+        setToken(storedToken);
+
+        const decoded = jwtDecode(storedToken);
+        console.log('Decoded token:', decoded);
+
+        const response = await fetch('http://192.168.1.5:8000/api/settings/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+
+        const settings = await response.json();
+        setNativeLanguage(settings.native_language);
+        setTargetLanguage(settings.target_language);
+        setNotificationsEnabled(settings.notifications ?? false);
+        setProfilePrivate(settings.privacy ?? false);
+
+      } catch (err) {
+        Alert.alert('Error', 'Failed to load settings: ' + err.message);
+      }
+    };
+
+    fetchLanguages(); // <--- fetch language options
+    loadTokenAndSettings(); // <--- fetch user settings
+  }, []);
 
   const handleSave = async () => {
+    if (!token) {
+      Alert.alert('Error', 'No access token found. Please log in.');
+      return;
+    }
+
     try {
-      const response = await fetch('https://your-api.com/api/settings', {
+      const response = await fetch('http://192.168.1.5:8000/api/settings/', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          nativeLanguage,
-          targetLanguage,
+          native_language: nativeLanguage,
+          target_language: targetLanguage,
           notifications: notificationsEnabled,
           privacy: profilePrivate,
         }),
@@ -52,7 +110,6 @@ export default function SettingsScreen({ navigation }) {
       <View style={styles.settingsBox}>
         <Text style={styles.heading}>Settings</Text>
 
-        <Text style={styles.label}>Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={nativeLanguage}
@@ -60,13 +117,18 @@ export default function SettingsScreen({ navigation }) {
             style={styles.picker}
             dropdownIconColor="white"
           >
-            <Picker.Item label="English" value="english" />
-            <Picker.Item label="Spanish" value="spanish" />
-            <Picker.Item label="French" value="french" />
+            {languages.map((lang) => (
+              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
+            ))}
           </Picker>
+
+          {Platform.OS === 'web' && (
+            <View style={styles.arrowWrapper}>
+              <AntDesign name="down" size={16} color="#eeeeee" />
+            </View>
+          )}
         </View>
 
-        <Text style={styles.label}>Language Learning</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={targetLanguage}
@@ -74,11 +136,19 @@ export default function SettingsScreen({ navigation }) {
             style={styles.picker}
             dropdownIconColor="white"
           >
-            <Picker.Item label="English" value="english" />
-            <Picker.Item label="Spanish" value="spanish" />
-            <Picker.Item label="French" value="french" />
+            {languages.map((lang) => (
+              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
+            ))}
           </Picker>
+
+          {Platform.OS === 'web' && (
+            <View style={styles.arrowWrapper}>
+              <AntDesign name="down" size={16} color="#eeeeee" />
+            </View>
+          )}
         </View>
+
+
 
         <View style={styles.checkboxRow}>
           <Switch
@@ -88,16 +158,6 @@ export default function SettingsScreen({ navigation }) {
             thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
           />
           <Text style={styles.checkboxLabel}>Enable Notifications</Text>
-        </View>
-
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={profilePrivate}
-            onValueChange={setProfilePrivate}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Make Profile Private</Text>
         </View>
 
         <TouchableOpacity style={styles.button} onPress={handleSave}>

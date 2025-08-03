@@ -1,19 +1,26 @@
 # backend/api/views.py
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.decorators import api_view, authentication_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework import status
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, Word, WordTranslation
-from .serializers import UserSerializer, SignupSerializer
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson
+from .serializers import UserSerializer, SignupSerializer, LanguageSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import AllowAny
+from django.shortcuts import get_object_or_404
+from rest_framework.parsers import MultiPartParser, FormParser
+import os
+from django.conf import settings
 
 
 @api_view(['POST'])
@@ -39,6 +46,7 @@ def api_login(request):
 
 @csrf_exempt
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def api_signup(request):
     print("Incoming data:", request.data)
 
@@ -82,14 +90,55 @@ def translate(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def import_lesson(request):
-    
-    url = request.data.get('url')
-    nativeLang = request.data.get('nativeLang')
-    targetLang = request.data.get('targetLang')
+    print("=== RAW DATA ===")
+    print(request.data)
+    print("=== FILES ===")
+    print(request.FILES)
 
-    return Response({'url': url, 'nativeLang': nativeLang, 'targetLang': targetLang,})
+    url = request.data.get('url')
+    nativeLang = request.data.get('nativeLanguage')
+    targetLang = request.data.get('targetLanguage')
+    audioUploaded = request.data.get('audioUploaded')
+    lessonPrivate = request.data.get('lessonPrivate', 'false').lower() in ['true', '1', 'yes']
+    fileUploaded = request.data.get('fileUploaded', 'false').lower() in ['true', '1', 'yes']
+    urlReference = request.data.get('urlReference', 'false').lower() in ['true', '1', 'yes']
+
+    lesson_file = request.FILES.get('file')
+    audio_file = request.FILES.get('audio')
+
+    # Create and save Lesson object
+    lesson = Lesson(
+        user=request.user,
+        url=url,
+        native_language=nativeLang,
+        target_language=targetLang,
+        lesson_private=lessonPrivate,
+        urlReference = urlReference
+    )
+
+    if fileUploaded and lesson_file:
+        lesson.doc_file = lesson_file
+
+    if audioUploaded and audio_file:
+        lesson.audio_file = audio_file
+        
+    if urlReference:
+        print(f"Processing the video url: {url}")
+
+    lesson.save()
+
+    return Response({
+        'message': 'Lesson uploaded successfully.',
+        'lessonId': lesson.id,
+        'url': lesson.url,
+        'nativeLang': lesson.native_language,
+        'targetLang': lesson.target_language,
+        'hasDoc': bool(lesson.doc_file),
+        'hasAudio': bool(lesson.audio_file)
+    })
 
 @csrf_exempt
 @api_view(['POST'])
@@ -116,6 +165,22 @@ def save_word(request):
 
     word, created = Word.objects.get_or_create(word=word_text, language=tar_lang)
 
+    # 🔍 Check for existing translation
+    existing = WordTranslation.objects.filter(
+        native_language=nat_lang,
+        target_language=tar_lang,
+        user=user,
+        word=word,
+        definition=definition
+    ).first()
+
+    if existing:
+        return Response({
+            'message': 'This translation already exists.',
+            'word_id': word.id,
+            'translation_id': existing.id
+        }, status=status.HTTP_200_OK)
+
     word_translation = WordTranslation.objects.create(
         native_language=nat_lang,
         target_language=tar_lang,
@@ -129,6 +194,7 @@ def save_word(request):
         'word_id': word.id,
         'translation_id': word_translation.id
     }, status=status.HTTP_201_CREATED)
+
 
 class FrontendAppView(TemplateView):
     template_name = 'index.html'
@@ -148,7 +214,92 @@ class UserProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+    
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_languages(request):
+    languages = Language.objects.all()
+    serializer = LanguageSerializer(languages, many=True)
+    return Response(serializer.data)
 
 
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def user_settings(request):
+    user = request.user
+
+    if request.method == 'GET':
+        try:
+            settings = UserSetting.objects.get(user=user)
+            data = {
+                'native_language': settings.native_language.lang_name,  # or id if you prefer
+                'target_language': settings.target_language.lang_name,
+                'notifications': settings.notifications,
+                # add more fields as needed
+            }
+            return Response(data)
+
+        except UserSetting.DoesNotExist:
+            return Response({'error': 'Settings not found'}, status=404)
+
+    elif request.method == 'PUT':
+        native_id = request.data.get('native_language')
+        target_id = request.data.get('target_language')
+        notifications = request.data.get('notifications')
+
+        if native_id is None or target_id is None:
+            return Response(
+                {'error': 'Both native_language and target_language are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            print(f"Incoming PUT data: {request.data}")  # Debug log
+
+            native_lang = get_object_or_404(Language, lang_name=native_id)
+            target_lang = get_object_or_404(Language, lang_name=target_id)
+
+            settings, _ = UserSetting.objects.get_or_create(user=user)
+            settings.native_language = native_lang
+            settings.target_language = target_lang
+            settings.notifications = bool(notifications)
+            settings.save()
+
+            return Response({'message': 'Settings updated successfully'})
+        except Language.DoesNotExist:
+            return Response({'error': 'Invalid language ID'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt 
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def account(request):
+    user = request.user
+
+    if request.method == 'GET':
+        data = {
+            'username': user.username,
+            'email': user.email,
+            # Do not include password or sensitive info
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+    elif request.method == 'PUT':
+        data = request.data
+
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+
+        if username:
+            user.username = username
+        if email:
+            user.email = email
+        if password:
+            user.password = make_password(password)
+
+        user.save()
+        return Response({'message': 'Account updated successfully.'}, status=status.HTTP_200_OK)

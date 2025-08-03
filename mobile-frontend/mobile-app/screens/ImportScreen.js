@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as FileSystem from 'expo-file-system';
 
 import {
   View,
@@ -12,45 +13,73 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { Picker } from '@react-native-picker/picker';
+import { jwtDecode } from 'jwt-decode';
 import styles from './styles/ImportStyles';
 import CustomPopup from './components/CustomPopup';
 import LoadingOverlay from './components/LoadingOverlay';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ImportLessonScreen({ navigation }) {
   const [url, setUrl] = useState('');
   const [lessonFile, setLessonFile] = useState(null);
   const [audioFile, setAudioFile] = useState(null);
-  const [nativeLang, setNativeLang] = useState('');
-  const [targetLang, setTargetLang] = useState('');
+
   const [lessonPrivate, setLessonPrivate] = useState(false);
   const [audioUploaded, setAudioUploaded] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [urlReference, setURLReference] = useState(false);
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+  const [nativeLanguage, setNativeLanguage] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('');
+  const [token, setToken] = useState(null);
+  const [languages, setLanguages] = useState([]);
 
+
+  const fetchLanguages = async () => {
+    try {
+      const res = await fetch('http://192.168.1.5:8000/api/languages/');
+      const data = await res.json();
+      setLanguages(data); // assuming data is an array of { id, lang_name }
+    } catch (err) {
+      console.error('Failed to fetch languages:', err);
+      Alert.alert('Error', 'Failed to load language options.');
+    }
+  };
 
 
   useEffect(() => {
-    setPopup({ visible: false, message: '', type: 'success' });
-
-    const fetchToken = async () => {
-      const storedToken = await AsyncStorage.getItem('accessToken');
-      setToken(storedToken);
-
-      if (storedToken) {
-        try {
-          const decoded = jwtDecode(storedToken);
-          // Save decoded user info (e.g., id, username, etc.)
-          fetchUserProfile();
-          console.log(user)
-        } catch (err) {
-          console.error('Failed to decode token:', err);
+    const loadTokenAndSettings = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('accessToken');
+        if (!storedToken) {
+          Alert.alert('Error', 'No access token found. Please log in.');
+          return;
         }
+        setToken(storedToken);
+
+        const decoded = jwtDecode(storedToken);
+        console.log('Decoded token:', decoded);
+
+        const response = await fetch('http://192.168.1.5:8000/api/settings/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+
+        const settings = await response.json();
+        setNativeLanguage(settings.native_language);
+        setTargetLanguage(settings.target_language);
+
+      } catch (err) {
+        Alert.alert('Error', 'Failed to load settings: ' + err.message);
       }
     };
-    fetchToken();
 
+    fetchLanguages(); // <--- fetch language options
+    loadTokenAndSettings(); // <--- fetch user settings
   }, []);
 
   const showSuccess = (message) => {
@@ -106,48 +135,87 @@ export default function ImportLessonScreen({ navigation }) {
     setLoading(false);
   };
 
+  const saveBase64ToFile = async (base64Data, fileName) => {
+    const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+    await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+    return fileUri;
+  };
+
+  function dataURLtoBlob(dataurl) {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  }
+
+  async function appendFileToFormData(formData, fieldName, file) {
+    if (!file) return;
+
+    if (file.uri.startsWith('data:')) {
+      if (Platform.OS === 'web') {
+        const blob = dataURLtoBlob(file.uri);
+        formData.append(fieldName, blob, file.name);
+      } else {
+        const base64Content = file.uri.split(',')[1];
+        const fileUri = `${FileSystem.cacheDirectory}${file.name}`;
+        await FileSystem.writeAsStringAsync(fileUri, base64Content, { encoding: FileSystem.EncodingType.Base64 });
+        formData.append(fieldName, {
+          uri: fileUri,
+          name: file.name,
+          type: file.mimeType || 'application/octet-stream',
+        });
+      }
+    } else {
+      formData.append(fieldName, {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || 'application/octet-stream',
+      });
+    }
+  }
+
   const handleImport = async () => {
-    if (!url && !file) {
+    if (!url && !lessonFile) {
       showError(`Missing input: Please provide a URL or upload a file.`);
       Alert.alert('Missing input', 'Please provide a URL or upload a file.');
       return;
     }
 
-    if (!nativeLang || !targetLang) {
+    if (!nativeLanguage || !targetLanguage) {
       showError(`Missing language: Please select both languages.`);
       Alert.alert('Missing language', 'Please select both languages.');
       return;
     }
 
+    const apiUrl = 'http://192.168.1.5:8000/api/import-lesson/';
+
     try {
+      setLoading(true);
+
       const formData = new FormData();
 
-      if (lessonFile) {
-        formData.append('file', {
-          uri: lessonFile.uri,
-          name: lessonFile.name,
-          type: lessonFile.mimeType || 'application/octet-stream',
-        });
-      }
+      await appendFileToFormData(formData, 'file', lessonFile);
+      await appendFileToFormData(formData, 'audio', audioFile);
 
-      if (audioFile) {
-        formData.append('audio', {
-          uri: audioFile.uri,
-          name: audioFile.name,
-          type: audioFile.mimeType || 'audio/mpeg',
-        });
-      }
+      formData.append('url', url || '');
+      formData.append('nativeLanguage', nativeLanguage);
+      formData.append('targetLanguage', targetLanguage);
+      formData.append('lessonPrivate', lessonPrivate.toString());
+      formData.append('audioUploaded', audioUploaded);
+      formData.append('fileUploaded', fileUploaded);
+      formData.append('urlReference', urlReference);
 
-      formData.append('url', url);
-      formData.append('nativeLang', nativeLang);
-      formData.append('targetLang', targetLang);
-      formData.append('lessonPrivate', lessonPrivate);
-
-      const response = await fetch('http://localhost:8000/api/import-lesson', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          // 👇 DON'T include Content-Type header here! Let fetch set it automatically
         },
         body: formData,
       });
@@ -163,8 +231,10 @@ export default function ImportLessonScreen({ navigation }) {
         navigation.goBack();
       }
     } catch (error) {
-      showError(`Error ${error.message}`);
+      showError(`Error: ${error.message}`);
       Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -223,41 +293,46 @@ export default function ImportLessonScreen({ navigation }) {
         )}
 
 
-
-
-        <Text style={styles.label}>Native Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
-            selectedValue={nativeLang}
-            onValueChange={setNativeLang}
+            selectedValue={nativeLanguage}
+            onValueChange={setNativeLanguage}
             style={styles.picker}
             dropdownIconColor="white"
           >
-            <Picker.Item label="Select Language" value="" />
-            <Picker.Item label="English" value="en" />
-            <Picker.Item label="Spanish" value="es" />
-            <Picker.Item label="French" value="fr" />
-            <Picker.Item label="German" value="de" />
-            {/* Add more as needed */}
+            {languages.map((lang) => (
+              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
+            ))}
           </Picker>
+
+          {Platform.OS === 'web' && (
+            <View style={styles.arrowWrapper}>
+              <AntDesign name="down" size={16} color="#eeeeee" />
+            </View>
+          )}
         </View>
 
-        <Text style={styles.label}>Target Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
-            selectedValue={targetLang}
-            onValueChange={setTargetLang}
+            selectedValue={targetLanguage}
+            onValueChange={setTargetLanguage}
             style={styles.picker}
             dropdownIconColor="white"
           >
-            <Picker.Item label="Select Language" value="" />
-            <Picker.Item label="English" value="en" />
-            <Picker.Item label="Spanish" value="es" />
-            <Picker.Item label="French" value="fr" />
-            <Picker.Item label="German" value="de" />
-            {/* Add more as needed */}
+            {languages.map((lang) => (
+              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
+            ))}
           </Picker>
+
+          {Platform.OS === 'web' && (
+            <View style={styles.arrowWrapper}>
+              <AntDesign name="down" size={16} color="#eeeeee" />
+            </View>
+          )}
         </View>
+
+
+
         <View style={styles.checkboxRow}>
           <Switch
             value={lessonPrivate}
