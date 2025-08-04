@@ -149,3 +149,18 @@ class UserSetting(models.Model):
     native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='settings_translations_native')
     target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='settings_translations_target')
     notifications = models.BooleanField(default=True, db_column='notifications')
+    
+class Sentence(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    audio_file = models.CharField(max_length=50)
+    sentence = models.CharField(max_length=250)
+    translated_sentence = models.CharField(max_length=250)
+    lesson_language = models.ForeignKey(Language, db_column='lesson_lang_id', related_name='lesson_sentences', on_delete=models.CASCADE)
+    translate_language = models.ForeignKey(Language, db_column='translate_lang_id', related_name='translation_sentences', on_delete=models.CASCADE)
+    lesson_id = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'Sentence'
+
+    def __str__(self):
+        return self.sentence

@@ -21,6 +21,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser
 import os
 from django.conf import settings
+from .vtt import VTT
 
 
 @api_view(['POST'])
@@ -118,6 +119,8 @@ def import_lesson(request):
         lesson_private=lessonPrivate,
         urlReference = urlReference
     )
+    
+    
 
     if fileUploaded and lesson_file:
         lesson.doc_file = lesson_file
@@ -129,6 +132,11 @@ def import_lesson(request):
         print(f"Processing the video url: {url}")
 
     lesson.save()
+    
+    if urlReference:
+        save_lesson_media = VTT(lesson.url, lesson.id, lesson.target_language, lesson.native_language)
+        save_lesson_media.process_lesson()
+
 
     return Response({
         'message': 'Lesson uploaded successfully.',
