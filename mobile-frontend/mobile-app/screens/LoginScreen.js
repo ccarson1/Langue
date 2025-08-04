@@ -33,7 +33,7 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/token/', {
+      const response = await fetch('http://192.168.1.5:8000/api/token/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,12 +101,9 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.forgot}>Forgot password?</Text>
         </TouchableOpacity>
 
-        <Text style={styles.signup}>
-          Sign up now{' '}
-          <Text style={{ color: 'white' }} onPress={() => Linking.openURL('/signup')}>
-            Signup
-          </Text>
-        </Text>
+        <TouchableOpacity  onPress={() => navigation.navigate('Signup')} >
+          <Text style={styles.forgot} >Sign up now</Text>
+        </TouchableOpacity>
       </View>
       <CustomPopup
         visible={popup.visible}

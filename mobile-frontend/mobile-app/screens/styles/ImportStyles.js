@@ -44,13 +44,38 @@ export default StyleSheet.create({
     fontSize: 16,
   },
   pickerWrapper: {
+    position: 'relative',
     backgroundColor: '#222831',
     borderRadius: 6,
-    marginBottom: 8,
+    marginTop: 2,
+    marginBottom: 2,
+    overflow: 'hidden',
   },
   picker: {
     color: '#eeeeee',
-    height: Platform.OS === 'android' ? 60 : undefined,
+    height: 52,
+    width: '100%',
+    padding: 0,
+    margin: 0,
+    backgroundColor: '#393e46',
+    borderWidth: 0,
+    borderRadius: 6,
+    ...(Platform.OS === 'web' && {
+      appearance: 'none',
+      WebkitAppearance: 'none',
+      MozAppearance: 'none',
+      outline: 'none',
+      border: 'none',
+      boxShadow: 'none',
+
+    }),
+  },
+  arrowWrapper: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -8 }],
+    pointerEvents: 'none', // Let clicks go through to Picker
   },
   button: {
     backgroundColor: '#00adb5',

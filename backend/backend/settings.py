@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 import os
 
 
@@ -28,7 +29,14 @@ SECRET_KEY = 'django-insecure-*0cc2a(7))a3gg@ia&*bbtrs_q6qd)igp3ingu3opgdqy2cjn+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # or longer, like timedelta(days=1)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),  # keep refresh token longer
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+}
 
 
 # Application definition
@@ -59,6 +67,10 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True 
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8080',
+    'http://192.168.1.5:8000',  # your backend URL if needed
+]
 
 
 REST_FRAMEWORK = {

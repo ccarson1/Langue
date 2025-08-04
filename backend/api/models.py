@@ -2,6 +2,14 @@ from django.db import models
 from django.db.models import JSONField # Use if on PostgreSQL; else see notes below
 from django.utils import timezone
 from django.contrib.auth.models import User
+import uuid
+
+
+def lesson_file_upload_path(instance, filename):
+    return f'lessons/user_{instance.user.id}/{instance.uuid}/files/{filename}'
+
+def audio_file_upload_path(instance, filename):
+    return f'lessons/user_{instance.user.id}/{instance.uuid}/audio/{filename}'
 
 class Language(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -91,13 +99,25 @@ class Report(models.Model):
         db_table = 'Reports'
 
 
-class Document(models.Model):
+class Lesson(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
-    doc_file = models.BinaryField()
+    doc_file = models.FileField(upload_to=lesson_file_upload_path, null=True, blank=True)
+    audio_file = models.FileField(upload_to=audio_file_upload_path, null=True, blank=True)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
+    
+    url = models.URLField(max_length=500, blank=True, null=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    native_language = models.CharField(max_length=50)
+    target_language = models.CharField(max_length=50)
+    lesson_private = models.BooleanField(default=False)
+    audioUploaded = models.BooleanField(default=False)
+    fileUploaded = models.BooleanField(default=False)
+    urlReference = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'Documents'
+        db_table = 'Lesson'
 
 
 class Phrase(models.Model):
@@ -122,3 +142,25 @@ class PhraseTranslation(models.Model):
 
     class Meta:
         db_table = 'Phrase_Translations'
+        
+class UserSetting(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    user = models.ForeignKey(User, db_column='user_ID', on_delete=models.CASCADE)
+    native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='settings_translations_native')
+    target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='settings_translations_target')
+    notifications = models.BooleanField(default=True, db_column='notifications')
+    
+class Sentence(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    audio_file = models.CharField(max_length=50)
+    sentence = models.CharField(max_length=250)
+    translated_sentence = models.CharField(max_length=250)
+    lesson_language = models.ForeignKey(Language, db_column='lesson_lang_id', related_name='lesson_sentences', on_delete=models.CASCADE)
+    translate_language = models.ForeignKey(Language, db_column='translate_lang_id', related_name='translation_sentences', on_delete=models.CASCADE)
+    lesson_id = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'Sentence'
+
+    def __str__(self):
+        return self.sentence

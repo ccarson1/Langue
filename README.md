@@ -1,6 +1,9 @@
 # Langue
 Cross Platform Language Learning Application 
 
+# Install expo
+npm install expo
+
 
 # Build web from phone
 npx expo export --platform web

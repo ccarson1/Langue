@@ -1,15 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import styles from './styles/SignupStyles'
 import AntDesign from '@expo/vector-icons/AntDesign';
 import CustomPopup from './components/CustomPopup';
+import { Picker } from '@react-native-picker/picker';
 
 export default function SignupScreen({ navigation }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [native_language, setNative] = useState('');
+  const [target_language, setTarget] = useState('');
+  const [languages, setLanguages] = useState([]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+
+  useEffect(() => {
+    fetch('http://192.168.1.5:8000/api/languages/')
+      .then((res) => res.json())
+      .then((data) => {
+        console.log('Languages:', data);
+        setLanguages(data); // Assuming you have a state variable
+      })
+      .catch((error) => console.error('Error fetching languages:', error));
+  }, []);
 
   const showSuccess = (message) => {
     setPopup({ visible: true, message: message, type: 'success' });
@@ -27,10 +41,10 @@ export default function SignupScreen({ navigation }) {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/signup/', {
+      const response = await fetch('http://192.168.1.5:8000/api/signup/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password, confirm_password: confirmPassword })
+        body: JSON.stringify({ username, email, password, confirm_password: confirmPassword, native_language, target_language })
       });
 
       const data = await response.json();
@@ -78,6 +92,30 @@ export default function SignupScreen({ navigation }) {
           autoCapitalize="none"
           keyboardType="email-address"
         />
+
+        <Text style={styles.label}>Native Language</Text>
+        <Picker
+          selectedValue={native_language}
+          onValueChange={(itemValue) => setNative(itemValue)}
+          style={styles.input}
+        >
+          <Picker.Item label="Select Native Language" value="" />
+          {languages.map((lang) => (
+            <Picker.Item key={lang.id} label={lang.lang_name} value={lang.id} />
+          ))}
+        </Picker>
+
+        <Text style={styles.label}>Target Language</Text>
+        <Picker
+          selectedValue={target_language}
+          onValueChange={(itemValue) => setTarget(itemValue)}
+          style={styles.input}
+        >
+          <Picker.Item label="Select Target Language" value="" />
+          {languages.map((lang) => (
+            <Picker.Item key={lang.id} label={lang.lang_name} value={lang.id} />
+          ))}
+        </Picker>
 
         <Text style={styles.label}>Password</Text>
         <TextInput

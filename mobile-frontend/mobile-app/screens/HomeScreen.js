@@ -1,7 +1,7 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
 
-import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Alert } from 'react-native';
+import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Alert, TextInput } from 'react-native';
 import { Audio } from 'expo-av';
 
 import logo from '../assets/favicon.png';
@@ -39,6 +39,7 @@ export default function HomeScreen({ navigation }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [loading, setLoading] = useState(false);
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+    const [nativeText, setNativeText] = useState('');
 
     const soundRef = useRef(null);
 
@@ -75,7 +76,7 @@ export default function HomeScreen({ navigation }) {
             if (!token) return;
 
             try {
-                const res = await fetch('http://localhost:8000/api/profile/', {
+                const res = await fetch('http://192.168.1.5:8000/api/profile/', {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -127,11 +128,16 @@ export default function HomeScreen({ navigation }) {
         return null;
     }
 
+    const cleanText = (text) => {
+        return text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>@\[\]\\|]/g, '').trim();
+    };
+
     const displaySelectedText = async (word) => {
         console.log('Clicked word:', word);
-        setSelectedText(word);
+        const cleanedWord = cleanText(word);
+        setSelectedText(cleanedWord);
 
-        const translation = await translateWord(word); // pass word to function
+        const translation = await translateWord(cleanedWord); // pass word to function
         setTranslatedText(translation);
     };
 
@@ -171,7 +177,7 @@ export default function HomeScreen({ navigation }) {
     const translateWord = async (word) => {
         setLoading(true)
         try {
-            const response = await fetch('http://localhost:8000/api/translate/', {
+            const response = await fetch('http://192.168.1.5:8000/api/translate/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -318,11 +324,20 @@ export default function HomeScreen({ navigation }) {
 
                     <View style={styles.textRow}>
                         <Text style={styles.leftText}>Native:</Text>
-                        <Text style={styles.rightText}>{translatedText}</Text>
+                        <TextInput
+                            style={styles.rightText}
+                            value={translatedText}
+                            onChangeText={setTranslatedText}
+                        />
+
                     </View>
                     <View style={styles.separatorDotted} />
                     <View>
-                        <Text style={styles.defDescription}>This is a description of the definition.</Text>
+                        <TextInput
+                            style={styles.defDescription}
+                            value={'This is a description of the definition.'}
+                            onChangeText={''}
+                        />
                     </View>
                 </View>
             </View>
