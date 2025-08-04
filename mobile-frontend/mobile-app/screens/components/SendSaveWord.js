@@ -6,6 +6,7 @@ import styles from '../styles/HomeStyles';
 export default function SaveWordButton({ payload, onSuccess, onError }) {
   const [loading, setLoading] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const server = 'localhost';
 
 
   const saveWord = async () => {
@@ -26,7 +27,7 @@ export default function SaveWordButton({ payload, onSuccess, onError }) {
       const accessToken = await AsyncStorage.getItem('accessToken');
       console.log(accessToken);
 
-      const response = await fetch('http://192.168.1.5:8000/api/save_word/', {
+      const response = await fetch(`http://${server}:8000/api/save_word/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

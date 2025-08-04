@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import User, Language, Word, WordTranslation, UserSetting, Profile
+from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone 
 
@@ -53,7 +53,8 @@ class SignupSerializer(serializers.Serializer):
         Profile.objects.create(
             user=user,
             native_language=native_lang,
-            creation_date=timezone.now()
+            creation_date=timezone.now(),
+            languages=[target_lang.id]
         )
 
         # Create UserSetting
@@ -65,16 +66,43 @@ class SignupSerializer(serializers.Serializer):
         )
 
         return user
+    
+
 
 class UserSerializer(serializers.ModelSerializer):
+    current_lesson = serializers.SerializerMethodField()
+    current_lesson_index = serializers.IntegerField(source='profile.current_lesson.current_lesson_index', required=False)
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email']
+        fields = ['id', 'username', 'email', 'current_lesson', 'current_lesson_index']
+
+    def get_current_lesson(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.current_lesson:
+            return obj.profile.current_lesson.lesson_id.id if obj.profile.current_lesson.lesson_id else None
+        return None
+
+class UserLessonsProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserLessonsProgress
+        fields = ['id', 'user', 'lesson_id', 'current_lesson_index', 'last_viewed']
         
 class LanguageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Language
         fields = ['id', 'lang_name']
+
+class LessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lesson
+        fields = [
+            'id',
+            'user', 
+            'native_language', 
+            'target_language', 
+            'lesson_private',
+            'created_at',
+            'title']
 
 # class SignupSerializer(serializers.Serializer):
 #     username = serializers.CharField(max_length=60)

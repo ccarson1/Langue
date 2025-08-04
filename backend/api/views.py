@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson
-from .serializers import UserSerializer, SignupSerializer, LanguageSerializer
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile
+from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
 
@@ -22,6 +22,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 import os
 from django.conf import settings
 from .vtt import VTT
+from django.utils import timezone
 
 
 @api_view(['POST'])
@@ -100,6 +101,7 @@ def import_lesson(request):
     print(request.FILES)
 
     url = request.data.get('url')
+    title = request.data.get('title')
     nativeLang = request.data.get('nativeLanguage')
     targetLang = request.data.get('targetLanguage')
     audioUploaded = request.data.get('audioUploaded')
@@ -117,7 +119,8 @@ def import_lesson(request):
         native_language=nativeLang,
         target_language=targetLang,
         lesson_private=lessonPrivate,
-        urlReference = urlReference
+        urlReference = urlReference,
+        title = title
     )
     
     
@@ -147,6 +150,14 @@ def import_lesson(request):
         'hasDoc': bool(lesson.doc_file),
         'hasAudio': bool(lesson.audio_file)
     })
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_lessons(request):
+    lessons = Lesson.objects.all()
+    serializer = LessonSerializer(lessons, many=True)
+    return Response(serializer.data)
+
 
 @csrf_exempt
 @api_view(['POST'])
@@ -216,12 +227,20 @@ def get_csrf(request):
 
 
 class UserProfileView(APIView):
-
+    permission_classes = [IsAuthenticated]
 
     @csrf_exempt
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+    
+    @csrf_exempt
+    def post(self, request):
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
     
 
 
@@ -311,3 +330,58 @@ def account(request):
 
         user.save()
         return Response({'message': 'Account updated successfully.'}, status=status.HTTP_200_OK)
+    
+@api_view(['POST', 'GET'])
+@permission_classes([IsAuthenticated])
+def user_lessons_progress_view(request):
+    user = request.user
+
+    if request.method == 'POST':
+        lesson_id = request.data.get('lesson_id')
+        current_index = request.data.get('current_lesson_index')
+
+        if not lesson_id or current_index is None:
+            return Response({"error": "lesson_id and current_lesson_index are required"}, status=400)
+
+        try:
+            lesson = Lesson.objects.get(id=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response({"error": "Lesson not found"}, status=404)
+
+        # Create or update the progress
+        progress, created = UserLessonsProgress.objects.update_or_create(
+            user=user,
+            lesson_id=lesson,
+            defaults={
+                "current_lesson_index": current_index,
+                "last_viewed": timezone.now(),
+            }
+        )
+
+        data = {
+            "lesson_id": progress.lesson_id.id if progress.lesson_id else None,
+            "current_lesson_index": progress.current_lesson_index,
+            "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
+        }
+
+        return Response(data)
+
+    elif request.method == 'GET':
+        lesson_id = request.query_params.get('lesson_id')
+
+        if lesson_id:
+            try:
+                lesson_id_int = int(lesson_id)
+            except ValueError:
+                return Response({"error": "lesson_id must be an integer"}, status=400)
+
+            try:
+                progress = UserLessonsProgress.objects.get(user=user, lesson_id=lesson_id_int)
+                data = {
+                    "lesson_id": progress.lesson_id.id if progress.lesson_id else None,
+                    "current_lesson_index": progress.current_lesson_index,
+                    "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
+                }
+                return Response(data)
+            except UserLessonsProgress.DoesNotExist:
+                return Response({"error": "Progress not found"}, status=404)

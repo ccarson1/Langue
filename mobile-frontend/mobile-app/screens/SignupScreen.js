@@ -14,9 +14,10 @@ export default function SignupScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+  const server = 'localhost';
 
   useEffect(() => {
-    fetch('http://192.168.1.5:8000/api/languages/')
+    fetch(`http://${server}:8000/api/languages/`)
       .then((res) => res.json())
       .then((data) => {
         console.log('Languages:', data);
@@ -41,7 +42,7 @@ export default function SignupScreen({ navigation }) {
     }
 
     try {
-      const response = await fetch('http://192.168.1.5:8000/api/signup/', {
+      const response = await fetch(`http://${server}:8000/api/signup/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password, confirm_password: confirmPassword, native_language, target_language })

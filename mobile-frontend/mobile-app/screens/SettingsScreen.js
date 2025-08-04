@@ -20,10 +20,11 @@ export default function SettingsScreen({ navigation }) {
   const [profilePrivate, setProfilePrivate] = useState(false);
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
+  const server = 'localhost';
 
   const fetchLanguages = async () => {
     try {
-      const res = await fetch('http://192.168.1.5:8000/api/languages/');
+      const res = await fetch(`http://${server}:8000/api/languages/`);
       const data = await res.json();
       setLanguages(data); // assuming data is an array of { id, lang_name }
     } catch (err) {
@@ -45,7 +46,7 @@ export default function SettingsScreen({ navigation }) {
         const decoded = jwtDecode(storedToken);
         console.log('Decoded token:', decoded);
 
-        const response = await fetch('http://192.168.1.5:8000/api/settings/', {
+        const response = await fetch(`http://${server}:8000/api/settings/`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -75,7 +76,7 @@ export default function SettingsScreen({ navigation }) {
     }
 
     try {
-      const response = await fetch('http://192.168.1.5:8000/api/settings/', {
+      const response = await fetch(`http://${server}:8000/api/settings/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

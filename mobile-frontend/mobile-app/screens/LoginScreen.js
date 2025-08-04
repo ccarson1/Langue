@@ -16,11 +16,14 @@ import LoadingOverlay from './components/LoadingOverlay';
 import CustomPopup from './components/CustomPopup';
 
 
+
+
 export default function LoginScreen({ navigation }) {
   const [username, setUser] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+  const server = 'localhost';
 
   const showSuccess = (message) => {
     setPopup({ visible: true, message: message, type: 'success' });
@@ -33,7 +36,7 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://192.168.1.5:8000/api/token/', {
+      const response = await fetch(`http://${server}:8000/api/token/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

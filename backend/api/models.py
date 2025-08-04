@@ -57,24 +57,6 @@ class WordTranslation(models.Model):
         db_table = 'Word_Translations'
 
 
-class Profile(models.Model):
-    id = models.AutoField(primary_key=True, db_column='ID')
-    user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
-    profile_img = models.CharField(max_length=255, blank=True, null=True)
-    streak = models.IntegerField(default=0)
-    uploaded_docs = models.SmallIntegerField(default=0)
-    creation_date = models.DateField(default=timezone.now)
-    logged_hours = models.IntegerField(default=0)
-    graph_type = models.CharField(max_length=20, blank=True, null=True)
-    native_language = models.ForeignKey(Language, db_column='native_id', on_delete=models.SET_NULL, null=True, related_name='users_native')
-
-    # For languages field:
-    # If you use PostgreSQL, you can use JSONField as below.
-    # If not, consider using TextField with JSON serialization/deserialization in code.
-    languages = JSONField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'Profile'
 
 
 class UserWord(models.Model):
@@ -104,8 +86,8 @@ class Lesson(models.Model):
     doc_file = models.FileField(upload_to=lesson_file_upload_path, null=True, blank=True)
     audio_file = models.FileField(upload_to=audio_file_upload_path, null=True, blank=True)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
-    
-    url = models.URLField(max_length=500, blank=True, null=True)
+    title = models.CharField(max_length=100, blank=True, null=True)
+    url = models.URLField(max_length=1000, blank=True, null=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     native_language = models.CharField(max_length=50)
     target_language = models.CharField(max_length=50)
@@ -164,3 +146,38 @@ class Sentence(models.Model):
 
     def __str__(self):
         return self.sentence
+    
+class UserLessonsProgress(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_progress')
+    lesson_id = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, default=7)
+    current_lesson_index = models.SmallIntegerField(default=0)
+    last_viewed = models.DateField(default=timezone.now)
+
+    class Meta:
+        db_table = 'user_lessons_progress'
+        unique_together = ('user', 'lesson_id')  # Ensures one entry per user per lesson
+
+    def __str__(self):
+        return f"{self.user.username} - {self.lesson_id.title if self.lesson_id else 'No Lesson'} - Index {self.current_lesson_index}"
+
+    
+class Profile(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    user = models.OneToOneField(User, db_column='user_id', on_delete=models.CASCADE)
+    profile_img = models.CharField(max_length=255, blank=True, null=True)
+    uploaded_docs = models.SmallIntegerField(default=0)
+    creation_date = models.DateField(default=timezone.now)
+    logged_hours = models.IntegerField(default=0)
+    graph_type = models.CharField(max_length=20, blank=True, null=True)
+    native_language = models.ForeignKey(Language, db_column='native_id', on_delete=models.SET_NULL, null=True, related_name='users_native')
+    current_lesson = models.ForeignKey(UserLessonsProgress, db_column='lesson_progress', on_delete=models.SET_NULL, null=True)
+
+    # For languages field:
+    # If you use PostgreSQL, you can use JSONField as below.
+    # If not, consider using TextField with JSON serialization/deserialization in code.
+    languages = JSONField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'Profile'
+

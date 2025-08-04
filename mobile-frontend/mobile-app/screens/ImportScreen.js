@@ -28,17 +28,20 @@ export default function ImportLessonScreen({ navigation }) {
   const [audioUploaded, setAudioUploaded] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [urlReference, setURLReference] = useState(false);
+  const [imageReference, setImageReference] = useState(false);
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
+  const server = 'localhost';
 
 
   const fetchLanguages = async () => {
     try {
-      const res = await fetch('http://192.168.1.5:8000/api/languages/');
+      const res = await fetch(`http://${server}:8000/api/languages/`);
       const data = await res.json();
       setLanguages(data); // assuming data is an array of { id, lang_name }
     } catch (err) {
@@ -61,7 +64,7 @@ export default function ImportLessonScreen({ navigation }) {
         const decoded = jwtDecode(storedToken);
         console.log('Decoded token:', decoded);
 
-        const response = await fetch('http://192.168.1.5:8000/api/settings/', {
+        const response = await fetch(`http://${server}:8000/api/settings/`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -192,7 +195,7 @@ export default function ImportLessonScreen({ navigation }) {
       return;
     }
 
-    const apiUrl = 'http://192.168.1.5:8000/api/import-lesson/';
+    const apiUrl = `http://${server}:8000/api/import-lesson/`;
 
     try {
       setLoading(true);
@@ -209,6 +212,7 @@ export default function ImportLessonScreen({ navigation }) {
       formData.append('audioUploaded', audioUploaded);
       formData.append('fileUploaded', fileUploaded);
       formData.append('urlReference', urlReference);
+      formData.append('title', title);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -246,6 +250,39 @@ export default function ImportLessonScreen({ navigation }) {
 
       <View style={styles.importBox}>
         <Text style={styles.heading}>Import Lesson</Text>
+
+        <View>
+          <Text style={styles.label}>Title</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Title here"
+            placeholderTextColor="#aaa"
+            value={title}
+            onChangeText={setTitle}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.checkboxRow}>
+          <Switch
+            value={imageReference}
+            onValueChange={setImageReference}
+            trackColor={{ false: '#777', true: '#00adb5' }}
+            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+          />
+          <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
+        </View>
+
+        {imageReference && (
+          <View>
+            <Text style={styles.label}>Lesson File</Text>
+            <TouchableOpacity style={styles.button} onPress={handleFilePick}>
+              <Text style={styles.buttonText}>
+                {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.checkboxRow}>
           <Switch

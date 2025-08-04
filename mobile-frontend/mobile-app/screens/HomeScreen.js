@@ -31,6 +31,7 @@ export default function HomeScreen({ navigation }) {
     const [selectedText, setSelectedText] = useState('');
     const [rows, setRows] = useState([]);
     const [index, setIndex] = useState(0);
+    const [currentLesson, setCurrentLesson] = useState(null)
     const [currentAudio, setCurrentAudio] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const slideAnim = useRef(new Animated.Value(-200)).current;
@@ -40,6 +41,7 @@ export default function HomeScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const [nativeText, setNativeText] = useState('');
+    const server = 'localhost';
 
     const soundRef = useRef(null);
 
@@ -50,6 +52,39 @@ export default function HomeScreen({ navigation }) {
 
     const showError = (message) => {
         setPopup({ visible: true, message: message, type: 'error' });
+    };
+
+    const updateLessonProgress = async () => {
+        if (!token) return;
+
+        try {
+            const res = await fetch(`http://${server}:8000/api/user-progress/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    lesson_id: currentLesson,
+                    current_lesson_index: index,
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.text();
+                console.error('Failed to update lesson progress:', err);
+                showError('Failed to update lesson progress');
+                return;
+            }
+
+            const data = await res.json();
+            //showSuccess('Lesson progress updated');
+
+            console.log('Lesson progress response:', data);
+        } catch (e) {
+            console.error('Error updating lesson progress:', e);
+            showError('Error updating lesson progress');
+        }
     };
 
     useEffect(() => {
@@ -63,6 +98,7 @@ export default function HomeScreen({ navigation }) {
                     const decoded = jwtDecode(storedToken);
                     // Save decoded user info (e.g., id, username, etc.)
                     fetchUserProfile();
+                    //getLessonProgress();
                     console.log(user)
                 } catch (err) {
                     console.error('Failed to decode token:', err);
@@ -76,7 +112,7 @@ export default function HomeScreen({ navigation }) {
             if (!token) return;
 
             try {
-                const res = await fetch('http://192.168.1.5:8000/api/profile/', {
+                const res = await fetch(`http://${server}:8000/api/profile/`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -89,10 +125,42 @@ export default function HomeScreen({ navigation }) {
 
                 const data = await res.json();
                 setUser(data);  // Now should include username, email, etc.
+                console.log(`The current lesson is ${data.current_lesson}`)
+                console.log(data)
+                setCurrentLesson(data.current_lesson)
             } catch (err) {
                 console.error('Fetch error:', err);
             }
         };
+
+        // const getLessonProgress = async (lessonId) => {
+        //     if (!token) return;
+
+        //     try {
+        //         const res = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
+        //             method: 'GET',
+        //             headers: {
+        //                 'Content-Type': 'application/json',
+        //                 Authorization: `Bearer ${token}`,
+        //             },
+        //         });
+
+        //         if (!res.ok) {
+        //             const err = await res.text();
+        //             console.error('Failed to get lesson progress:', err);
+        //             showError('Failed to get lesson progress');
+        //             return;
+        //         }
+
+        //         const data = await res.json();
+        //         setIndex(data.current_lesson_index)
+        //         console.log('Fetched lesson progress:', data);
+        //         return data;
+        //     } catch (e) {
+        //         console.error('Error fetching lesson progress:', e);
+        //         showError('Error fetching lesson progress');
+        //     }
+        // };
 
 
 
@@ -123,6 +191,35 @@ export default function HomeScreen({ navigation }) {
             });
 
     }, []);
+
+    useEffect(() => {
+        const fetchLessonProgress = async () => {
+            if (!token || !currentLesson) return;
+
+            try {
+                const res = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    console.warn('No previous lesson progress');
+                    return;
+                }
+
+                const data = await res.json();
+                console.log('Fetched progress:', data);
+
+                // Use setIndex to update current UI
+                setIndex(data.current_lesson_index || 0);
+            } catch (err) {
+                console.error('Error fetching lesson progress:', err);
+            }
+        };
+
+        fetchLessonProgress();
+    }, [currentLesson]);
 
     if (!appIsReady) {
         return null;
@@ -177,7 +274,7 @@ export default function HomeScreen({ navigation }) {
     const translateWord = async (word) => {
         setLoading(true)
         try {
-            const response = await fetch('http://192.168.1.5:8000/api/translate/', {
+            const response = await fetch(`http://${server}:8000/api/translate/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -224,6 +321,7 @@ export default function HomeScreen({ navigation }) {
             setIndex(index + 1);
             setCurrentAudio(rows[index + 1]?.[0]?.split('|')[0]);
             console.log(currentAudio);
+            updateLessonProgress()
         }
     };
 
@@ -232,6 +330,7 @@ export default function HomeScreen({ navigation }) {
             setIndex(index - 1);
             setCurrentAudio(rows[index - 1]?.[0]?.split('|')[0]);
             console.log(currentAudio);
+            updateLessonProgress()
         }
     };
 
