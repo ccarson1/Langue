@@ -28,6 +28,8 @@ export default function ImportLessonScreen({ navigation }) {
   const [urlReference, setURLReference] = useState(false);
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+  const [accessToken, setAccessToken] = useState(null);
+
 
 
 
@@ -36,14 +38,12 @@ export default function ImportLessonScreen({ navigation }) {
 
     const fetchToken = async () => {
       const storedToken = await AsyncStorage.getItem('accessToken');
-      setToken(storedToken);
+      setAccessToken(storedToken);  // save token to state here
 
       if (storedToken) {
         try {
           const decoded = jwtDecode(storedToken);
-          // Save decoded user info (e.g., id, username, etc.)
-          fetchUserProfile();
-          console.log(user)
+          // You can save decoded info or fetch user profile here
         } catch (err) {
           console.error('Failed to decode token:', err);
         }
