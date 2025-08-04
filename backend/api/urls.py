@@ -23,5 +23,6 @@ urlpatterns = [
     path('settings/', views.user_settings, name='user_settings'),
     path('account/', views.account, name='account'),
     path('user-progress/', views.user_lessons_progress_view, name='user_lessons_progress'),
+    path('lesson/<int:lesson_id>/', views.lesson_detail_with_sentences, name='lesson-detail'),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

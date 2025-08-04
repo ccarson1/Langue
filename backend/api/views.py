@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
@@ -385,3 +385,32 @@ def user_lessons_progress_view(request):
                 return Response(data)
             except UserLessonsProgress.DoesNotExist:
                 return Response({"error": "Progress not found"}, status=404)
+            
+@api_view(['GET'])
+def lesson_detail_with_sentences(request, lesson_id):
+    try:
+        lesson = Lesson.objects.get(id=lesson_id)
+        sentences = Sentence.objects.filter(lesson_id=lesson)
+
+        lesson_data = {
+            "id": lesson.id,
+            "title": lesson.title,
+            "doc_file": lesson.doc_file.url if lesson.doc_file else None,
+            "audio_file": lesson.audio_file.url if lesson.audio_file else None,
+            "native_language": lesson.native_language,
+            "target_language": lesson.target_language,
+            "sentences": [
+                {
+                    "id": s.id,
+                    "audio_file": s.audio_file,
+                    "sentence": s.sentence,
+                    "translated_sentence": s.translated_sentence
+                }
+                for s in sentences
+            ]
+        }
+
+        return Response(lesson_data, status=status.HTTP_200_OK)
+
+    except Lesson.DoesNotExist:
+        return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)

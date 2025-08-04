@@ -45,6 +45,35 @@ export default function HomeScreen({ navigation }) {
 
     const soundRef = useRef(null);
 
+    const fetchLessonData = async () => {
+        try {
+            const res = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`  // <-- Include your token here
+                }
+            });
+
+            if (!res.ok) throw new Error('Network response was not ok');
+            const data = await res.json();
+
+            const sentences = data.sentences || [];
+
+            const parsed = sentences.map(s => [
+                s.audio_file,
+                s.sentence,
+                s.translated_sentence
+            ]);
+
+            setRows(parsed);
+            setCurrentAudio(parsed[0]?.[0] || '');
+
+            console.log(parsed);
+        } catch (err) {
+            console.error('Fetch error:', err);
+        }
+    };
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -133,37 +162,6 @@ export default function HomeScreen({ navigation }) {
             }
         };
 
-        // const getLessonProgress = async (lessonId) => {
-        //     if (!token) return;
-
-        //     try {
-        //         const res = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
-        //             method: 'GET',
-        //             headers: {
-        //                 'Content-Type': 'application/json',
-        //                 Authorization: `Bearer ${token}`,
-        //             },
-        //         });
-
-        //         if (!res.ok) {
-        //             const err = await res.text();
-        //             console.error('Failed to get lesson progress:', err);
-        //             showError('Failed to get lesson progress');
-        //             return;
-        //         }
-
-        //         const data = await res.json();
-        //         setIndex(data.current_lesson_index)
-        //         console.log('Fetched lesson progress:', data);
-        //         return data;
-        //     } catch (e) {
-        //         console.error('Error fetching lesson progress:', e);
-        //         showError('Error fetching lesson progress');
-        //     }
-        // };
-
-
-
 
         async function prepare() {
             try {
@@ -179,18 +177,13 @@ export default function HomeScreen({ navigation }) {
         }
 
         prepare();
-        fetch('https://langue.pages.dev/metadata.csv')
-            .then(res => res.text())
-            .then(text => {
-
-                let parsed = text.trim().split('\n').map(row => row.split('|'));
-
-                setRows(parsed);
-                setCurrentAudio(parsed[0]?.[0]?.split('|')[0]);
-                console.log(currentAudio);
-            });
-
     }, []);
+
+    useEffect(() => {
+        if (!currentLesson) return; // don't fetch if no lesson id yet
+
+        fetchLessonData(currentLesson);
+    }, [currentLesson]);
 
     useEffect(() => {
         const fetchLessonProgress = async () => {
@@ -213,6 +206,7 @@ export default function HomeScreen({ navigation }) {
 
                 // Use setIndex to update current UI
                 setIndex(data.current_lesson_index || 0);
+                fetchLessonData(currentLesson)
             } catch (err) {
                 console.error('Error fetching lesson progress:', err);
             }
@@ -376,7 +370,7 @@ export default function HomeScreen({ navigation }) {
                 {/* Fixed-height word container */}
                 <View style={styles.wordContainer}>
                     <Text>
-                        {rows[index]?.[2].split(' ').map((word, i) => (
+                        {rows[index]?.[1].split(' ').map((word, i) => (
                             <Text
                                 key={i}
                                 style={styles.word}
