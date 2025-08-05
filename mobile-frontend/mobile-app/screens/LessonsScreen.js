@@ -121,9 +121,14 @@ export default function LessonsScreen({ navigation }) {
                                         const errorData = await res.json();
                                         throw new Error(errorData.detail || 'Failed to update progress');
                                     }
+                                    else {
+                                        const data = await res.json();
+                                        console.log(data);
+                                        // Navigate to lesson screen
+                                        navigation.navigate("Home");
+                                    }
 
-                                    // Navigate to lesson screen
-                                    navigation.navigate("Home");
+
                                 } catch (error) {
                                     console.error("Progress update error:", error);
                                     Alert.alert("Error", error.message);

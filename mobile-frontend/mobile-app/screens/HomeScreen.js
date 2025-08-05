@@ -126,7 +126,7 @@ export default function HomeScreen({ navigation }) {
                 try {
                     const decoded = jwtDecode(storedToken);
                     // Save decoded user info (e.g., id, username, etc.)
-                    fetchUserProfile();
+                    
                     //getLessonProgress();
                     console.log(user)
                 } catch (err) {
@@ -136,31 +136,7 @@ export default function HomeScreen({ navigation }) {
         };
         fetchToken();
 
-        const fetchUserProfile = async () => {
-            const token = await AsyncStorage.getItem('accessToken');
-            if (!token) return;
-
-            try {
-                const res = await fetch(`http://${server}:8000/api/profile/`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!res.ok) {
-                    console.error('Unauthorized or error:', await res.text());
-                    return;
-                }
-
-                const data = await res.json();
-                setUser(data);  // Now should include username, email, etc.
-                console.log(`The current lesson is ${data.current_lesson}`)
-                console.log(data)
-                setCurrentLesson(data.current_lesson)
-            } catch (err) {
-                console.error('Fetch error:', err);
-            }
-        };
+        
 
 
         async function prepare() {
@@ -212,7 +188,35 @@ export default function HomeScreen({ navigation }) {
             }
         };
 
+
+        const fetchUserProfile = async () => {
+            const token = await AsyncStorage.getItem('accessToken');
+            if (!token) return;
+
+            try {
+                const res = await fetch(`http://${server}:8000/api/profile/`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    console.error('Unauthorized or error:', await res.text());
+                    return;
+                }
+
+                const data = await res.json();
+                setUser(data);  // Now should include username, email, etc.
+                console.log(`The current lesson is ${data.current_lesson}`)
+                console.log(data)
+                setCurrentLesson(data.current_lesson)
+            } catch (err) {
+                console.error('Fetch error:', err);
+            }
+        };
+
         fetchLessonProgress();
+        fetchUserProfile();
     }, [currentLesson]);
 
     if (!appIsReady) {
