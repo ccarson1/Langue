@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { View, Alert, Text, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from '../styles/HomeStyles';
+import config from '../../utils/config';
 
 export default function SaveWordButton({ payload, onSuccess, onError }) {
   const [loading, setLoading] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
-  const server = 'localhost';
+  const server = config.SERVER_IP;
 
 
   const saveWord = async () => {

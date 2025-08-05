@@ -14,7 +14,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from './styles/LoginStyles';
 import LoadingOverlay from './components/LoadingOverlay';
 import CustomPopup from './components/CustomPopup';
-
+import config from '../utils/config';
 
 
 
@@ -23,7 +23,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
-  const server = 'localhost';
+  const server = config.SERVER_IP;
 
   const showSuccess = (message) => {
     setPopup({ visible: true, message: message, type: 'success' });

@@ -12,6 +12,7 @@ import { Picker } from '@react-native-picker/picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SettingsStyles';
+import config from '../utils/config';
 
 export default function SettingsScreen({ navigation }) {
   const [nativeLanguage, setNativeLanguage] = useState('');
@@ -20,7 +21,7 @@ export default function SettingsScreen({ navigation }) {
   const [profilePrivate, setProfilePrivate] = useState(false);
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
-  const server = 'localhost';
+  const server = config.SERVER_IP;
 
   const fetchLanguages = async () => {
     try {

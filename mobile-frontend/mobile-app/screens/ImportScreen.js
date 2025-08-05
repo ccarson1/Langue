@@ -18,6 +18,7 @@ import styles from './styles/ImportStyles';
 import CustomPopup from './components/CustomPopup';
 import LoadingOverlay from './components/LoadingOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import config from '../utils/config';
 
 export default function ImportLessonScreen({ navigation }) {
   const [url, setUrl] = useState('');
@@ -36,7 +37,7 @@ export default function ImportLessonScreen({ navigation }) {
   const [targetLanguage, setTargetLanguage] = useState('');
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
-  const server = 'localhost';
+  const server = config.SERVER_IP;
 
 
   const fetchLanguages = async () => {

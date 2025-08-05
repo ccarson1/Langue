@@ -79,13 +79,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_current_lesson(self, obj):
         if hasattr(obj, 'profile') and obj.profile.current_lesson:
-            return obj.profile.current_lesson.lesson_id.id if obj.profile.current_lesson.lesson_id else None
+            return obj.profile.current_lesson.lesson.id if obj.profile.current_lesson.lesson else None
         return None
 
 class UserLessonsProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserLessonsProgress
-        fields = ['id', 'user', 'lesson_id', 'current_lesson_index', 'last_viewed']
+        fields = ['id', 'user', 'lesson', 'current_lesson_index', 'last_viewed']
         
 class LanguageSerializer(serializers.ModelSerializer):
     class Meta:

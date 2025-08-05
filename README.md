@@ -11,3 +11,15 @@ npx expo export --platform web
 # Run web app
 cd dist
 python -m http.server 8080
+
+
+
+#Run Django
+python manage.py runserver
+
+#Run frontend React
+npm run dev
+
+#Run Expo
+npx expo start
+

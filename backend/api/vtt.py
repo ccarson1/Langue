@@ -33,6 +33,8 @@ class VTT():
         ydl_opts = {
             "format": "bestaudio[ext=m4a]/bestaudio",
             "outtmpl": audio_path,
+            'sleep_interval': 3, 
+            'max_sleep_interval': 5,
             "quiet": True,
             "writesubtitles": True,
             "writeautomaticsub": True,
@@ -41,9 +43,9 @@ class VTT():
             "skip_download": False,
             "paths": {
                 "subtitle": self.OUTPUT_DIR,
-            },
+            }
         }
-
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(url, download=True)
             title = info_dict.get("title", "unknown_title")
@@ -110,7 +112,7 @@ class VTT():
                 translated_sentence=translated_text,
                 lesson_language=native_id,
                 translate_language=target_id,
-                lesson_id=lesson
+                lesson=lesson
             )
             
             sentence.save()

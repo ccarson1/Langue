@@ -4,6 +4,7 @@ import styles from './styles/SignupStyles'
 import AntDesign from '@expo/vector-icons/AntDesign';
 import CustomPopup from './components/CustomPopup';
 import { Picker } from '@react-native-picker/picker';
+import config from '../utils/config';
 
 export default function SignupScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -14,7 +15,7 @@ export default function SignupScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
-  const server = 'localhost';
+  const server = config.SERVER_IP;
 
   useEffect(() => {
     fetch(`http://${server}:8000/api/languages/`)

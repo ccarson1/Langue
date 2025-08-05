@@ -4,6 +4,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from "./styles/LessonsStyles"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+import config from '../utils/config';
 
 
 
@@ -14,7 +15,7 @@ export default function LessonsScreen({ navigation }) {
     const [nativeLanguage, setNativeLanguage] = useState('');
     const [targetLanguage, setTargetLanguage] = useState('');
     const [lessons, setLessons] = useState([]);
-    const server = 'localhost';
+    const server = config.SERVER_IP;
 
     const fetchLessons = async () => {
         try {
@@ -100,6 +101,7 @@ export default function LessonsScreen({ navigation }) {
                             onPress={async () => {
                                 try {
                                     const storedToken = await AsyncStorage.getItem('accessToken');
+                                    console.log(storedToken);
                                     if (!storedToken) {
                                         Alert.alert("Error", "No access token found.");
                                         return;

@@ -16,6 +16,7 @@ from .w_translate import translate_word
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -139,6 +140,9 @@ def import_lesson(request):
     if urlReference:
         save_lesson_media = VTT(lesson.url, lesson.id, lesson.target_language, lesson.native_language)
         save_lesson_media.process_lesson()
+
+        lesson.audio_folder = save_lesson_media.AUDIO_DIR
+        lesson.save()
 
 
     return Response({
@@ -331,7 +335,10 @@ def account(request):
         user.save()
         return Response({'message': 'Account updated successfully.'}, status=status.HTTP_200_OK)
     
+
+
 @api_view(['POST', 'GET'])
+@authentication_classes([JWTAuthentication])  # Don't leave this empty
 @permission_classes([IsAuthenticated])
 def user_lessons_progress_view(request):
     user = request.user
@@ -339,6 +346,8 @@ def user_lessons_progress_view(request):
     if request.method == 'POST':
         lesson_id = request.data.get('lesson_id')
         current_index = request.data.get('current_lesson_index')
+
+        print(f"Lesson_id {lesson_id}")
 
         if not lesson_id or current_index is None:
             return Response({"error": "lesson_id and current_lesson_index are required"}, status=400)
@@ -351,15 +360,24 @@ def user_lessons_progress_view(request):
         # Create or update the progress
         progress, created = UserLessonsProgress.objects.update_or_create(
             user=user,
-            lesson_id=lesson,
+            lesson_id=lesson.id,
             defaults={
                 "current_lesson_index": current_index,
                 "last_viewed": timezone.now(),
             }
         )
 
+        # Update the user's profile current_lesson FK
+        try:
+            profile = Profile.objects.get(user=user)
+            profile.current_lesson = progress
+            profile.save()
+        except Profile.DoesNotExist:
+            # Optional: handle missing profile case (e.g., create or ignore)
+            pass
+
         data = {
-            "lesson_id": progress.lesson_id.id if progress.lesson_id else None,
+            "lesson_id": progress.lesson.id if progress.lesson else None,
             "current_lesson_index": progress.current_lesson_index,
             "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
         }
@@ -376,9 +394,9 @@ def user_lessons_progress_view(request):
                 return Response({"error": "lesson_id must be an integer"}, status=400)
 
             try:
-                progress = UserLessonsProgress.objects.get(user=user, lesson_id=lesson_id_int)
+                progress = UserLessonsProgress.objects.get(user=user, lesson=lesson_id_int)
                 data = {
-                    "lesson_id": progress.lesson_id.id if progress.lesson_id else None,
+                    "lesson_id": progress.lesson.id if progress.lesson else None,
                     "current_lesson_index": progress.current_lesson_index,
                     "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
                 }
@@ -414,3 +432,28 @@ def lesson_detail_with_sentences(request, lesson_id):
 
     except Lesson.DoesNotExist:
         return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+
+@api_view(['POST'])
+def get_audio(request):
+
+    #user = request.user
+
+    if request.method == 'POST':
+
+
+        lesson_id = request.data.get('lesson_id')
+        current_lesson_index = request.data.get('current_lesson_index')
+        print(lesson_id)
+        print(current_lesson_index)
+
+    filename = request.data.get('filename')
+    if not filename:
+        return Response({'error': 'Filename is required'}, status=400)
+
+    audio_path = os.path.join(settings.MEDIA_ROOT, 'audio', filename)
+    if not os.path.exists(audio_path):
+        return Response({'error': 'File not found'}, status=404)
+
+    full_url = request.build_absolute_uri(f"{settings.MEDIA_URL}audio/{filename}")
+    return Response({'url': full_url})

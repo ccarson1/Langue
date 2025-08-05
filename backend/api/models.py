@@ -85,6 +85,7 @@ class Lesson(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     doc_file = models.FileField(upload_to=lesson_file_upload_path, null=True, blank=True)
     audio_file = models.FileField(upload_to=audio_file_upload_path, null=True, blank=True)
+    audio_folder = models.CharField(max_length=500, blank=True, null=True)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
     title = models.CharField(max_length=100, blank=True, null=True)
     url = models.URLField(max_length=1000, blank=True, null=True)
@@ -139,7 +140,7 @@ class Sentence(models.Model):
     translated_sentence = models.CharField(max_length=250)
     lesson_language = models.ForeignKey(Language, db_column='lesson_lang_id', related_name='lesson_sentences', on_delete=models.CASCADE)
     translate_language = models.ForeignKey(Language, db_column='translate_lang_id', related_name='translation_sentences', on_delete=models.CASCADE)
-    lesson_id = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.CASCADE)
+    lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'Sentence'
@@ -150,16 +151,16 @@ class Sentence(models.Model):
 class UserLessonsProgress(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_progress')
-    lesson_id = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, default=7)
+    lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, default=7)
     current_lesson_index = models.SmallIntegerField(default=0)
     last_viewed = models.DateField(default=timezone.now)
 
     class Meta:
         db_table = 'user_lessons_progress'
-        unique_together = ('user', 'lesson_id')  # Ensures one entry per user per lesson
+        unique_together = ('user', 'lesson')  # Ensures one entry per user per lesson
 
     def __str__(self):
-        return f"{self.user.username} - {self.lesson_id.title if self.lesson_id else 'No Lesson'} - Index {self.current_lesson_index}"
+        return f"{self.user.username} - {self.lesson.title if self.lesson else 'No Lesson'} - Index {self.current_lesson_index}"
 
     
 class Profile(models.Model):

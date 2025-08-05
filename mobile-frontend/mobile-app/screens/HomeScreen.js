@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import * as Clipboard from 'expo-clipboard';
 import CustomPopup from './components/CustomPopup';
+import config from '../utils/config';
 
 
 import * as SplashScreen from 'expo-splash-screen';
@@ -41,39 +42,39 @@ export default function HomeScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const [nativeText, setNativeText] = useState('');
-    const server = 'localhost';
+    const server = config.SERVER_IP;
 
     const soundRef = useRef(null);
 
-    const fetchLessonData = async () => {
-        try {
-            const res = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`  // <-- Include your token here
-                }
-            });
+    // const fetchLessonData = async () => {
+    //     try {
+    //         const res = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, {
+    //             method: 'GET',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'Authorization': `Bearer ${token}`  // <-- Include your token here
+    //             }
+    //         });
 
-            if (!res.ok) throw new Error('Network response was not ok');
-            const data = await res.json();
+    //         if (!res.ok) throw new Error('Network response was not ok');
+    //         const data = await res.json();
 
-            const sentences = data.sentences || [];
+    //         const sentences = data.sentences || [];
 
-            const parsed = sentences.map(s => [
-                s.audio_file,
-                s.sentence,
-                s.translated_sentence
-            ]);
+    //         const parsed = sentences.map(s => [
+    //             s.audio_file,
+    //             s.sentence,
+    //             s.translated_sentence
+    //         ]);
 
-            setRows(parsed);
-            setCurrentAudio(parsed[0]?.[0] || '');
+    //         setRows(parsed);
+    //         setCurrentAudio(parsed[0]?.[0] || '');
 
-            console.log(parsed);
-        } catch (err) {
-            console.error('Fetch error:', err);
-        }
-    };
+    //         console.log(parsed);
+    //     } catch (err) {
+    //         console.error('Fetch error:', err);
+    //     }
+    // };
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -116,112 +117,116 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    useEffect(() => {
+    // useEffect(() => {
 
-        const fetchToken = async () => {
-            const storedToken = await AsyncStorage.getItem('accessToken');
-            setToken(storedToken);
+    //     const fetchToken = async () => {
+    //         const storedToken = await AsyncStorage.getItem('accessToken');
+    //         setToken(storedToken);
 
-            if (storedToken) {
-                try {
-                    const decoded = jwtDecode(storedToken);
-                    // Save decoded user info (e.g., id, username, etc.)
-                    
-                    //getLessonProgress();
-                    console.log(user)
-                } catch (err) {
-                    console.error('Failed to decode token:', err);
-                }
-            }
-        };
-        fetchToken();
+    //         if (storedToken) {
+    //             try {
+    //                 const decoded = jwtDecode(storedToken);
+    //                 // Save decoded user info (e.g., id, username, etc.)
 
-        
+    //                 //getLessonProgress();
+    //                 console.log(user)
+    //             } catch (err) {
+    //                 console.error('Failed to decode token:', err);
+    //             }
+    //         }
+    //     };
+    //     fetchToken();
 
 
-        async function prepare() {
-            try {
-                await Font.loadAsync({
-                    'PlaywriteHU-Regular': require('../assets/fonts/PlaywriteHU-Regular.ttf'),
-                });
-            } catch (e) {
-                console.warn(e);
-            } finally {
-                setAppIsReady(true);
-                await SplashScreen.hideAsync();
-            }
-        }
-
-        prepare();
-    }, []);
-
-    useEffect(() => {
-        if (!currentLesson) return; // don't fetch if no lesson id yet
-
-        fetchLessonData(currentLesson);
-    }, [currentLesson]);
-
-    useEffect(() => {
-        const fetchLessonProgress = async () => {
-            if (!token || !currentLesson) return;
-
-            try {
-                const res = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (!res.ok) {
-                    console.warn('No previous lesson progress');
-                    return;
-                }
-
-                const data = await res.json();
-                console.log('Fetched progress:', data);
-
-                // Use setIndex to update current UI
-                setIndex(data.current_lesson_index || 0);
-                fetchLessonData(currentLesson)
-            } catch (err) {
-                console.error('Error fetching lesson progress:', err);
-            }
-        };
 
 
-        const fetchUserProfile = async () => {
-            const token = await AsyncStorage.getItem('accessToken');
-            if (!token) return;
+    //     async function prepare() {
+    //         try {
+    //             await Font.loadAsync({
+    //                 'PlaywriteHU-Regular': require('../assets/fonts/PlaywriteHU-Regular.ttf'),
+    //             });
+    //         } catch (e) {
+    //             console.warn(e);
+    //         } finally {
+    //             setAppIsReady(true);
+    //             await SplashScreen.hideAsync();
+    //         }
+    //     }
 
-            try {
-                const res = await fetch(`http://${server}:8000/api/profile/`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
+    //     prepare();
+    // }, []);
 
-                if (!res.ok) {
-                    console.error('Unauthorized or error:', await res.text());
-                    return;
-                }
 
-                const data = await res.json();
-                setUser(data);  // Now should include username, email, etc.
-                console.log(`The current lesson is ${data.current_lesson}`)
-                console.log(data)
-                setCurrentLesson(data.current_lesson)
-            } catch (err) {
-                console.error('Fetch error:', err);
-            }
-        };
 
-        fetchLessonProgress();
-        fetchUserProfile();
-    }, [currentLesson]);
+    // useEffect(() => {
+    //     const fetchLessonProgress = async () => {
+    //         if (!token || !currentLesson) return;
 
-    if (!appIsReady) {
-        return null;
-    }
+    //         try {
+    //             const res = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
+    //                 headers: {
+    //                     Authorization: `Bearer ${token}`,
+    //                 },
+    //             });
+
+    //             if (!res.ok) {
+    //                 console.warn('No previous lesson progress');
+    //                 return;
+    //             }
+
+    //             const data = await res.json();
+    //             console.log('Fetched progress:', data);
+
+    //             // Use setIndex to update current UI
+    //             setIndex(data.current_lesson_index || 0);
+    //             fetchLessonData(currentLesson)
+    //         } catch (err) {
+    //             console.error('Error fetching lesson progress:', err);
+    //         }
+    //     };
+
+
+    //     const fetchUserProfile = async () => {
+    //         const token = await AsyncStorage.getItem('accessToken');
+    //         if (!token) return;
+
+    //         try {
+    //             const res = await fetch(`http://${server}:8000/api/profile/`, {
+    //                 headers: {
+    //                     Authorization: `Bearer ${token}`,
+    //                 },
+    //             });
+
+    //             if (!res.ok) {
+    //                 console.error('Unauthorized or error:', await res.text());
+    //                 return;
+    //             }
+
+    //             const data = await res.json();
+    //             setUser(data);  // Now should include username, email, etc.
+    //             console.log(`The current lesson is ${data.current_lesson}`)
+    //             console.log(data)
+    //             setCurrentLesson(data.current_lesson)
+    //         } catch (err) {
+    //             console.error('Fetch error:', err);
+    //         }
+    //     };
+
+    //     useEffect(() => {
+    //         if (!currentLesson) return;
+
+    //         const fetchData = async () => {
+    //             await fetchLessonProgress();
+    //             await fetchUserProfile();
+    //             await fetchLessonData(currentLesson); // Fetch this last
+    //         };
+
+    //         fetchData();
+    //     }, [currentLesson]);
+
+    //     if (!appIsReady) {
+    //         return null;
+    //     }
 
     const cleanText = (text) => {
         return text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>@\[\]\\|]/g, '').trim();
@@ -242,6 +247,33 @@ export default function HomeScreen({ navigation }) {
         //Alert.alert('Copied!', 'Text has been copied to clipboard.');
     };
 
+    // const playAudio = async () => {
+    //     if (!currentAudio) return;
+    //     setIsPlaying(true)
+    //     try {
+    //         // Unload previous sound if one exists
+    //         if (soundRef.current) {
+    //             await soundRef.current.unloadAsync();
+    //             soundRef.current = null;
+    //         }
+
+    //         const { sound } = await Audio.Sound.createAsync({
+    //             uri: `https://langue.pages.dev/audio/${currentAudio}`
+    //         });
+
+    //         soundRef.current = sound;  // Save reference
+    //         await sound.playAsync();
+    //         sound.setOnPlaybackStatusUpdate(status => {
+    //             if (status.didJustFinish) {
+    //                 setIsPlaying(false)
+    //             }
+    //         })
+    //     } catch (e) {
+    //         showError('Audio error:', e)
+    //         console.error('Audio error:', e);
+    //     }
+    // };
+
     const playAudio = async () => {
         if (!currentAudio) return;
         setIsPlaying(true)
@@ -252,8 +284,16 @@ export default function HomeScreen({ navigation }) {
                 soundRef.current = null;
             }
 
-            const { sound } = await Audio.Sound.createAsync({
-                uri: `https://langue.pages.dev/audio/${currentAudio}`
+            const response = await fetch(`http://localhost:8000/api/audio/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    lesson_id: currentLesson,
+                    current_lesson_index: index,
+                }),
             });
 
             soundRef.current = sound;  // Save reference
@@ -268,6 +308,9 @@ export default function HomeScreen({ navigation }) {
             console.error('Audio error:', e);
         }
     };
+
+
+
 
     const translateWord = async (word) => {
         setLoading(true)
@@ -347,6 +390,108 @@ export default function HomeScreen({ navigation }) {
                 duration: 500, // <-- Slow it down (in ms)
                 useNativeDriver: true,
             }).start();
+        }
+    };
+
+    useEffect(() => {
+        const init = async () => {
+            const storedToken = await AsyncStorage.getItem('accessToken');
+            if (!storedToken) return;
+
+            setToken(storedToken);
+
+            try {
+                const decoded = jwtDecode(storedToken);
+                // Optional: setUser(decoded);
+            } catch (err) {
+                console.error('Failed to decode token:', err);
+            }
+
+            await Font.loadAsync({
+                'PlaywriteHU-Regular': require('../assets/fonts/PlaywriteHU-Regular.ttf'),
+            });
+
+            setAppIsReady(true);
+            await SplashScreen.hideAsync();
+        };
+
+        init();
+    }, []);
+
+    useEffect(() => {
+        if (!token) return;
+
+        const fetchAll = async () => {
+            try {
+                // 1. Fetch user profile and get current lesson
+                const profileRes = await fetch(`http://${server}:8000/api/profile/`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!profileRes.ok) throw new Error(await profileRes.text());
+                const userData = await profileRes.json();
+                setUser(userData);
+                setCurrentLesson(userData.current_lesson); // ✅ this triggers next useEffect
+
+            } catch (err) {
+                console.error('Error fetching profile:', err);
+            }
+        };
+
+        fetchAll();
+    }, [token]);
+
+    useEffect(() => {
+        if (!token || !currentLesson) return;
+
+        const fetchProgressAndLesson = async () => {
+            try {
+                // 2. Fetch lesson progress
+                const progressRes = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (progressRes.ok) {
+                    const progressData = await progressRes.json();
+                    console.log('Fetched progress:', progressData);
+                    setIndex(progressData.current_lesson_index || 0);
+                } else {
+                    console.warn('No previous progress found.');
+                }
+
+                // 3. Fetch lesson data LAST
+                await fetchLessonData();
+
+            } catch (err) {
+                console.error('Error fetching lesson data:', err);
+            }
+        };
+
+        fetchProgressAndLesson();
+    }, [currentLesson, token]);
+
+    const fetchLessonData = async () => {
+        try {
+            const res = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) throw new Error('Network response was not ok');
+
+            const data = await res.json();
+            const parsed = (data.sentences || []).map(s => [
+                s.audio_file,
+                s.sentence,
+                s.translated_sentence
+            ]);
+
+            setRows(parsed);
+            setCurrentAudio(parsed[0]?.[0] || '');
+            console.log(parsed);
+        } catch (err) {
+            console.error('Fetch error:', err);
         }
     };
 
