@@ -284,7 +284,7 @@ export default function HomeScreen({ navigation }) {
                 soundRef.current = null;
             }
 
-            const response = await fetch(`http://localhost:8000/api/audio/`, {
+            const sound = await fetch(`http://localhost:8000/api/audio/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
