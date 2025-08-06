@@ -13,7 +13,7 @@ from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, L
 from django.views.generic import TemplateView
 from .w_translate import translate_word
 
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -367,6 +367,7 @@ def user_lessons_progress_view(request):
             }
         )
 
+
         # Update the user's profile current_lesson FK
         try:
             profile = Profile.objects.get(user=user)
@@ -394,17 +395,22 @@ def user_lessons_progress_view(request):
                 return Response({"error": "lesson_id must be an integer"}, status=400)
 
             try:
+                print(f"Lesson id: {lesson_id_int}")
                 progress = UserLessonsProgress.objects.get(user=user, lesson=lesson_id_int)
+                print(f"Pogress: {progress.current_lesson_index}")
                 data = {
                     "lesson_id": progress.lesson.id if progress.lesson else None,
                     "current_lesson_index": progress.current_lesson_index,
                     "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
                 }
+                print(data)
                 return Response(data)
             except UserLessonsProgress.DoesNotExist:
                 return Response({"error": "Progress not found"}, status=404)
             
-@api_view(['GET'])
+@api_view(['POST', 'GET'])
+@authentication_classes([JWTAuthentication])  # Don't leave this empty
+@permission_classes([IsAuthenticated])
 def lesson_detail_with_sentences(request, lesson_id):
     try:
         lesson = Lesson.objects.get(id=lesson_id)
@@ -433,27 +439,63 @@ def lesson_detail_with_sentences(request, lesson_id):
     except Lesson.DoesNotExist:
         return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
     
-
+@csrf_exempt  # ✅ Must be OUTERMOST
 @api_view(['POST'])
 def get_audio(request):
-
-    #user = request.user
-
     if request.method == 'POST':
+        try:
+            lesson_id = request.data.get('lesson_id')
+            current_lesson_index = int(request.data.get('current_lesson_index'))
 
+            lesson = Lesson.objects.get(id=lesson_id)
+            #audio_folder = lesson.audio_folder
+            audio_folder = os.path.join("api/", lesson.audio_folder)
+            print(f"Audio folder: {audio_folder}")
 
+            # List all .wav files sorted by name
+            if os.path.exists(audio_folder):
+                wav_files = sorted([f for f in os.listdir(audio_folder) if f.endswith('.wav')])
+                print(wav_files)
+            else:
+                print("Audio folder does not exist:", audio_folder)
+
+            if current_lesson_index < 0 or current_lesson_index >= len(wav_files):
+                return Response({'error': 'Invalid audio index'}, status=400)
+
+            # Get the file path
+            audio_path = os.path.join(audio_folder, wav_files[current_lesson_index])
+            audio_path = audio_path.replace("\\", "/")
+            print(audio_path)
+            
+            # Return the audio file as a file response
+            return FileResponse(open(audio_path, 'rb'), content_type='audio/wav')
+
+        except Lesson.DoesNotExist:
+            return Response({'error': 'Lesson not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+    return Response({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt  # ✅ Must be OUTERMOST
+@api_view(['POST'])
+def change_lesson(request):
+    if request.method == 'POST':
+        user = request.user
         lesson_id = request.data.get('lesson_id')
-        current_lesson_index = request.data.get('current_lesson_index')
-        print(lesson_id)
-        print(current_lesson_index)
 
-    filename = request.data.get('filename')
-    if not filename:
-        return Response({'error': 'Filename is required'}, status=400)
+        if not lesson_id:
+            return Response({'error': 'lesson_id is required'}, status=400)
 
-    audio_path = os.path.join(settings.MEDIA_ROOT, 'audio', filename)
-    if not os.path.exists(audio_path):
-        return Response({'error': 'File not found'}, status=404)
+        try:
+            # Get the UserLessonsProgress object for the user and lesson
+            lesson_progress = UserLessonsProgress.objects.get(user=user, lesson_id=lesson_id)
+        except UserLessonsProgress.DoesNotExist:
+            return Response({'error': 'Lesson progress not found for this user and lesson_id'}, status=404)
 
-    full_url = request.build_absolute_uri(f"{settings.MEDIA_URL}audio/{filename}")
-    return Response({'url': full_url})
+        # Update the user's profile
+        profile = user.profile
+        profile.current_lesson = lesson_progress
+        profile.save()
+
+        return Response({'message': 'Current lesson updated successfully'})

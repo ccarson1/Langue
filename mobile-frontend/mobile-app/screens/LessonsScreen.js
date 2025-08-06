@@ -107,15 +107,14 @@ export default function LessonsScreen({ navigation }) {
                                         return;
                                     }
 
-                                    const res = await fetch(`http://${server}:8000/api/user-progress/`, {
+                                    const res = await fetch(`http://${server}:8000/api/change-lesson/`, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
                                             Authorization: `Bearer ${storedToken}`
                                         },
                                         body: JSON.stringify({
-                                            lesson_id: parseInt(lesson.id),
-                                            current_lesson_index: 0  // or whatever index is relevant
+                                            lesson_id: parseInt(lesson.id)
                                         })
                                     });
 

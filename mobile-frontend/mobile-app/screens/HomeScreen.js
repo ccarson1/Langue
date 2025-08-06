@@ -15,6 +15,7 @@ import { BackHandler } from 'react-native';
 import * as Font from 'expo-font';
 import SaveWordButton from './components/SendSaveWord';
 import LoadingOverlay from './components/LoadingOverlay';
+import ProgressBar from './components/ProgressBar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import * as Clipboard from 'expo-clipboard';
@@ -42,39 +43,11 @@ export default function HomeScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const [nativeText, setNativeText] = useState('');
+    const [description, setDescription] = useState('This is a description of the definition.');
     const server = config.SERVER_IP;
 
     const soundRef = useRef(null);
 
-    // const fetchLessonData = async () => {
-    //     try {
-    //         const res = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, {
-    //             method: 'GET',
-    //             headers: {
-    //                 'Content-Type': 'application/json',
-    //                 'Authorization': `Bearer ${token}`  // <-- Include your token here
-    //             }
-    //         });
-
-    //         if (!res.ok) throw new Error('Network response was not ok');
-    //         const data = await res.json();
-
-    //         const sentences = data.sentences || [];
-
-    //         const parsed = sentences.map(s => [
-    //             s.audio_file,
-    //             s.sentence,
-    //             s.translated_sentence
-    //         ]);
-
-    //         setRows(parsed);
-    //         setCurrentAudio(parsed[0]?.[0] || '');
-
-    //         console.log(parsed);
-    //     } catch (err) {
-    //         console.error('Fetch error:', err);
-    //     }
-    // };
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -117,116 +90,7 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    // useEffect(() => {
 
-    //     const fetchToken = async () => {
-    //         const storedToken = await AsyncStorage.getItem('accessToken');
-    //         setToken(storedToken);
-
-    //         if (storedToken) {
-    //             try {
-    //                 const decoded = jwtDecode(storedToken);
-    //                 // Save decoded user info (e.g., id, username, etc.)
-
-    //                 //getLessonProgress();
-    //                 console.log(user)
-    //             } catch (err) {
-    //                 console.error('Failed to decode token:', err);
-    //             }
-    //         }
-    //     };
-    //     fetchToken();
-
-
-
-
-    //     async function prepare() {
-    //         try {
-    //             await Font.loadAsync({
-    //                 'PlaywriteHU-Regular': require('../assets/fonts/PlaywriteHU-Regular.ttf'),
-    //             });
-    //         } catch (e) {
-    //             console.warn(e);
-    //         } finally {
-    //             setAppIsReady(true);
-    //             await SplashScreen.hideAsync();
-    //         }
-    //     }
-
-    //     prepare();
-    // }, []);
-
-
-
-    // useEffect(() => {
-    //     const fetchLessonProgress = async () => {
-    //         if (!token || !currentLesson) return;
-
-    //         try {
-    //             const res = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
-    //                 headers: {
-    //                     Authorization: `Bearer ${token}`,
-    //                 },
-    //             });
-
-    //             if (!res.ok) {
-    //                 console.warn('No previous lesson progress');
-    //                 return;
-    //             }
-
-    //             const data = await res.json();
-    //             console.log('Fetched progress:', data);
-
-    //             // Use setIndex to update current UI
-    //             setIndex(data.current_lesson_index || 0);
-    //             fetchLessonData(currentLesson)
-    //         } catch (err) {
-    //             console.error('Error fetching lesson progress:', err);
-    //         }
-    //     };
-
-
-    //     const fetchUserProfile = async () => {
-    //         const token = await AsyncStorage.getItem('accessToken');
-    //         if (!token) return;
-
-    //         try {
-    //             const res = await fetch(`http://${server}:8000/api/profile/`, {
-    //                 headers: {
-    //                     Authorization: `Bearer ${token}`,
-    //                 },
-    //             });
-
-    //             if (!res.ok) {
-    //                 console.error('Unauthorized or error:', await res.text());
-    //                 return;
-    //             }
-
-    //             const data = await res.json();
-    //             setUser(data);  // Now should include username, email, etc.
-    //             console.log(`The current lesson is ${data.current_lesson}`)
-    //             console.log(data)
-    //             setCurrentLesson(data.current_lesson)
-    //         } catch (err) {
-    //             console.error('Fetch error:', err);
-    //         }
-    //     };
-
-    //     useEffect(() => {
-    //         if (!currentLesson) return;
-
-    //         const fetchData = async () => {
-    //             await fetchLessonProgress();
-    //             await fetchUserProfile();
-    //             await fetchLessonData(currentLesson); // Fetch this last
-    //         };
-
-    //         fetchData();
-    //     }, [currentLesson]);
-
-    //     if (!appIsReady) {
-    //         return null;
-    //     }
 
     const cleanText = (text) => {
         return text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>@\[\]\\|]/g, '').trim();
@@ -247,44 +111,20 @@ export default function HomeScreen({ navigation }) {
         //Alert.alert('Copied!', 'Text has been copied to clipboard.');
     };
 
-    // const playAudio = async () => {
-    //     if (!currentAudio) return;
-    //     setIsPlaying(true)
-    //     try {
-    //         // Unload previous sound if one exists
-    //         if (soundRef.current) {
-    //             await soundRef.current.unloadAsync();
-    //             soundRef.current = null;
-    //         }
-
-    //         const { sound } = await Audio.Sound.createAsync({
-    //             uri: `https://langue.pages.dev/audio/${currentAudio}`
-    //         });
-
-    //         soundRef.current = sound;  // Save reference
-    //         await sound.playAsync();
-    //         sound.setOnPlaybackStatusUpdate(status => {
-    //             if (status.didJustFinish) {
-    //                 setIsPlaying(false)
-    //             }
-    //         })
-    //     } catch (e) {
-    //         showError('Audio error:', e)
-    //         console.error('Audio error:', e);
-    //     }
-    // };
 
     const playAudio = async () => {
         if (!currentAudio) return;
-        setIsPlaying(true)
+        setIsPlaying(true);
+
         try {
-            // Unload previous sound if one exists
+            // Unload previous sound
             if (soundRef.current) {
                 await soundRef.current.unloadAsync();
                 soundRef.current = null;
             }
 
-            const sound = await fetch(`http://localhost:8000/api/audio/`, {
+            // Fetch audio as blob
+            const response = await fetch(`http://localhost:8000/api/audio/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -296,19 +136,30 @@ export default function HomeScreen({ navigation }) {
                 }),
             });
 
-            soundRef.current = sound;  // Save reference
-            await sound.playAsync();
+            const blob = await response.blob();
+            const uri = URL.createObjectURL(blob); // only works in web
+
+            // If you're on React Native (not web), you must save the blob to a file:
+            // Use expo-file-system for that (see further below if needed)
+
+            // Load and play the audio
+            const { sound } = await Audio.Sound.createAsync(
+                { uri },
+                { shouldPlay: true }
+            );
+            soundRef.current = sound;
+
             sound.setOnPlaybackStatusUpdate(status => {
                 if (status.didJustFinish) {
-                    setIsPlaying(false)
+                    setIsPlaying(false);
                 }
-            })
+            });
+
         } catch (e) {
-            showError('Audio error:', e)
+            showError('Audio error:', e);
             console.error('Audio error:', e);
         }
     };
-
 
 
 
@@ -363,6 +214,7 @@ export default function HomeScreen({ navigation }) {
             setCurrentAudio(rows[index + 1]?.[0]?.split('|')[0]);
             console.log(currentAudio);
             updateLessonProgress()
+            setDescription('');
         }
     };
 
@@ -372,6 +224,7 @@ export default function HomeScreen({ navigation }) {
             setCurrentAudio(rows[index - 1]?.[0]?.split('|')[0]);
             console.log(currentAudio);
             updateLessonProgress()
+            setDescription('');
         }
     };
 
@@ -516,6 +369,8 @@ export default function HomeScreen({ navigation }) {
 
             {/* Middle Section */}
             <View style={styles.middleSection}>
+                <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
+
                 {/* Fixed-height word container */}
                 <View style={styles.wordContainer}>
                     <Text>
@@ -551,6 +406,9 @@ export default function HomeScreen({ navigation }) {
                         onSuccess={showSuccess}
                         onError={showError}
                     />
+
+                    
+
                     <StatusIndicator />
                     <Text style={styles.partOfSpeech}>adjective</Text>
                     <View style={styles.separatorSolid} />
@@ -575,11 +433,25 @@ export default function HomeScreen({ navigation }) {
                     </View>
                     <View style={styles.separatorDotted} />
                     <View>
-                        <TextInput
+                        {/* <TextInput
                             style={styles.defDescription}
-                            value={'This is a description of the definition.'}
+                            value={description}
                             onChangeText={''}
-                        />
+                        /> */}
+                        <Text
+                            style={styles.defDescription}
+                            
+                        >{description}</Text>
+                    </View>
+                    <View style={styles.translateBtn}>
+                        <TouchableOpacity
+                            onPress={() => {
+                            setDescription(rows[index]?.[2]);
+                        }}
+                            
+                        >
+                            <Text style={styles.buttonText}>Translate Sentence</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </View>

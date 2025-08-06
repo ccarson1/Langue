@@ -69,6 +69,7 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8080',
+    'http://localhost:8081',
     'http://192.168.1.5:8000',  # your backend URL if needed
 ]
 

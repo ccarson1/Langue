@@ -156,6 +156,24 @@ export default StyleSheet.create({
         fontWeight: 'bold',
     },
 
+    translateBtn: {
+        position: 'absolute',
+        top: 350,
+        right: 20,
+        backgroundColor: '#00adb5',
+        padding: 8,
+        borderRadius: 5,
+        minWidth: 60,
+        shadowColor: '#30475e',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+
+
+        // Android shadow
+        elevation: 4,
+    },
+
     textRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -227,5 +245,14 @@ export default StyleSheet.create({
         width: 'fit-content',
 
         padding: 3
+    },
+
+    defDescription: {
+        flex: 1, // optional, allows to fill available space
+        flexWrap: 'wrap', // enables wrapping for flex containers (not for Text itself)
+        width: '100%', // ensure a max width so it wraps
+        fontSize: 16,
+        lineHeight: 22,
+        color: '#333', // or whatever color
     }
 });

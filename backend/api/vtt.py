@@ -13,10 +13,10 @@ class VTT():
     
     def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id):
         
-
-        self.AUDIO_FILE = "audio.m4a"
-        self.YOUTUBE_URL = YOUTUBE_URL
         self.uuid = str(uuid.uuid4())
+        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.m4a")
+        self.YOUTUBE_URL = YOUTUBE_URL
+        
         self.OUTPUT_DIR = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid)
         self.AUDIO_DIR = os.path.join(self.OUTPUT_DIR, "audio")
         #self.METADATA_PATH = os.path.join(self.OUTPUT_DIR, "metadata.csv")

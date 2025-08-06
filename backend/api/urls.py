@@ -25,6 +25,7 @@ urlpatterns = [
     path('user-progress/', views.user_lessons_progress_view, name='user_lessons_progress'),
     path('user-progress/<int:lesson_id>/', views.user_lessons_progress_view, name='user_lessons_progress'),
     path('lesson/<int:lesson_id>/', views.lesson_detail_with_sentences, name='lesson-detail'),
-    path('api/audio/', views.get_audio),
+    path('audio/', views.get_audio, name='lesson-audio'),
+    path('change-lesson/', views.change_lesson, name='change-lesson'),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
