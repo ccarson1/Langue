@@ -16,6 +16,7 @@ export default function LessonsScreen({ navigation }) {
     const [targetLanguage, setTargetLanguage] = useState('');
     const [lessons, setLessons] = useState([]);
     const server = config.SERVER_IP;
+    const mediaUrl = `http://${server}/media/`;
 
     const fetchLessons = async () => {
         try {
@@ -63,8 +64,7 @@ export default function LessonsScreen({ navigation }) {
                 const settings = await response.json();
                 setNativeLanguage(settings.native_language);
                 setTargetLanguage(settings.target_language);
-                setNotificationsEnabled(settings.notifications ?? false);
-                setProfilePrivate(settings.privacy ?? false);
+ 
 
             } catch (err) {
                 Alert.alert('Error', 'Failed to load settings: ' + err.message);
@@ -90,11 +90,13 @@ export default function LessonsScreen({ navigation }) {
                     <View key={lesson.id} style={styles.card}>
                         <Text style={styles.title}>{lesson.id}</Text>
                         <Text style={styles.title}>{lesson.title}</Text>
+                        <Text style={styles.title}>{lesson.image}</Text>
                         {/* <Text style={styles.title}>{lesson.title}</Text>
                         {lesson.image && (
                             <Image source={{ uri: lesson.image }} style={styles.image} resizeMode="cover" />
                         )} */}
-                        <Image source='https://media.istockphoto.com/id/1396814518/vector/image-coming-soon-no-photo-no-thumbnail-image-available-vector-illustration.jpg?s=612x612&w=0&k=20&c=hnh2OZgQGhf0b46-J2z7aHbIWwq8HNlSDaNp2wn_iko=' style={styles.image} resizeMode="cover" />
+                        
+                        <Image source={{ uri: 'http://localhost:8000/media/images/lesson-1.avif' }} style={styles.image} resizeMode="cover" />
 
                         <TouchableOpacity
                             style={styles.button}

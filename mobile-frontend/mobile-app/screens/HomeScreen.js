@@ -1,7 +1,7 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
-
-import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Alert, TextInput } from 'react-native';
+import { Platform } from 'react-native';
+import { Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Alert, TextInput } from 'react-native';
 import { Audio } from 'expo-av';
 
 import logo from '../assets/favicon.png';
@@ -21,6 +21,8 @@ import { jwtDecode } from 'jwt-decode';
 import * as Clipboard from 'expo-clipboard';
 import CustomPopup from './components/CustomPopup';
 import config from '../utils/config';
+import * as FileSystem from 'expo-file-system';
+import { Text, useWindowDimensions, View } from 'react-native';
 
 
 import * as SplashScreen from 'expo-splash-screen';
@@ -45,6 +47,7 @@ export default function HomeScreen({ navigation }) {
     const [nativeText, setNativeText] = useState('');
     const [description, setDescription] = useState('This is a description of the definition.');
     const server = config.SERVER_IP;
+    const { width, height } = useWindowDimensions();
 
     const soundRef = useRef(null);
 
@@ -112,6 +115,110 @@ export default function HomeScreen({ navigation }) {
     };
 
 
+    // const playAudio = async () => {
+    //     if (!currentAudio) return;
+    //     setIsPlaying(true);
+
+    //     try {
+    //         // Unload previous sound
+    //         if (soundRef.current) {
+    //             await soundRef.current.unloadAsync();
+    //             soundRef.current = null;
+    //         }
+
+    //         // Fetch audio as blob
+    //         const response = await fetch(`http://${server}:8000/api/audio/`, {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 Authorization: `Bearer ${token}`,
+    //             },
+    //             body: JSON.stringify({
+    //                 lesson_id: currentLesson,
+    //                 current_lesson_index: index,
+    //             }),
+    //         });
+
+    //         const blob = await response.blob();
+    //         const uri = URL.createObjectURL(blob); // only works in web
+
+    //         // If you're on React Native (not web), you must save the blob to a file:
+    //         // Use expo-file-system for that (see further below if needed)
+
+    //         // Load and play the audio
+    //         const { sound } = await Audio.Sound.createAsync(
+    //             { uri },
+    //             { shouldPlay: true }
+    //         );
+    //         soundRef.current = sound;
+
+    //         sound.setOnPlaybackStatusUpdate(status => {
+    //             if (status.didJustFinish) {
+    //                 setIsPlaying(false);
+    //             }
+    //         });
+
+    //     } catch (e) {
+    //         showError('Audio error:', e);
+    //         console.error('Audio error:', e);
+    //     }
+    // };
+
+
+    // const playAudio = async () => {
+    //     if (!currentAudio) return;
+    //     setIsPlaying(true);
+
+    //     try {
+    //         if (soundRef.current) {
+    //             await soundRef.current.unloadAsync();
+    //             soundRef.current = null;
+    //         }
+
+    //         const response = await fetch(`http://${server}:8000/api/audio/`, {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 Authorization: `Bearer ${token}`,
+    //             },
+    //             body: JSON.stringify({
+    //                 lesson_id: currentLesson,
+    //                 current_lesson_index: index,
+    //             }),
+    //         });
+
+    //         const blob = await response.blob();
+
+    //         // Convert blob to base64
+    //         const reader = new FileReader();
+    //         reader.onloadend = async () => {
+    //             const base64Data = reader.result.split(',')[1]; // strip `data:audio/...;base64,`
+
+    //             const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
+
+    //             await FileSystem.writeAsStringAsync(path, base64Data, {
+    //                 encoding: FileSystem.EncodingType.Base64,
+    //             });
+
+    //             const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+    //             soundRef.current = sound;
+
+    //             sound.setOnPlaybackStatusUpdate(status => {
+    //                 if (status.didJustFinish) {
+    //                     setIsPlaying(false);
+    //                 }
+    //             });
+    //         };
+
+    //         reader.readAsDataURL(blob); // This triggers reader.onloadend
+
+    //     } catch (e) {
+    //         showError('Audio error: ' + e.message);
+    //         console.error('Audio error:', e);
+    //         setIsPlaying(false);
+    //     }
+    // };
+
     const playAudio = async () => {
         if (!currentAudio) return;
         setIsPlaying(true);
@@ -124,7 +231,7 @@ export default function HomeScreen({ navigation }) {
             }
 
             // Fetch audio as blob
-            const response = await fetch(`http://localhost:8000/api/audio/`, {
+            const response = await fetch(`http://${server}:8000/api/audio/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -136,24 +243,54 @@ export default function HomeScreen({ navigation }) {
                 }),
             });
 
-            const blob = await response.blob();
-            const uri = URL.createObjectURL(blob); // only works in web
+            if (Platform.OS === 'web') {
+                const blob = await response.blob();
+                const uri = URL.createObjectURL(blob); // only works in web
 
-            // If you're on React Native (not web), you must save the blob to a file:
-            // Use expo-file-system for that (see further below if needed)
+                // If you're on React Native (not web), you must save the blob to a file:
+                // Use expo-file-system for that (see further below if needed)
 
-            // Load and play the audio
-            const { sound } = await Audio.Sound.createAsync(
-                { uri },
-                { shouldPlay: true }
-            );
-            soundRef.current = sound;
+                // Load and play the audio
+                const { sound } = await Audio.Sound.createAsync(
+                    { uri },
+                    { shouldPlay: true }
+                );
+                soundRef.current = sound;
 
-            sound.setOnPlaybackStatusUpdate(status => {
-                if (status.didJustFinish) {
-                    setIsPlaying(false);
-                }
-            });
+                sound.setOnPlaybackStatusUpdate(status => {
+                    if (status.didJustFinish) {
+                        setIsPlaying(false);
+                    }
+                });
+            }
+            else {
+                const blob = await response.blob();
+
+                // Convert blob to base64
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64Data = reader.result.split(',')[1]; // strip `data:audio/...;base64,`
+
+                    const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
+
+                    await FileSystem.writeAsStringAsync(path, base64Data, {
+                        encoding: FileSystem.EncodingType.Base64,
+                    });
+
+                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                    soundRef.current = sound;
+
+                    sound.setOnPlaybackStatusUpdate(status => {
+                        if (status.didJustFinish) {
+                            setIsPlaying(false);
+                        }
+                    });
+                };
+
+                reader.readAsDataURL(blob); // This triggers reader.onloadend
+            }
+
+
 
         } catch (e) {
             showError('Audio error:', e);
@@ -352,15 +489,9 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.container}>
             {/* Top Section */}
             <View style={styles.topSection}>
-                <View style={styles.logoContainer}>
-                    {/* <Image source={logo} style={styles.logo} /> */}
-                </View>
+
                 <Text style={styles.topNavText}>Langue</Text>
-                {user && (
-                    <Text style={{ color: 'white', position: 'absolute', left: 10 }}>
-                        Hello, {user.username}
-                    </Text>
-                )}
+
                 <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerIcon}>
                     <Entypo name="menu" size={40} color="white" />
                 </TouchableOpacity>
@@ -368,7 +499,30 @@ export default function HomeScreen({ navigation }) {
             </View>
 
             {/* Middle Section */}
+            {user && (
+                <View style={{
+                    position: 'absolute',
+                    top: height / 9,
+                    right: 0,
+                    padding: 10, // optional padding
+                }}>
+                    <Text style={{
+                        color: 'white',
+                        fontSize: width * 0.02,
+                    }}>
+                        Hello, {user.username}
+                    </Text>
+                </View>
+            )}
+
             <View style={styles.middleSection}>
+                {/* {user && (
+
+                    <Text style={{ position: 'relative', top: 0, right: 0, color: 'white', fontSize: width * 0.05 }}>
+                        Hello, {user.username}
+                    </Text>
+
+                )} */}
                 <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
 
                 {/* Fixed-height word container */}
@@ -407,7 +561,7 @@ export default function HomeScreen({ navigation }) {
                         onError={showError}
                     />
 
-                    
+
 
                     <StatusIndicator />
                     <Text style={styles.partOfSpeech}>adjective</Text>
@@ -440,15 +594,15 @@ export default function HomeScreen({ navigation }) {
                         /> */}
                         <Text
                             style={styles.defDescription}
-                            
+
                         >{description}</Text>
                     </View>
                     <View style={styles.translateBtn}>
                         <TouchableOpacity
                             onPress={() => {
-                            setDescription(rows[index]?.[2]);
-                        }}
-                            
+                                setDescription(rows[index]?.[2]);
+                            }}
+
                         >
                             <Text style={styles.buttonText}>Translate Sentence</Text>
                         </TouchableOpacity>
@@ -458,7 +612,8 @@ export default function HomeScreen({ navigation }) {
 
             {menuOpen && (
                 <Animated.View style={[styles.sideMenu, { transform: [{ translateX: slideAnim }] }]}>
-                    <Text style={styles.menuHeader}>Menu</Text>
+
+                    <Text style={styles.menuHeader}>Menu {user && <Text style={{ fontSize: 10 }}>{user.username}</Text>}</Text>
                     <View style={styles.separatorSolid} />
                     <TouchableOpacity
                         onPress={() => {

@@ -31,9 +31,10 @@ export default StyleSheet.create({
         color: 'white',
         fontStyle: 'bold',
         fontSize: 22,
-        top: -20,
-        left: 50,
+        top: 50,
+        left: 40,
         fontFamily: 'PlaywriteHU-Regular',
+        height: 50
     },
 
     logoContainer: {
@@ -42,12 +43,7 @@ export default StyleSheet.create({
         top: 60,
     },
 
-    logo: {
-        width: 40,
-        height: 40,
-        resizeMode: 'contain',
-        left: 45,
-    },
+
 
     navContainer: {
         display: 'flex',
@@ -158,7 +154,7 @@ export default StyleSheet.create({
 
     translateBtn: {
         position: 'absolute',
-        top: 350,
+        top: 275,
         right: 20,
         backgroundColor: '#00adb5',
         padding: 8,

@@ -14,12 +14,13 @@ python -m http.server 8080
 
 
 
-#Run Django
-python manage.py runserver
+# Run Django
+# Needs to be run with 0.0.0.0:8000 to be accessible to other devices on the network
+python manage.py runserver 0.0.0.0:8000
 
-#Run frontend React
+# Run frontend React
 npm run dev
 
-#Run Expo
+# Run Expo
 npx expo start
 
