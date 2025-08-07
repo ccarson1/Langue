@@ -244,11 +244,11 @@ export default StyleSheet.create({
     },
 
     defDescription: {
-        flex: 1, // optional, allows to fill available space
-        flexWrap: 'wrap', // enables wrapping for flex containers (not for Text itself)
-        width: '100%', // ensure a max width so it wraps
         fontSize: 16,
         lineHeight: 22,
-        color: '#333', // or whatever color
-    }
+        color: '#333',
+        flexWrap: 'wrap',
+        width: '100%',
+        padding: 8,
+    },
 });

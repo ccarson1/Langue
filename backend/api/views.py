@@ -381,6 +381,8 @@ def user_lessons_progress_view(request):
             "lesson_id": progress.lesson.id if progress.lesson else None,
             "current_lesson_index": progress.current_lesson_index,
             "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
+            "native_lang": lesson.native_language,
+            "target_lang": lesson.target_language
         }
 
         return Response(data)
@@ -393,15 +395,26 @@ def user_lessons_progress_view(request):
                 lesson_id_int = int(lesson_id)
             except ValueError:
                 return Response({"error": "lesson_id must be an integer"}, status=400)
+            
+            try:
+                lesson = Lesson.objects.get(id=lesson_id)
+            except Lesson.DoesNotExist:
+                return Response({"error": "Lesson not found"}, status=404)
 
             try:
                 print(f"Lesson id: {lesson_id_int}")
                 progress = UserLessonsProgress.objects.get(user=user, lesson=lesson_id_int)
                 print(f"Pogress: {progress.current_lesson_index}")
+                native_language = Language.objects.get(lang_name=lesson.native_language)
+                target_language = Language.objects.get(lang_name=lesson.target_language)
+                native_language_id = native_language.id
+                target_language_id = target_language.id
                 data = {
                     "lesson_id": progress.lesson.id if progress.lesson else None,
                     "current_lesson_index": progress.current_lesson_index,
                     "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
+                    "native_lang": native_language_id,
+                    "target_lang": target_language_id
                 }
                 print(data)
                 return Response(data)

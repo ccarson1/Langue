@@ -48,6 +48,8 @@ export default function HomeScreen({ navigation }) {
     const [description, setDescription] = useState('This is a description of the definition.');
     const server = config.SERVER_IP;
     const { width, height } = useWindowDimensions();
+    const [nativeLanguage, setNativeLanguage] = useState('');
+    const [targetLanguage, setTargetLanguage] = useState('');
 
     const soundRef = useRef(null);
 
@@ -311,8 +313,8 @@ export default function HomeScreen({ navigation }) {
                 },
                 body: JSON.stringify({
                     text: word,
-                    native_id: 1,
-                    target_id: 2,
+                    native_id: nativeLanguage,
+                    target_id: targetLanguage,
                 }),
             });
 
@@ -443,6 +445,8 @@ export default function HomeScreen({ navigation }) {
                 if (progressRes.ok) {
                     const progressData = await progressRes.json();
                     console.log('Fetched progress:', progressData);
+                    setNativeLanguage(progressData.native_lang);
+                    setTargetLanguage(progressData.target_lang);
                     setIndex(progressData.current_lesson_index || 0);
                 } else {
                     console.warn('No previous progress found.');
@@ -554,8 +558,8 @@ export default function HomeScreen({ navigation }) {
                         payload={{
                             word: selectedText,
                             definition: translatedText,
-                            nat_id: 1,   // You can adjust as needed
-                            tar_id: 2,   // Adjust this too
+                            nat_id: nativeLanguage,
+                            tar_id: targetLanguage,
                         }}
                         onSuccess={showSuccess}
                         onError={showError}
@@ -600,7 +604,9 @@ export default function HomeScreen({ navigation }) {
                     <View style={styles.translateBtn}>
                         <TouchableOpacity
                             onPress={() => {
-                                setDescription(rows[index]?.[2]);
+                                setDescription(rows[parseInt(index)][2]);
+                                console.log(index)
+                                console.log(rows[index][2])
                             }}
 
                         >
