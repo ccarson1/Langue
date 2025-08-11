@@ -22,6 +22,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.parsers import MultiPartParser, FormParser
 import os
 from django.conf import settings
+from .url_vtt import URL_VTT
 from .vtt import VTT
 from django.utils import timezone
 
@@ -137,12 +138,27 @@ def import_lesson(request):
 
     lesson.save()
     
+    UserLessonsProgress.objects.get_or_create(
+        user=request.user,
+        lesson=lesson,
+        defaults={
+            'current_lesson_index': 0,
+            'last_viewed': timezone.now()
+        }
+    )
+    
     if urlReference:
-        save_lesson_media = VTT(lesson.url, lesson.id, lesson.target_language, lesson.native_language)
+        save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language, lesson.native_language)
         save_lesson_media.process_lesson()
 
         lesson.audio_folder = save_lesson_media.AUDIO_DIR
         lesson.save()
+        
+    if fileUploaded or audioUploaded:
+        save_lesson_media = VTT(lesson_file,audio_file, 1, targetLang, nativeLang)
+        csv_path = save_lesson_media.save_csv(lesson_file)
+        save_lesson_media.save_audio_as_m4a(audio_file)
+        save_lesson_media.split_audio_by_csv_ms(csv_path=csv_path)
 
 
     return Response({

@@ -64,6 +64,8 @@ export default function HomeScreen({ navigation }) {
 
     const updateLessonProgress = async () => {
         if (!token) return;
+        console.log(`Current lesson ${currentLesson} - HomeScreen.js - line 67`)
+        console.log(`Index: ${index} - HomeScreen.js - line 68`)
 
         try {
             const res = await fetch(`http://${server}:8000/api/user-progress/`, {
@@ -80,6 +82,7 @@ export default function HomeScreen({ navigation }) {
 
             if (!res.ok) {
                 const err = await res.text();
+                console.log(err)
                 console.error('Failed to update lesson progress:', err);
                 showError('Failed to update lesson progress');
                 return;
@@ -483,7 +486,7 @@ export default function HomeScreen({ navigation }) {
 
             setRows(parsed);
             setCurrentAudio(parsed[0]?.[0] || '');
-            console.log(parsed);
+            //console.log(parsed);
         } catch (err) {
             console.error('Fetch error:', err);
         }
