@@ -1,5 +1,4 @@
 import os
-import yt_dlp
 from pydub import AudioSegment
 
 import webvtt
@@ -22,7 +21,6 @@ class VTT():
         self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.m4a")
         self.lesson_file = lesson_file
         self.audio_file = audio_file
-        
         print(type(lesson_file))
         print(type(audio_file))
         
@@ -81,10 +79,28 @@ class VTT():
                 native = sanitize_filename_component(row.get('native', ''))
                 target = sanitize_filename_component(row.get('target', ''))
 
+                if native == '' or None:
+                    native = translate_word(target)
+
                 filename = f"segment_{i+1:03d}_{native}_{target}.wav"
                 filepath = os.path.join(output_dir, filename)
                 segment.export(filepath, format="wav")
                 print(f"Exported {filename} from {start_ms}ms to {end_ms}ms")
+
+                lesson = Lesson.objects.get(id=self.lesson_id)
+                native_id = Language.objects.get(lang_name=self.lesson_language)
+                target_id = Language.objects.get(lang_name=self.translate_language)
+
+                sentence = Sentence.objects.create(
+                    audio_file=filename,
+                    sentence=target,
+                    translated_sentence=native,
+                    lesson_language=native_id,
+                    translate_language=target_id,
+                    lesson=lesson
+                )
+                
+                sentence.save()
                 
     def save_csv(self, uploaded_file):
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)

@@ -127,11 +127,7 @@ def import_lesson(request):
     
     
 
-    if fileUploaded and lesson_file:
-        lesson.doc_file = lesson_file
-
-    if audioUploaded and audio_file:
-        lesson.audio_file = audio_file
+    
         
     if urlReference:
         print(f"Processing the video url: {url}")
@@ -155,10 +151,18 @@ def import_lesson(request):
         lesson.save()
         
     if fileUploaded or audioUploaded:
-        save_lesson_media = VTT(lesson_file,audio_file, 1, targetLang, nativeLang)
+        save_lesson_media = VTT(lesson_file,audio_file, lesson.id, targetLang, nativeLang)
         csv_path = save_lesson_media.save_csv(lesson_file)
         save_lesson_media.save_audio_as_m4a(audio_file)
         save_lesson_media.split_audio_by_csv_ms(csv_path=csv_path)
+
+        if fileUploaded and lesson_file:
+            lesson.doc_file = lesson_file
+
+        if audioUploaded and audio_file:
+            lesson.audio_file = audio_file
+
+        lesson.save()
 
 
     return Response({
