@@ -24,7 +24,7 @@ export default function ImportLessonScreen({ navigation }) {
   const [url, setUrl] = useState('');
   const [lessonFile, setLessonFile] = useState(null);
   const [audioFile, setAudioFile] = useState(null);
-
+  const [imageFile, setImageFile] = useState(null)
   const [lessonPrivate, setLessonPrivate] = useState(false);
   const [audioUploaded, setAudioUploaded] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
@@ -111,6 +111,27 @@ export default function ImportLessonScreen({ navigation }) {
       showError(`File pick error: ${error}`)
       console.error("File pick error:", error);
       setLessonFile(null);
+    }
+    setLoading(false);
+  };
+
+  const handleImagePick = async () => {
+    setLoading(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      console.log("Image upload pressed:", result);
+
+      if (result && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        console.log("Selected image:", file);
+        setImageFile(file);
+      } else {
+        setImageFile(null);
+      }
+    } catch (error) {
+      showError(`File pick error: ${error}`)
+      console.error("File pick error:", error);
+      setImageFile(null);
     }
     setLoading(false);
   };
@@ -205,6 +226,7 @@ export default function ImportLessonScreen({ navigation }) {
 
       await appendFileToFormData(formData, 'file', lessonFile);
       await appendFileToFormData(formData, 'audio', audioFile);
+      await appendFileToFormData(formData, 'image', imageFile);
 
       formData.append('url', url || '');
       formData.append('nativeLanguage', nativeLanguage);
@@ -213,6 +235,7 @@ export default function ImportLessonScreen({ navigation }) {
       formData.append('audioUploaded', audioUploaded);
       formData.append('fileUploaded', fileUploaded);
       formData.append('urlReference', urlReference);
+      formData.append('imageReference', imageReference);
       formData.append('title', title);
 
       const response = await fetch(apiUrl, {
@@ -276,10 +299,10 @@ export default function ImportLessonScreen({ navigation }) {
 
         {imageReference && (
           <View>
-            <Text style={styles.label}>Lesson File</Text>
-            <TouchableOpacity style={styles.button} onPress={handleFilePick}>
+            <Text style={styles.label}>Lesson Image</Text>
+            <TouchableOpacity style={styles.button} onPress={handleImagePick}>
               <Text style={styles.buttonText}>
-                {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
+                {imageFile ? `Selected: ${imageFile.name}` : 'Choose File'}
               </Text>
             </TouchableOpacity>
           </View>

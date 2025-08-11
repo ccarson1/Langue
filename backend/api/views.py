@@ -110,9 +110,14 @@ def import_lesson(request):
     lessonPrivate = request.data.get('lessonPrivate', 'false').lower() in ['true', '1', 'yes']
     fileUploaded = request.data.get('fileUploaded', 'false').lower() in ['true', '1', 'yes']
     urlReference = request.data.get('urlReference', 'false').lower() in ['true', '1', 'yes']
+    imageReference = request.data.get('imageReference', 'false').lower() in ['true', '1', 'yes']
 
     lesson_file = request.FILES.get('file')
     audio_file = request.FILES.get('audio')
+    image_file = request.FILES.get('image')
+
+    print(f"Uploaded image: {image_file}")
+    print(f"Image type: {type(image_file)}")
 
     # Create and save Lesson object
     lesson = Lesson(
@@ -156,11 +161,15 @@ def import_lesson(request):
         save_lesson_media.save_audio_as_m4a(audio_file)
         save_lesson_media.split_audio_by_csv_ms(csv_path=csv_path)
 
-        if fileUploaded and lesson_file:
-            lesson.doc_file = lesson_file
+        # if fileUploaded and lesson_file:
+        #     lesson.doc_file = lesson_file
 
         if audioUploaded and audio_file:
-            lesson.audio_file = audio_file
+            #lesson.audio_file = audio_file
+            lesson.audio_folder = save_lesson_media.AUDIO_DIR
+
+        if imageReference and image_file:
+            lesson.image = save_lesson_media.OUTPUT_DIR + "\\" + title
 
         lesson.save()
 

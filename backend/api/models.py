@@ -89,7 +89,7 @@ class Lesson(models.Model):
     doc_file = models.FileField( null=True, blank=True)
     audio_file = models.FileField(null=True, blank=True)
     audio_folder = models.CharField(max_length=500, blank=True, null=True)
-    image = models.ImageField(upload_to='images/', null=True, blank=True, default='images/default-01.jpg')
+    image = models.ImageField(null=True, blank=True, default='images/default-01.jpg')
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
     title = models.CharField(max_length=100, blank=True, null=True)
     url = models.URLField(max_length=1000, blank=True, null=True)

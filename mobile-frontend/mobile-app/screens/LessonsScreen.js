@@ -95,8 +95,12 @@ export default function LessonsScreen({ navigation }) {
                         {lesson.image && (
                             <Image source={{ uri: lesson.image }} style={styles.image} resizeMode="cover" />
                         )} */}
+                        <Text style={styles.title}>{lesson.image}</Text>
+                        {lesson.image && (
+                            <Image source={{ uri: lesson.image }} style={styles.image} resizeMode="cover" />
+                        )}
                         
-                        <Image source={{ uri: 'http://localhost:8000/media/images/lesson-1.avif' }} style={styles.image} resizeMode="cover" />
+                        {/* <Image source={{ uri: 'http://localhost:8000/media/images/lesson-1.avif' }} style={styles.image} resizeMode="cover" /> */}
 
                         <TouchableOpacity
                             style={styles.button}
