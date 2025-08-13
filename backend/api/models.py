@@ -17,6 +17,7 @@ def image_file_upload_path(instance, filename):
 class Language(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     lang_name = models.CharField(max_length=25, unique=True)
+    yt_dlp_lang = models.CharField(max_length=25, default="")
 
     class Meta:
         db_table = 'Languages'
@@ -94,8 +95,8 @@ class Lesson(models.Model):
     title = models.CharField(max_length=100, blank=True, null=True)
     url = models.URLField(max_length=1000, blank=True, null=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    native_language = models.CharField(max_length=50)
-    target_language = models.CharField(max_length=50)
+    native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='lesson_native')
+    target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='lesson_target')
     lesson_private = models.BooleanField(default=False)
     audioUploaded = models.BooleanField(default=False)
     fileUploaded = models.BooleanField(default=False)

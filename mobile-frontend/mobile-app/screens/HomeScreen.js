@@ -120,110 +120,6 @@ export default function HomeScreen({ navigation }) {
     };
 
 
-    // const playAudio = async () => {
-    //     if (!currentAudio) return;
-    //     setIsPlaying(true);
-
-    //     try {
-    //         // Unload previous sound
-    //         if (soundRef.current) {
-    //             await soundRef.current.unloadAsync();
-    //             soundRef.current = null;
-    //         }
-
-    //         // Fetch audio as blob
-    //         const response = await fetch(`http://${server}:8000/api/audio/`, {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Content-Type': 'application/json',
-    //                 Authorization: `Bearer ${token}`,
-    //             },
-    //             body: JSON.stringify({
-    //                 lesson_id: currentLesson,
-    //                 current_lesson_index: index,
-    //             }),
-    //         });
-
-    //         const blob = await response.blob();
-    //         const uri = URL.createObjectURL(blob); // only works in web
-
-    //         // If you're on React Native (not web), you must save the blob to a file:
-    //         // Use expo-file-system for that (see further below if needed)
-
-    //         // Load and play the audio
-    //         const { sound } = await Audio.Sound.createAsync(
-    //             { uri },
-    //             { shouldPlay: true }
-    //         );
-    //         soundRef.current = sound;
-
-    //         sound.setOnPlaybackStatusUpdate(status => {
-    //             if (status.didJustFinish) {
-    //                 setIsPlaying(false);
-    //             }
-    //         });
-
-    //     } catch (e) {
-    //         showError('Audio error:', e);
-    //         console.error('Audio error:', e);
-    //     }
-    // };
-
-
-    // const playAudio = async () => {
-    //     if (!currentAudio) return;
-    //     setIsPlaying(true);
-
-    //     try {
-    //         if (soundRef.current) {
-    //             await soundRef.current.unloadAsync();
-    //             soundRef.current = null;
-    //         }
-
-    //         const response = await fetch(`http://${server}:8000/api/audio/`, {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Content-Type': 'application/json',
-    //                 Authorization: `Bearer ${token}`,
-    //             },
-    //             body: JSON.stringify({
-    //                 lesson_id: currentLesson,
-    //                 current_lesson_index: index,
-    //             }),
-    //         });
-
-    //         const blob = await response.blob();
-
-    //         // Convert blob to base64
-    //         const reader = new FileReader();
-    //         reader.onloadend = async () => {
-    //             const base64Data = reader.result.split(',')[1]; // strip `data:audio/...;base64,`
-
-    //             const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
-
-    //             await FileSystem.writeAsStringAsync(path, base64Data, {
-    //                 encoding: FileSystem.EncodingType.Base64,
-    //             });
-
-    //             const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
-    //             soundRef.current = sound;
-
-    //             sound.setOnPlaybackStatusUpdate(status => {
-    //                 if (status.didJustFinish) {
-    //                     setIsPlaying(false);
-    //                 }
-    //             });
-    //         };
-
-    //         reader.readAsDataURL(blob); // This triggers reader.onloadend
-
-    //     } catch (e) {
-    //         showError('Audio error: ' + e.message);
-    //         console.error('Audio error:', e);
-    //         setIsPlaying(false);
-    //     }
-    // };
-
     const playAudio = async () => {
         if (!currentAudio) return;
         setIsPlaying(true);
@@ -245,6 +141,7 @@ export default function HomeScreen({ navigation }) {
                 body: JSON.stringify({
                     lesson_id: currentLesson,
                     current_lesson_index: index,
+                    full_audio: false,
                 }),
             });
 
@@ -639,6 +536,14 @@ export default function HomeScreen({ navigation }) {
                         }}
                     >
                         <Text style={styles.navText}>Lessons</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => {
+                            navigation.navigate('Listening');
+                            setMenuOpen(false);
+                        }}
+                    >
+                        <Text style={styles.navText}>Listening</Text>
                     </TouchableOpacity>
                     {user ? (
                         <TouchableOpacity

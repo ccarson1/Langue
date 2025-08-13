@@ -5,8 +5,43 @@ from django.db import migrations
 def populate_languages(apps, schema_editor):
     Language = apps.get_model('api', 'Language')
     language_list = ['English', 'Spanish', 'French', 'German', 'Lithuanian']
-    for lang in language_list:
-        Language.objects.get_or_create(lang_name=lang)
+    yt_dlp_languages = [
+    "en",    # English
+    "es",    # Spanish
+    "fr",    # French
+    "de",    # German
+    "lt",    # Lithuanian
+    "it",    # Italian
+    "pt",    # Portuguese
+    "ru",    # Russian
+    "zh-Hans",  # Chinese Simplified
+    "zh-Hant",  # Chinese Traditional
+    "ja",    # Japanese
+    "ko",    # Korean
+    "ar",    # Arabic
+    "hi",    # Hindi
+    "bn",    # Bengali
+    "pa",    # Punjabi
+    "mr",    # Marathi
+    "te",    # Telugu
+    "ta",    # Tamil
+    "tr",    # Turkish
+    "vi",    # Vietnamese
+    "pl",    # Polish
+    "uk",    # Ukrainian
+    "nl",    # Dutch
+    "sv",    # Swedish
+    "no",    # Norwegian
+    "fi",    # Finnish
+    "cs",    # Czech
+    "el",    # Greek
+    "he",    # Hebrew
+    "id",    # Indonesian
+    "ms",    # Malay
+    "th",    # Thai
+]
+    for index, lang in enumerate(language_list):
+        Language.objects.get_or_create(lang_name=lang, yt_dlp_lang=yt_dlp_languages[index])
 
 
 class Migration(migrations.Migration):

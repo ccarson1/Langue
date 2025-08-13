@@ -5,6 +5,7 @@ import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import LessonsScreen from './screens/LessonsScreen';
+import ListeningScreen from './screens/ListeningScreen';
 import ImportScreen from './screens/ImportScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import AccountScreen from './screens/AccountScreen';
@@ -22,6 +23,7 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="Lessons" component={LessonsScreen} />
+          <Stack.Screen name="Listening" component={ListeningScreen} />
           <Stack.Screen name="Import" component={ImportScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="Account" component={AccountScreen}/>

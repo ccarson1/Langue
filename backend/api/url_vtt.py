@@ -29,6 +29,15 @@ class URL_VTT():
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
         os.makedirs(self.AUDIO_DIR, exist_ok=True)
 
+        self.lesson = Lesson.objects.get(id=self.lesson_id)
+        self.native_id = Language.objects.get(id=self.lesson_language)
+        self.target_id = Language.objects.get(id=self.translate_language)
+
+        self.yt_dlp_lang = self.native_id.yt_dlp_lang
+
+        print(f"Lesson language: {self.yt_dlp_lang}")
+
+
     def download_audio_and_captions(self, url, audio_path="audio.m4a", subtitle_path="captions.vtt"):
         ydl_opts = {
             "format": "bestaudio/best",
@@ -38,7 +47,7 @@ class URL_VTT():
             "quiet": True,
             "writesubtitles": True,
             "writeautomaticsub": True,
-            "subtitleslangs": ["lt"],
+            "subtitleslangs": [self.yt_dlp_lang],
             "subtitlesformat": "vtt",
             "skip_download": False,
             "paths": {
@@ -78,9 +87,7 @@ class URL_VTT():
         audio = AudioSegment.from_file(audio_path)
         metadata = []
         
-        lesson = Lesson.objects.get(id=self.lesson_id)
-        native_id = Language.objects.get(lang_name=self.lesson_language)
-        target_id = Language.objects.get(lang_name=self.translate_language)
+        
 
         
         for idx, seg in enumerate(segments):
@@ -110,9 +117,9 @@ class URL_VTT():
                 audio_file=filename,
                 sentence=text,
                 translated_sentence=translated_text,
-                lesson_language=native_id,
-                translate_language=target_id,
-                lesson=lesson
+                lesson_language=self.native_id,
+                translate_language=self.target_id,
+                lesson=self.lesson
             )
             
             sentence.save()

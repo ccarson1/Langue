@@ -24,3 +24,20 @@ npm run dev
 # Run Expo
 npx expo start
 
+# To sync all branches and tags:
+git fetch --all
+
+# To update your local branch with remote changes and rebase your changes on top (safer in teams):
+git pull --rebase origin main
+
+# Or, if you prefer merging:
+git pull origin main
+
+
+# IF 
+# error: cannot pull with rebase: You have unstaged changes.
+# error: Please commit or stash them.
+
+git reset --hard
+git pull --rebase origin main
+

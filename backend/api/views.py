@@ -104,8 +104,8 @@ def import_lesson(request):
 
     url = request.data.get('url')
     title = request.data.get('title')
-    nativeLang = request.data.get('nativeLanguage')
-    targetLang = request.data.get('targetLanguage')
+    nativeLangName = request.data.get('nativeLanguage')
+    targetLangName = request.data.get('targetLanguage')
     audioUploaded = request.data.get('audioUploaded')
     lessonPrivate = request.data.get('lessonPrivate', 'false').lower() in ['true', '1', 'yes']
     fileUploaded = request.data.get('fileUploaded', 'false').lower() in ['true', '1', 'yes']
@@ -118,6 +118,9 @@ def import_lesson(request):
 
     print(f"Uploaded image: {image_file}")
     print(f"Image type: {type(image_file)}")
+
+    nativeLang = get_object_or_404(Language, lang_name=nativeLangName)
+    targetLang = get_object_or_404(Language, lang_name=targetLangName)
 
     # Create and save Lesson object
     lesson = Lesson(
@@ -149,13 +152,13 @@ def import_lesson(request):
     )
     
     if urlReference:
-        save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language, lesson.native_language)
+        save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language.id, lesson.native_language.id)
         save_lesson_media.process_lesson()
 
         lesson.audio_folder = save_lesson_media.AUDIO_DIR
         lesson.save()
         
-    if fileUploaded or audioUploaded:
+    if fileUploaded and audioUploaded:
         save_lesson_media = VTT(lesson_file,audio_file, lesson.id, targetLang, nativeLang)
         csv_path = save_lesson_media.save_csv(lesson_file)
         save_lesson_media.save_audio_as_m4a(audio_file)
@@ -178,16 +181,20 @@ def import_lesson(request):
         'message': 'Lesson uploaded successfully.',
         'lessonId': lesson.id,
         'url': lesson.url,
-        'nativeLang': lesson.native_language,
-        'targetLang': lesson.target_language,
+        'nativeLang': lesson.native_language.id,
+        'targetLang': lesson.target_language.id,
         'hasDoc': bool(lesson.doc_file),
         'hasAudio': bool(lesson.audio_file)
     })
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_lessons(request):
-    lessons = Lesson.objects.all()
+    user = request.user
+    settings = UserSetting.objects.get(user=user)
+    print(f"This lessons target language is : {settings.target_language.id}")
+    target_lang_id = settings.target_language.id
+    lessons = Lesson.objects.filter(target_language_id=target_lang_id, user=user)
     serializer = LessonSerializer(lessons, many=True)
     return Response(serializer.data)
 
@@ -406,12 +413,15 @@ def user_lessons_progress_view(request):
             # Optional: handle missing profile case (e.g., create or ignore)
             pass
 
+        native_lang_data = LanguageSerializer(lesson.native_language).data
+        target_lang_data = LanguageSerializer(lesson.target_language).data
+
         data = {
             "lesson_id": progress.lesson.id if progress.lesson else None,
             "current_lesson_index": progress.current_lesson_index,
             "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
-            "native_lang": lesson.native_language,
-            "target_lang": lesson.target_language
+            "native_lang": native_lang_data,
+            "target_lang": target_lang_data
         }
 
         return Response(data)
@@ -434,10 +444,10 @@ def user_lessons_progress_view(request):
                 print(f"Lesson id: {lesson_id_int}")
                 progress = UserLessonsProgress.objects.get(user=user, lesson=lesson_id_int)
                 print(f"Pogress: {progress.current_lesson_index}")
-                native_language = Language.objects.get(lang_name=lesson.native_language)
-                target_language = Language.objects.get(lang_name=lesson.target_language)
-                native_language_id = native_language.id
-                target_language_id = target_language.id
+                native_language_data = LanguageSerializer(lesson.native_language).data
+                target_language_data = LanguageSerializer(lesson.target_language).data
+                native_language_id = native_language_data
+                target_language_id = target_language_data
                 data = {
                     "lesson_id": progress.lesson.id if progress.lesson else None,
                     "current_lesson_index": progress.current_lesson_index,
@@ -458,13 +468,18 @@ def lesson_detail_with_sentences(request, lesson_id):
         lesson = Lesson.objects.get(id=lesson_id)
         sentences = Sentence.objects.filter(lesson_id=lesson)
 
+        native_language_data = LanguageSerializer(lesson.native_language).data
+        target_language_data = LanguageSerializer(lesson.target_language).data
+        native_language_id = native_language_data
+        target_language_id = target_language_data
+
         lesson_data = {
             "id": lesson.id,
             "title": lesson.title,
             "doc_file": lesson.doc_file.url if lesson.doc_file else None,
             "audio_file": lesson.audio_file.url if lesson.audio_file else None,
-            "native_language": lesson.native_language,
-            "target_language": lesson.target_language,
+            "native_language": native_language_id,
+            "target_language": target_language_id,
             "sentences": [
                 {
                     "id": s.id,
@@ -484,40 +499,76 @@ def lesson_detail_with_sentences(request, lesson_id):
 @csrf_exempt  # ✅ Must be OUTERMOST
 @api_view(['POST'])
 def get_audio(request):
-    if request.method == 'POST':
+
+    lesson_id = request.data.get('lesson_id')
+    current_lesson_index = int(request.data.get('current_lesson_index', 0))
+    full_audio = request.data.get('full_audio')
+    print(full_audio)
+    
+    
+
+    if full_audio:
         try:
-            lesson_id = request.data.get('lesson_id')
-            current_lesson_index = int(request.data.get('current_lesson_index'))
+            lesson = Lesson.objects.get(id=lesson_id)
+            print(f"A single audio file has been requested for {lesson_id}")
+            print(lesson.audio_file)
+
+            if not lesson.audio_file:
+                return Response({'error': 'Audio file not set for this lesson'}, status=404)
+
+            # Return the file directly
+            return FileResponse(
+                open(lesson.audio_file.path, 'rb'),
+                content_type='audio/m4a'
+            )
+
+        except Lesson.DoesNotExist:
+            return Response({'error': 'Lesson not found'}, status=404)
+        except ValueError:
+            return Response({'error': 'Invalid index format'}, status=400)
+        except Exception as e:
+            print("Audio error:", str(e))
+            return Response({'error': 'Server error while fetching audio'}, status=500)
+
+    else:
+
+        try:
+            
 
             lesson = Lesson.objects.get(id=lesson_id)
-            #audio_folder = lesson.audio_folder
-            audio_folder = os.path.join("api/", lesson.audio_folder)
+            if not lesson.audio_folder:
+                return Response({'error': 'Audio folder not set for this lesson'}, status=404)
+
+            # Construct absolute path
+            audio_folder = os.path.join(settings.BASE_DIR, 'api', lesson.audio_folder)
             print(f"Audio folder: {audio_folder}")
 
-            # List all .wav files sorted by name
-            if os.path.exists(audio_folder):
-                wav_files = sorted([f for f in os.listdir(audio_folder) if f.endswith('.wav')])
-                print(wav_files)
-            else:
-                print("Audio folder does not exist:", audio_folder)
+            if not os.path.exists(audio_folder):
+                return Response({'error': 'Audio folder does not exist'}, status=404)
+
+            # List all .wav files
+            wav_files = sorted([f for f in os.listdir(audio_folder) if f.endswith('.wav')])
+            print("WAV files:", wav_files)
+
+            if not wav_files:
+                return Response({'error': 'No audio files found'}, status=404)
 
             if current_lesson_index < 0 or current_lesson_index >= len(wav_files):
                 return Response({'error': 'Invalid audio index'}, status=400)
 
-            # Get the file path
             audio_path = os.path.join(audio_folder, wav_files[current_lesson_index])
-            audio_path = audio_path.replace("\\", "/")
-            print(audio_path)
-            
-            # Return the audio file as a file response
+            if not os.path.isfile(audio_path):
+                return Response({'error': 'Audio file not found'}, status=404)
+
             return FileResponse(open(audio_path, 'rb'), content_type='audio/wav')
 
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=404)
+        except ValueError:
+            return Response({'error': 'Invalid index format'}, status=400)
         except Exception as e:
-            return Response({'error': str(e)}, status=500)
-
-    return Response({'error': 'Invalid request method'}, status=405)
+            print("Audio error:", str(e))
+            return Response({'error': 'Server error while fetching audio'}, status=500)
 
 @csrf_exempt  # ✅ Must be OUTERMOST
 @api_view(['POST'])

@@ -20,7 +20,13 @@ export default function LessonsScreen({ navigation }) {
 
     const fetchLessons = async () => {
         try {
-            const res = await fetch(`http://${server}:8000/api/lessons/`);
+            const token = await AsyncStorage.getItem('accessToken'); // or wherever you store it
+            const res = await fetch(`http://${server}:8000/api/lessons/`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
             const data = await res.json();
             setLessons(data);
         } catch (err) {
@@ -64,7 +70,7 @@ export default function LessonsScreen({ navigation }) {
                 const settings = await response.json();
                 setNativeLanguage(settings.native_language);
                 setTargetLanguage(settings.target_language);
- 
+
 
             } catch (err) {
                 Alert.alert('Error', 'Failed to load settings: ' + err.message);
@@ -99,7 +105,7 @@ export default function LessonsScreen({ navigation }) {
                         {lesson.image && (
                             <Image source={{ uri: lesson.image }} style={styles.image} resizeMode="cover" />
                         )}
-                        
+
                         {/* <Image source={{ uri: 'http://localhost:8000/media/images/lesson-1.avif' }} style={styles.image} resizeMode="cover" /> */}
 
                         <TouchableOpacity

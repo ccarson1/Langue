@@ -90,7 +90,7 @@ class UserLessonsProgressSerializer(serializers.ModelSerializer):
 class LanguageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Language
-        fields = ['id', 'lang_name']
+        fields = ['id', 'lang_name', 'yt_dlp_lang']
 
 class LessonSerializer(serializers.ModelSerializer):
     class Meta:
