@@ -66,8 +66,8 @@ def api_signup(request):
 @api_view(['POST'])
 def translate(request):
     text = request.data.get('text', '').strip().lower()
-    nat_id = request.data.get('native_id')
-    tar_id = request.data.get('target_id')
+    nat_id = request.data.get('native_id', {}).get('id') 
+    tar_id = request.data.get('target_id', {}).get('id')
 
     print(f"Text: {text}")
     print(f"Native: {nat_id}")
@@ -210,8 +210,9 @@ def save_word(request):
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
     
     word_text = request.data['word'].strip()
-    nat_id = request.data['nat_id']
-    tar_id = request.data['tar_id']
+
+    nat_id = request.data.get('nat_id', {}).get('id') 
+    tar_id = request.data.get('tar_id', {}).get('id')
     user_id = user.id
     definition = request.data['definition'].strip()
 

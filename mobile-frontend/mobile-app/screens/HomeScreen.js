@@ -521,14 +521,18 @@ export default function HomeScreen({ navigation }) {
 
                     <Text style={styles.menuHeader}>Menu {user && <Text style={{ fontSize: 10 }}>{user.username}</Text>}</Text>
                     <View style={styles.separatorSolid} />
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Import');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Import</Text>
-                    </TouchableOpacity>
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Import');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Import</Text>
+                        </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity
                         onPress={() => {
                             navigation.navigate('Lessons');
@@ -537,14 +541,18 @@ export default function HomeScreen({ navigation }) {
                     >
                         <Text style={styles.navText}>Lessons</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Listening');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Listening</Text>
-                    </TouchableOpacity>
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Listening');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Listening</Text>
+                        </TouchableOpacity>
+                    )}
+
                     {user ? (
                         <TouchableOpacity
                             onPress={() => {
@@ -576,15 +584,17 @@ export default function HomeScreen({ navigation }) {
                         </TouchableOpacity>
                     )}
 
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Settings');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Settings</Text>
+                        </TouchableOpacity>
+                    )}
 
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Settings');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Settings</Text>
-                    </TouchableOpacity>
 
 
 

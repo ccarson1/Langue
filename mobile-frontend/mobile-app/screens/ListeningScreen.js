@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
+import { FontAwesome } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, ScrollView, Alert, useWindowDimensions, Platform } from 'react-native';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from "./styles/ListeningStyles"
@@ -9,6 +10,8 @@ import config from '../utils/config';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import CustomPopup from './components/CustomPopup';
 import AudioVisualizer from './components/AudioVisualizer';
+import AudioProgressBar from './components/AudioProgressBar';
+import ScrollingText from './components/ScrollingText';
 import * as FileSystem from 'expo-file-system';
 
 
@@ -26,6 +29,7 @@ export default function LessonsScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const soundRef = useRef(null);
+    const soundRefs = useRef({});
     const server = config.SERVER_IP;
     const mediaUrl = `http://${server}/media/`;
 
@@ -106,84 +110,107 @@ export default function LessonsScreen({ navigation }) {
         setIsPlaying(true);
 
         try {
-            // Unload previous sound
-            if (soundRef.current) {
-                await soundRef.current.unloadAsync();
-                soundRef.current = null;
+            // Pause all other lessons
+            for (const [id, sound] of Object.entries(soundRefs.current)) {
+                if (id !== lessonID.toString()) {
+                    if (Platform.OS === 'web') sound.audioElement?.pause();
+                    else await sound.pauseAsync();
+                }
             }
 
-            // Fetch audio as blob
-            const response = await fetch(`http://${server}:8000/api/audio/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    lesson_id: lessonID,
-                    full_audio: true,
-                }),
-            });
-
-            if (Platform.OS === 'web') {
-                const blob = await response.blob();
-                const uri = URL.createObjectURL(blob); // only works in web
-
-                // If you're on React Native (not web), you must save the blob to a file:
-                // Use expo-file-system for that (see further below if needed)
-
-                // Load and play the audio
-                const { sound } = await Audio.Sound.createAsync(
-                    { uri },
-                    { shouldPlay: true }
-                );
-                soundRef.current = sound;
-
-                sound.setOnPlaybackStatusUpdate(status => {
-                    if (status.didJustFinish) {
-                        setIsPlaying(false);
-                    }
-                });
-            }
-            else {
-                const blob = await response.blob();
-
-                // Convert blob to base64
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    const base64Data = reader.result.split(',')[1]; // strip `data:audio/...;base64,`
-
-                    const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
-
-                    await FileSystem.writeAsStringAsync(path, base64Data, {
-                        encoding: FileSystem.EncodingType.Base64,
+            // MOBILE
+            if (Platform.OS !== 'web') {
+                if (!soundRefs.current[lessonID]) {
+                    // fetch audio and create sound (same as before)
+                    console.log(lessonID);
+                    const response = await fetch(`http://${server}:8000/api/audio/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
                     });
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        const base64Data = reader.result.split(',')[1];
+                        const path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
 
-                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
-                    soundRef.current = sound;
+                        await FileSystem.writeAsStringAsync(path, base64Data, {
+                            encoding: FileSystem.EncodingType.Base64,
+                        });
 
-                    sound.setOnPlaybackStatusUpdate(status => {
-                        if (status.didJustFinish) {
-                            setIsPlaying(false);
-                        }
+                        const { sound } = await Audio.Sound.createAsync(
+                            { uri: path },
+                            { shouldPlay: true }
+                        );
+                        soundRefs.current[lessonID] = sound;
+
+                        sound.setOnPlaybackStatusUpdate(status => {
+                            if (status.didJustFinish) setIsPlaying(false);
+                        });
+                    };
+                    reader.readAsDataURL(blob);
+                } else {
+                    await soundRefs.current[lessonID].playAsync(); // resume existing
+                }
+            } else {
+                // WEB
+                console.log(lessonID);
+                if (!soundRefs.current[lessonID]) {
+                    const response = await fetch(`http://${server}:8000/api/audio/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
                     });
-                };
+                    const blob = await response.blob();
+                    const uri = URL.createObjectURL(blob);
+                    const audioElement = new window.Audio(uri);
+                    audioElement.crossOrigin = 'anonymous';
+                    await audioElement.play();
 
-                reader.readAsDataURL(blob); // This triggers reader.onloadend
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const src = audioCtx.createMediaElementSource(audioElement);
+                    const analyser = audioCtx.createAnalyser();
+                    src.connect(analyser);
+                    analyser.connect(audioCtx.destination);
+                    analyser.fftSize = 64;
+
+                    soundRefs.current[lessonID] = { audioElement, analyser };
+
+                    audioElement.onended = () => setIsPlaying(false);
+                } else {
+                    await soundRefs.current[lessonID].audioElement.play();
+                }
             }
-
-
-
         } catch (e) {
-            showError('Audio error:', e);
             console.error('Audio error:', e);
         }
     };
 
-    const playLesson = async (lessonID) => {
-        setCurrentLesson(lessonID)
-        alert(`Currently playing lesson ${currentLesson}`);
-    }
+    const pauseAudio = async () => {
+        setIsPlaying(false);
+        try {
+            if (!currentLesson || !soundRefs.current[currentLesson]) return;
+
+            const sound = soundRefs.current[currentLesson];
+
+            if (Platform.OS === 'web') {
+                sound.audioElement?.pause();
+            } else {
+                await sound.pauseAsync();
+            }
+        } catch (e) {
+            console.error('Pause error:', e);
+        }
+    };
+
+
+
 
     const [frequencies, setFrequencies] = useState(Array(20).fill(0));
 
@@ -195,22 +222,33 @@ export default function LessonsScreen({ navigation }) {
 
             <ScrollView contentContainerStyle={styles.gridWrapper}>
                 {lessons.map((lesson) => (
-                    <TouchableOpacity onPress={() => playAudio(lesson.id)}>
-                        <View key={lesson.id} style={styles.card}>
-                            <Text style={styles.title}>{lesson.id}</Text>
-                            <Text style={styles.title}>{lesson.title}</Text>
-                            <Text style={styles.title}>{lesson.image}</Text>
+                    <View key={lesson.id} style={styles.card}>
+                        <View style={styles.topCard}>
+                            <ScrollingText
+                                text={lesson.title}
+                                isPlaying={currentLesson === lesson.id && isPlaying}
+                                width={200}
+                                speed={40}
+                            />
+
                             <AudioVisualizer
-                                frequencies={frequencies}
+                                soundRef={{ current: soundRefs.current[lesson.id] }} // wrap in {current: ...} so visualizer works
+                                isPlaying={currentLesson === lesson.id && isPlaying}
+                                onPlay={() => playAudio(lesson.id)}
+                                onPause={pauseAudio}
                                 width={120}
                                 height={40}
                             />
+                        </View>
+                        <View style={styles.bottomCard}>
+                            <AudioProgressBar
+                                soundRef={{ current: soundRefs.current[lesson.id] }}
+                                isPlaying={currentLesson === lesson.id && isPlaying}
+                            />
 
-                            <MaterialIcons name="audiotrack" size={24} color="white" />
                         </View>
 
-                    </TouchableOpacity>
-
+                    </View>
                 ))}
             </ScrollView>
         </View>

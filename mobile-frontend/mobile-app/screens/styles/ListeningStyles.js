@@ -20,21 +20,28 @@ export default StyleSheet.create({
         padding: 10,
         margin: 5,
         width: "auto",
-        flexDirection: 'row',
+        
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.5,
         shadowRadius: 10,
         elevation: 5,
+
+    },
+    topCard: {
+        flexDirection: 'row',
+        width: "90%",
         justifyContent: 'space-between',
+        alignItems: 'center',
     },
     title: {
         color: '#eeeeee',
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 12,
-        marginRight: 15
+        marginRight: 5,
+        
     },
     image: {
         width: '100%',
