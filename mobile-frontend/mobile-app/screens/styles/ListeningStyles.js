@@ -16,6 +16,7 @@ export default StyleSheet.create({
     },
     card: {
         backgroundColor: '#393e46',
+        color: 'white',
         borderRadius: 10,
         padding: 10,
         margin: 5,
@@ -34,6 +35,7 @@ export default StyleSheet.create({
         width: "90%",
         justifyContent: 'space-between',
         alignItems: 'center',
+        color: 'white'
     },
     title: {
         color: '#eeeeee',

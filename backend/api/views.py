@@ -87,6 +87,19 @@ def translate(request):
         if word_translation:
             return Response({'translated': word_translation.definition, 'inDatabase': 1})
 
+    
+    # if word:
+    #     translations = WordTranslation.objects.filter(
+    #         word_id=word.id,
+    #         native_language_id=nat_id,
+    #         target_language_id=tar_id
+    #     )
+
+    #     # Return an array of definitions
+    #     definitions = [t.definition for t in translations]
+
+    #     return Response({'translated': definitions, 'inDatabase': 1})
+
     # Replace with your translation function:
     translated_text = translate_word(text)
 

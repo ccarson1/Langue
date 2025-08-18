@@ -106,19 +106,20 @@ export default function ScrollingText({ text, isPlaying, width = 200, speed = 50
         style={{
           flexDirection: 'row',
           transform: [{ translateX: scrollAnim }],
+          color: 'white'
         }}
       >
         <Text
           onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
           numberOfLines={1}
-          style={{ whiteSpace: Platform.OS === 'web' ? 'nowrap' : 'normal' }}
+          style={{color: 'white', whiteSpace: Platform.OS === 'web' ? 'nowrap' : 'normal' }}
         >
           {text}
         </Text>
         {shouldDuplicate && (
           <Text
             numberOfLines={1}
-            style={{ marginLeft: 50, whiteSpace: Platform.OS === 'web' ? 'nowrap' : 'normal' }}
+            style={{color: 'white', marginLeft: 50, whiteSpace: Platform.OS === 'web' ? 'nowrap' : 'normal' }}
           >
             {text}
           </Text>
@@ -132,5 +133,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    color: 'white'
   },
 });

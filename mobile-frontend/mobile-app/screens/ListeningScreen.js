@@ -30,6 +30,7 @@ export default function LessonsScreen({ navigation }) {
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const soundRef = useRef(null);
     const soundRefs = useRef({});
+    const [refresh, setRefresh] = useState(0); //help the Visualizer and progress start with the audio
     const server = config.SERVER_IP;
     const mediaUrl = `http://${server}/media/`;
 
@@ -146,6 +147,7 @@ export default function LessonsScreen({ navigation }) {
                             { shouldPlay: true }
                         );
                         soundRefs.current[lessonID] = sound;
+                        setRefresh(x => x + 1);
 
                         sound.setOnPlaybackStatusUpdate(status => {
                             if (status.didJustFinish) setIsPlaying(false);
@@ -154,6 +156,7 @@ export default function LessonsScreen({ navigation }) {
                     reader.readAsDataURL(blob);
                 } else {
                     await soundRefs.current[lessonID].playAsync(); // resume existing
+                    setRefresh(x => x + 1);
                 }
             } else {
                 // WEB

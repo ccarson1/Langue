@@ -1,36 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, PanResponder, StyleSheet, Platform } from 'react-native';
-import Slider from '@react-native-community/slider'; // Expo Slider alternative
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import Slider from '@react-native-community/slider';
 
 export default function AudioProgressBar({ soundRef, isPlaying }) {
-    const [position, setPosition] = useState(0); // current position in seconds
-    const [duration, setDuration] = useState(1); // total duration in seconds
+    const [position, setPosition] = useState(0);
+    const [duration, setDuration] = useState(1);
 
     useEffect(() => {
-        let interval;
+        if (!soundRef?.current) return;
 
-        const updateProgress = async () => {
-            if (!soundRef?.current) return;
-
-            if (Platform.OS === 'web') {
-                const audioEl = soundRef.current.audioElement;
-                if (!audioEl) return;
-                setPosition(audioEl.currentTime);
-                setDuration(audioEl.duration || 1);
-            } else {
-                const status = await soundRef.current.getStatusAsync();
+        // only for native (Expo AV)
+        if (Platform.OS !== 'web') {
+            const subscription = soundRef.current.setOnPlaybackStatusUpdate((status) => {
                 if (!status.isLoaded) return;
                 setPosition(status.positionMillis / 1000);
-                setDuration(status.durationMillis / 1000 || 1);
-            }
-        };
+                setDuration((status.durationMillis ?? 1000) / 1000);
+            });
 
-        if (isPlaying) {
-            interval = setInterval(updateProgress, 200);
+            return () => {
+                // clear listener when component unmounts
+                soundRef.current.setOnPlaybackStatusUpdate(null);
+            };
         }
-
-        return () => clearInterval(interval);
-    }, [isPlaying, soundRef]);
+    }, [soundRef]);
 
     const handleSlide = async (value) => {
         if (!soundRef?.current) return;
@@ -62,7 +54,6 @@ export default function AudioProgressBar({ soundRef, isPlaying }) {
     );
 }
 
-// helper to format seconds -> mm:ss
 const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);

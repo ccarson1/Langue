@@ -20,6 +20,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import * as Clipboard from 'expo-clipboard';
 import CustomPopup from './components/CustomPopup';
+import WordList from './components/WordList';
+import EditWordPopup from './components/EditWordPopup';
 import config from '../utils/config';
 import * as FileSystem from 'expo-file-system';
 import { Text, useWindowDimensions, View } from 'react-native';
@@ -50,6 +52,8 @@ export default function HomeScreen({ navigation }) {
     const { width, height } = useWindowDimensions();
     const [nativeLanguage, setNativeLanguage] = useState('');
     const [targetLanguage, setTargetLanguage] = useState('');
+    const [editPopupVisible, setEditPopupVisible] = useState(false);
+    const [editingWord, setEditingWord] = useState('');
 
     const soundRef = useRef(null);
 
@@ -487,6 +491,10 @@ export default function HomeScreen({ navigation }) {
                             value={translatedText}
                             onChangeText={setTranslatedText}
                         />
+                        {/* <WordList
+                            words={Array.isArray(translatedText) ? translatedText : []}
+                            onWordPress={displaySelectedText} // this will pass the clicked word
+                        /> */}
 
                     </View>
                     <View style={styles.separatorDotted} />
