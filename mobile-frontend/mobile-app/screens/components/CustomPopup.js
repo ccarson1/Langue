@@ -43,6 +43,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     zIndex: 1000,
     elevation: 4,
+
   },
   text: {
     color: 'white',

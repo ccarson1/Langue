@@ -3,6 +3,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'reac
 
 export default function EditWordPopup({ visible, word, onSave, onCancel }) {
     const [editedWord, setEditedWord] = useState('');
+    console.log(visible)
 
     useEffect(() => {
         setEditedWord(word || '');
@@ -10,6 +11,7 @@ export default function EditWordPopup({ visible, word, onSave, onCancel }) {
 
     return (
         <Modal
+
             visible={visible}
             transparent={true}
             animationType="fade"

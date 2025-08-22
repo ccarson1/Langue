@@ -13,7 +13,7 @@ import styles from './styles/HomeStyles';
 import { Entypo } from '@expo/vector-icons';
 import { BackHandler } from 'react-native';
 import * as Font from 'expo-font';
-import SaveWordButton from './components/SendSaveWord';
+
 import LoadingOverlay from './components/LoadingOverlay';
 import ProgressBar from './components/ProgressBar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +34,8 @@ export default function HomeScreen({ navigation }) {
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
     const [translatedText, setTranslatedText] = useState('');
+    const [multiDefinition, setMultiDefinition] = useState(false);
+    const [multiDefDisplay, setMultiDefDisplay] = useState('')
     const [selectedText, setSelectedText] = useState('');
     const [rows, setRows] = useState([]);
     const [index, setIndex] = useState(0);
@@ -226,7 +228,19 @@ export default function HomeScreen({ navigation }) {
             setLoading(false)
             if (response.ok) {
                 console.log('Translation:', data.translated);
+                console.log(data.translated.length)
+                console.log(Array.isArray(data.translated))
 
+                if (data.translated.length > 1 && Array.isArray(data.translated)) {
+                    setMultiDefinition(true);
+                    console.log(data.translated[0])
+                    setMultiDefDisplay(data.translated[0])
+                }
+                else {
+                    setMultiDefinition(false);
+
+
+                }
                 return data.translated; // return the translated text
             } else {
                 showError('API Error:', data.error || data)
@@ -424,13 +438,7 @@ export default function HomeScreen({ navigation }) {
             )}
 
             <View style={styles.middleSection}>
-                {/* {user && (
 
-                    <Text style={{ position: 'relative', top: 0, right: 0, color: 'white', fontSize: width * 0.05 }}>
-                        Hello, {user.username}
-                    </Text>
-
-                )} */}
                 <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
 
                 {/* Fixed-height word container */}
@@ -458,57 +466,8 @@ export default function HomeScreen({ navigation }) {
                     <View>
                         <Text style={styles.defHeader}>Definition</Text>
                     </View>
-                    <SaveWordButton
-                        payload={{
-                            word: selectedText,
-                            definition: translatedText,
-                            nat_id: nativeLanguage,
-                            tar_id: targetLanguage,
-                        }}
-                        onSuccess={showSuccess}
-                        onError={showError}
-                    />
 
 
-
-                    <StatusIndicator />
-                    <Text style={styles.partOfSpeech}>adjective</Text>
-                    <View style={styles.separatorSolid} />
-
-                    <View style={styles.textRow}>
-                        <Text style={styles.leftText}>Target:</Text>
-                        <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
-                            <AntDesign name="copy1" size={24} color="black" />
-                        </TouchableOpacity>
-
-                        <Text style={styles.rightText}>{selectedText}</Text>
-                    </View>
-
-                    <View style={styles.textRow}>
-                        <Text style={styles.leftText}>Native:</Text>
-                        <TextInput
-                            style={styles.rightText}
-                            value={translatedText}
-                            onChangeText={setTranslatedText}
-                        />
-                        {/* <WordList
-                            words={Array.isArray(translatedText) ? translatedText : []}
-                            onWordPress={displaySelectedText} // this will pass the clicked word
-                        /> */}
-
-                    </View>
-                    <View style={styles.separatorDotted} />
-                    <View>
-                        {/* <TextInput
-                            style={styles.defDescription}
-                            value={description}
-                            onChangeText={''}
-                        /> */}
-                        <Text
-                            style={styles.defDescription}
-
-                        >{description}</Text>
-                    </View>
                     <View style={styles.translateBtn}>
                         <TouchableOpacity
                             onPress={() => {
@@ -521,6 +480,68 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.buttonText}>Translate Sentence</Text>
                         </TouchableOpacity>
                     </View>
+
+
+
+                    <StatusIndicator />
+                    <Text style={styles.partOfSpeech}>adjective</Text>
+
+
+                    <View style={styles.textRow}>
+                        {/* <Text style={styles.leftText}>Target:</Text> */}
+                        <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
+                            <AntDesign name="copy1" size={24} color="black" />
+                        </TouchableOpacity>
+
+                        <Text style={styles.rightText}>
+                            {selectedText} : {multiDefinition ? multiDefDisplay : translatedText}
+                        </Text>
+                    </View>
+                    <View style={styles.separatorSolid} />
+                    {/* <View style={styles.textRow}>
+                        <Text style={styles.leftText}>Native:</Text>
+                        <TextInput
+                            style={styles.rightText}
+                            value={translatedText}
+                            onChangeText={setTranslatedText}
+                        />
+                        
+
+                    </View> */}
+                    <WordList
+                        words={Array.isArray(translatedText) ? translatedText : []}
+                        onWordPress={displaySelectedText} // this will pass the clicked word
+                        selectedText={selectedText}
+                        translatedText={translatedText}
+                        nat_id={nativeLanguage}
+                        tar_id={targetLanguage}
+                        popup={popup}
+                    />
+
+                    <View style={styles.separatorDotted} />
+                    <View>
+                        {/* <TextInput
+                            style={styles.defDescription}
+                            value={description}
+                            onChangeText={''}
+                        /> */}
+                        <Text
+                            style={styles.defDescription}
+
+                        >{description}</Text>
+                    </View>
+                    {/* <View style={styles.translateBtn}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setDescription(rows[parseInt(index)][2]);
+                                console.log(index)
+                                console.log(rows[index][2])
+                            }}
+
+                        >
+                            <Text style={styles.buttonText}>Translate Sentence</Text>
+                        </TouchableOpacity>
+                    </View> */}
                 </View>
             </View>
 

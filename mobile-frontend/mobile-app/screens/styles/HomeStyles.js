@@ -124,17 +124,17 @@ export default StyleSheet.create({
         borderRadius: 5,
         padding: 20,
         width: '120%',
-        height: '70%',
+        height: '80%',
         minHeight: 250, // Fixed minimum height
         position: 'relative',
     },
 
     saveBtn: {
         position: 'absolute',
-        top: 10,
-        right: 40,
+        // top: 10,
+        right: 100,
         backgroundColor: '#00adb5',
-        padding: 8,
+        padding: 10,
         borderRadius: 5,
         minWidth: 60,
         shadowColor: '#30475e',
@@ -154,8 +154,8 @@ export default StyleSheet.create({
 
     translateBtn: {
         position: 'absolute',
-        top: 275,
-        right: 20,
+        top: 10,
+        right: 40,
         backgroundColor: '#00adb5',
         padding: 8,
         borderRadius: 5,
@@ -173,7 +173,7 @@ export default StyleSheet.create({
     textRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingVertical: 15,
+        paddingVertical: 20,
         minHeight: 5, // Fixed height per row
     },
 
@@ -188,6 +188,7 @@ export default StyleSheet.create({
         color: '#444444',
         flex: 0.6,
         textAlign: 'left',
+        fontSize: 20
     },
 
     controls: {
