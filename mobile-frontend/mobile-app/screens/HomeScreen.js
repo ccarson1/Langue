@@ -1,411 +1,263 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
-import { Platform } from 'react-native';
-import { Button, StyleSheet, TouchableOpacity, ScrollView, Animated, Image, Alert, TextInput } from 'react-native';
+import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, View, useWindowDimensions } from 'react-native';
 import { Audio } from 'expo-av';
+import * as Font from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import * as Clipboard from 'expo-clipboard';
+import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import jwtDecode from 'jwt-decode';
 
-import logo from '../assets/favicon.png';
 import { FontAwesome } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import { Entypo } from '@expo/vector-icons';
+
 import StatusIndicator from './components/StatusIndicator';
 import ExitConfirmationModal from './components/ExitConfirmationModal';
-import styles from './styles/HomeStyles';
-import { Entypo } from '@expo/vector-icons';
-import { BackHandler } from 'react-native';
-import * as Font from 'expo-font';
-
 import LoadingOverlay from './components/LoadingOverlay';
 import ProgressBar from './components/ProgressBar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { jwtDecode } from 'jwt-decode';
-import * as Clipboard from 'expo-clipboard';
 import CustomPopup from './components/CustomPopup';
 import WordList from './components/WordList';
 import EditWordPopup from './components/EditWordPopup';
+
+import styles from './styles/HomeStyles';
 import config from '../utils/config';
-import * as FileSystem from 'expo-file-system';
-import { Text, useWindowDimensions, View } from 'react-native';
 
-
-import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync();
 
 export default function HomeScreen({ navigation }) {
+    const { width, height } = useWindowDimensions();
+    const server = config.SERVER_IP;
+
+    // State
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
-    const [translatedText, setTranslatedText] = useState('');
-    const [multiDefinition, setMultiDefinition] = useState(false);
-    const [multiDefDisplay, setMultiDefDisplay] = useState('')
-    const [selectedText, setSelectedText] = useState('');
+    const [appIsReady, setAppIsReady] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const [rows, setRows] = useState([]);
     const [index, setIndex] = useState(0);
-    const [currentLesson, setCurrentLesson] = useState(null)
+    const [currentLesson, setCurrentLesson] = useState(null);
     const [currentAudio, setCurrentAudio] = useState(null);
+    const [selectedText, setSelectedText] = useState('');
+    const [translatedText, setTranslatedText] = useState('');
+    const [multiDefinition, setMultiDefinition] = useState(false);
+    const [multiDefDisplay, setMultiDefDisplay] = useState('');
+    const [nativeLanguage, setNativeLanguage] = useState('');
+    const [targetLanguage, setTargetLanguage] = useState('');
+    const [isPlaying, setIsPlaying] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const slideAnim = useRef(new Animated.Value(-200)).current;
     const [showExitModal, setShowExitModal] = useState(false);
-    const [appIsReady, setAppIsReady] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
-    const [nativeText, setNativeText] = useState('');
-    const [description, setDescription] = useState('This is a description of the definition.');
-    const server = config.SERVER_IP;
-    const { width, height } = useWindowDimensions();
-    const [nativeLanguage, setNativeLanguage] = useState('');
-    const [targetLanguage, setTargetLanguage] = useState('');
-    const [editPopupVisible, setEditPopupVisible] = useState(false);
-    const [editingWord, setEditingWord] = useState('');
+    const [description, setDescription] = useState('');
 
     const soundRef = useRef(null);
 
+    // --- Popup helpers ---
+    const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
+    const showError = (message) => setPopup({ visible: true, message, type: 'error' });
 
-    const showSuccess = (message) => {
-        setPopup({ visible: true, message: message, type: 'success' });
-    };
-
-    const showError = (message) => {
-        setPopup({ visible: true, message: message, type: 'error' });
-    };
-
-    const updateLessonProgress = async () => {
-        if (!token) return;
-        console.log(`Current lesson ${currentLesson} - HomeScreen.js - line 67`)
-        console.log(`Index: ${index} - HomeScreen.js - line 68`)
-
-        try {
-            const res = await fetch(`http://${server}:8000/api/user-progress/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    lesson_id: currentLesson,
-                    current_lesson_index: index,
-                }),
-            });
-
-            if (!res.ok) {
-                const err = await res.text();
-                console.log(err)
-                console.error('Failed to update lesson progress:', err);
-                showError('Failed to update lesson progress');
-                return;
-            }
-
-            const data = await res.json();
-            //showSuccess('Lesson progress updated');
-
-            console.log('Lesson progress response:', data);
-        } catch (e) {
-            console.error('Error updating lesson progress:', e);
-            showError('Error updating lesson progress');
-        }
-    };
-
-
-
-    const cleanText = (text) => {
-        return text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>@\[\]\\|]/g, '').trim();
-    };
-
-    const displaySelectedText = async (word) => {
-        console.log('Clicked word:', word);
-        const cleanedWord = cleanText(word);
-        setSelectedText(cleanedWord);
-
-        const translation = await translateWord(cleanedWord); // pass word to function
-        setTranslatedText(translation);
-    };
-
+    // --- Clipboard helper ---
     const copyToClipboard = async () => {
         await Clipboard.setStringAsync(selectedText);
-        showSuccess('Text has been copied to clipboard.')
-        //Alert.alert('Copied!', 'Text has been copied to clipboard.');
+        showSuccess('Text copied to clipboard!');
     };
 
-
+    // --- Audio helpers ---
     const playAudio = async () => {
         if (!currentAudio) return;
         setIsPlaying(true);
 
         try {
-            // Unload previous sound
             if (soundRef.current) {
                 await soundRef.current.unloadAsync();
                 soundRef.current = null;
             }
 
-            // Fetch audio as blob
             const response = await fetch(`http://${server}:8000/api/audio/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    lesson_id: currentLesson,
-                    current_lesson_index: index,
-                    full_audio: false,
-                }),
+                body: JSON.stringify({ lesson_id: currentLesson, current_lesson_index: index, full_audio: false }),
             });
 
-            if (Platform.OS === 'web') {
-                const blob = await response.blob();
-                const uri = URL.createObjectURL(blob); // only works in web
+            const blob = await response.blob();
 
-                // If you're on React Native (not web), you must save the blob to a file:
-                // Use expo-file-system for that (see further below if needed)
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64Data = reader.result.split(',')[1];
+                const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
 
-                // Load and play the audio
-                const { sound } = await Audio.Sound.createAsync(
-                    { uri },
-                    { shouldPlay: true }
-                );
+                await FileSystem.writeAsStringAsync(path, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+                const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
                 soundRef.current = sound;
 
                 sound.setOnPlaybackStatusUpdate(status => {
-                    if (status.didJustFinish) {
-                        setIsPlaying(false);
-                    }
+                    if (status.didJustFinish) setIsPlaying(false);
                 });
-            }
-            else {
-                const blob = await response.blob();
-
-                // Convert blob to base64
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    const base64Data = reader.result.split(',')[1]; // strip `data:audio/...;base64,`
-
-                    const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
-
-                    await FileSystem.writeAsStringAsync(path, base64Data, {
-                        encoding: FileSystem.EncodingType.Base64,
-                    });
-
-                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
-                    soundRef.current = sound;
-
-                    sound.setOnPlaybackStatusUpdate(status => {
-                        if (status.didJustFinish) {
-                            setIsPlaying(false);
-                        }
-                    });
-                };
-
-                reader.readAsDataURL(blob); // This triggers reader.onloadend
-            }
-
-
+            };
+            reader.readAsDataURL(blob);
 
         } catch (e) {
-            showError('Audio error:', e);
             console.error('Audio error:', e);
+            showError('Audio playback failed');
         }
     };
 
+    const pauseAudio = async () => {
+        setIsPlaying(false);
+        if (soundRef.current) await soundRef.current.pauseAsync();
+    };
 
+    // --- Word translation ---
+    const cleanText = (text) => text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>@\[\]\\|]/g, '').trim();
+
+    const displaySelectedText = async (word) => {
+        const cleanedWord = cleanText(word);
+        setSelectedText(cleanedWord);
+        const translation = await translateWord(cleanedWord);
+        setTranslatedText(translation);
+    };
 
     const translateWord = async (word) => {
-        setLoading(true)
+        setLoading(true);
         try {
             const response = await fetch(`http://${server}:8000/api/translate/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    text: word,
-                    native_id: nativeLanguage,
-                    target_id: targetLanguage,
-                }),
+                body: JSON.stringify({ text: word, native_id: nativeLanguage, target_id: targetLanguage }),
             });
-
             const data = await response.json();
-            setLoading(false)
-            if (response.ok) {
-                console.log('Translation:', data.translated);
-                console.log(data.translated.length)
-                console.log(Array.isArray(data.translated))
+            setLoading(false);
 
+            if (response.ok) {
                 if (data.translated.length > 1 && Array.isArray(data.translated)) {
                     setMultiDefinition(true);
-                    console.log(data.translated[0])
-                    setMultiDefDisplay(data.translated[0])
-                }
-                else {
+                    setMultiDefDisplay(data.translated[0]);
+                } else {
                     setMultiDefinition(false);
-
-
                 }
-                return data.translated; // return the translated text
+                return data.translated;
             } else {
-                showError('API Error:', data.error || data)
-                console.error('API Error:', data.error || data);
+                showError('Translation API error');
                 return 'Translation error';
             }
-        } catch (error) {
-            showError('Fetch Error:', error)
-            console.error('Fetch Error:', error);
+        } catch (err) {
+            console.error(err);
+            setLoading(false);
             return 'Error connecting to API';
         }
     };
 
-    const pauseAudio = async () => {
-        setIsPlaying(false)
-        try {
-            if (soundRef.current) {
-                await soundRef.current.pauseAsync();
-            }
-        } catch (e) {
-            console.error('Pause error:', e);
-        }
-    };
-
+    // --- Navigation helpers ---
     const next = () => {
         if (index < rows.length - 1) {
             setIndex(index + 1);
-            setCurrentAudio(rows[index + 1]?.[0]?.split('|')[0]);
-            console.log(currentAudio);
-            updateLessonProgress()
+            setCurrentAudio(rows[index + 1]?.[0] || '');
             setDescription('');
         }
     };
-
     const back = () => {
         if (index > 0) {
             setIndex(index - 1);
-            setCurrentAudio(rows[index - 1]?.[0]?.split('|')[0]);
-            console.log(currentAudio);
-            updateLessonProgress()
+            setCurrentAudio(rows[index - 1]?.[0] || '');
             setDescription('');
         }
     };
 
+    // --- Menu toggle ---
     const toggleMenu = () => {
         if (menuOpen) {
-            // Slide out
-            Animated.timing(slideAnim, {
-                toValue: -200,
-                duration: 500, // <-- Slow it down (in ms)
-                useNativeDriver: true,
-            }).start(() => setMenuOpen(false)); // hide after animation
+            Animated.timing(slideAnim, { toValue: -200, duration: 500, useNativeDriver: true }).start(() => setMenuOpen(false));
         } else {
             setMenuOpen(true);
-            Animated.timing(slideAnim, {
-                toValue: 0,
-                duration: 500, // <-- Slow it down (in ms)
-                useNativeDriver: true,
-            }).start();
+            Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }).start();
         }
     };
 
+    // --- Initialization ---
     useEffect(() => {
         const init = async () => {
-            const storedToken = await AsyncStorage.getItem('accessToken');
-            if (!storedToken) return;
-
-            setToken(storedToken);
-
             try {
-                const decoded = jwtDecode(storedToken);
-                // Optional: setUser(decoded);
+                // Load fonts (if any)
+                await Font.loadAsync({
+                    // Example: 'Roboto': require('../assets/fonts/Roboto-Regular.ttf')
+                });
+
+                const storedToken = await AsyncStorage.getItem('accessToken');
+                if (storedToken) {
+                    setToken(storedToken);
+                    try {
+                        const decoded = jwtDecode(storedToken);
+                        setUser(decoded);
+                    } catch (err) {
+                        console.error('Token decode failed:', err);
+                    }
+                }
             } catch (err) {
-                console.error('Failed to decode token:', err);
+                console.error('Initialization error:', err);
+            } finally {
+                setAppIsReady(true);
+                await SplashScreen.hideAsync();
             }
-
-            await Font.loadAsync({
-                'PlaywriteHU-Regular': require('../assets/fonts/PlaywriteHU-Regular.ttf'),
-            });
-
-            setAppIsReady(true);
-            await SplashScreen.hideAsync();
         };
-
         init();
     }, []);
 
+    // --- Fetch user and lesson data ---
     useEffect(() => {
         if (!token) return;
 
-        const fetchAll = async () => {
+        const fetchUserProfile = async () => {
             try {
-                // 1. Fetch user profile and get current lesson
-                const profileRes = await fetch(`http://${server}:8000/api/profile/`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!profileRes.ok) throw new Error(await profileRes.text());
-                const userData = await profileRes.json();
-                setUser(userData);
-                setCurrentLesson(userData.current_lesson); // ✅ this triggers next useEffect
-
+                const res = await fetch(`http://${server}:8000/api/profile/`, { headers: { Authorization: `Bearer ${token}` } });
+                if (res.ok) {
+                    const userData = await res.json();
+                    setUser(userData);
+                    setCurrentLesson(userData.current_lesson);
+                }
             } catch (err) {
-                console.error('Error fetching profile:', err);
+                console.error(err);
             }
         };
-
-        fetchAll();
+        fetchUserProfile();
     }, [token]);
 
     useEffect(() => {
         if (!token || !currentLesson) return;
 
-        const fetchProgressAndLesson = async () => {
+        const fetchLessonData = async () => {
             try {
-                // 2. Fetch lesson progress
-                const progressRes = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
+                const progressRes = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, { headers: { Authorization: `Bearer ${token}` } });
                 if (progressRes.ok) {
                     const progressData = await progressRes.json();
-                    console.log('Fetched progress:', progressData);
                     setNativeLanguage(progressData.native_lang);
                     setTargetLanguage(progressData.target_lang);
                     setIndex(progressData.current_lesson_index || 0);
-                } else {
-                    console.warn('No previous progress found.');
                 }
 
-                // 3. Fetch lesson data LAST
-                await fetchLessonData();
-
+                const lessonRes = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
+                if (lessonRes.ok) {
+                    const lessonData = await lessonRes.json();
+                    const parsed = (lessonData.sentences || []).map(s => [s.audio_file, s.sentence, s.translated_sentence]);
+                    setRows(parsed);
+                    setCurrentAudio(parsed[0]?.[0] || '');
+                }
             } catch (err) {
-                console.error('Error fetching lesson data:', err);
+                console.error(err);
             }
         };
+        fetchLessonData();
+    }, [token, currentLesson]);
 
-        fetchProgressAndLesson();
-    }, [currentLesson, token]);
-
-    const fetchLessonData = async () => {
-        try {
-            const res = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!res.ok) throw new Error('Network response was not ok');
-
-            const data = await res.json();
-            const parsed = (data.sentences || []).map(s => [
-                s.audio_file,
-                s.sentence,
-                s.translated_sentence
-            ]);
-
-            setRows(parsed);
-            setCurrentAudio(parsed[0]?.[0] || '');
-            //console.log(parsed);
-        } catch (err) {
-            console.error('Fetch error:', err);
-        }
-    };
+    // --- Render ---
+    if (!appIsReady) return null; // splash screen remains
 
     return (
         <View style={styles.container}>
