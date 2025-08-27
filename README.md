@@ -41,3 +41,12 @@ git pull origin main
 git reset --hard
 git pull --rebase origin main
 
+
+# Building the .apk file
+1. The project must be at the top level of the C: drive 
+2. "npm install" will need to be run within mobile-app to generate the node_modules
+
+# Use Docker compose
+docker-compose build
+docker-compose up -d
+
