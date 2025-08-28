@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "allowCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/langue-logo-3.png",
         "backgroundColor": "#ffffff"
