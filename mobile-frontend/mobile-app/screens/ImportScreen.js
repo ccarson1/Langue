@@ -269,7 +269,7 @@ export default function ImportLessonScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-        <AntDesign name="back" size={22} color="white" />
+        <AntDesign name="left" size={22} color="white" />
       </TouchableOpacity>
 
       <View style={styles.importBox}>

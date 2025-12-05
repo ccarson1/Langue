@@ -5,9 +5,9 @@ import { Audio } from 'expo-av';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Clipboard from 'expo-clipboard';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 import { FontAwesome } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -86,12 +86,27 @@ export default function HomeScreen({ navigation }) {
 
             const blob = await response.blob();
 
+            if (Platform.OS === "web") {
+            // Web: No FileSystem support
+            const url = URL.createObjectURL(blob);
+            const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
+            soundRef.current = sound;
+
+            sound.setOnPlaybackStatusUpdate(status => {
+                if (status.didJustFinish) setIsPlaying(false);
+            });
+
+        } else {
+            // Native: Use FileSystem
             const reader = new FileReader();
             reader.onloadend = async () => {
-                const base64Data = reader.result.split(',')[1];
+                const base64Data = reader.result.split(",")[1];
                 const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
 
-                await FileSystem.writeAsStringAsync(path, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+                await FileSystem.writeAsStringAsync(path, base64Data, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+
                 const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
                 soundRef.current = sound;
 
@@ -100,6 +115,7 @@ export default function HomeScreen({ navigation }) {
                 });
             };
             reader.readAsDataURL(blob);
+        }
 
         } catch (e) {
             console.error('Audio error:', e);
@@ -181,6 +197,15 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
+    const decodeToken = (token) => {
+        try {
+            return jwtDecode(token);
+        } catch (err) {
+            console.error('Token decode failed:', err);
+            return null;
+        }
+    };
+
     // --- Initialization ---
     useEffect(() => {
         const init = async () => {
@@ -193,12 +218,8 @@ export default function HomeScreen({ navigation }) {
                 const storedToken = await AsyncStorage.getItem('accessToken');
                 if (storedToken) {
                     setToken(storedToken);
-                    try {
-                        const decoded = jwtDecode(storedToken);
-                        setUser(decoded);
-                    } catch (err) {
-                        console.error('Token decode failed:', err);
-                    }
+                    const decoded = decodeToken(storedToken);
+                    if (decoded) setUser(decoded);
                 }
             } catch (err) {
                 console.error('Initialization error:', err);
@@ -342,7 +363,7 @@ export default function HomeScreen({ navigation }) {
                     <View style={styles.textRow}>
                         {/* <Text style={styles.leftText}>Target:</Text> */}
                         <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
-                            <AntDesign name="copy1" size={24} color="black" />
+                            <AntDesign name="copy" size={24} color="black" />
                         </TouchableOpacity>
 
                         <Text style={styles.rightText}>

@@ -12,8 +12,8 @@ import CustomPopup from './components/CustomPopup';
 import AudioVisualizer from './components/AudioVisualizer';
 import AudioProgressBar from './components/AudioProgressBar';
 import ScrollingText from './components/ScrollingText';
-import * as FileSystem from 'expo-file-system';
-
+import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from 'buffer';
 
 
 
@@ -121,39 +121,37 @@ export default function LessonsScreen({ navigation }) {
 
             // MOBILE
             if (Platform.OS !== 'web') {
+                // MOBILE
                 if (!soundRefs.current[lessonID]) {
-                    // fetch audio and create sound (same as before)
-                    console.log(lessonID);
                     const response = await fetch(`http://${server}:8000/api/audio/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
                     });
-                    const blob = await response.blob();
-                    const reader = new FileReader();
-                    reader.onloadend = async () => {
-                        const base64Data = reader.result.split(',')[1];
-                        const path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
 
-                        await FileSystem.writeAsStringAsync(path, base64Data, {
-                            encoding: FileSystem.EncodingType.Base64,
-                        });
+                    if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
 
-                        const { sound } = await Audio.Sound.createAsync(
-                            { uri: path },
-                            { shouldPlay: true }
-                        );
-                        soundRefs.current[lessonID] = sound;
-                        setRefresh(x => x + 1);
+                    // Read response once
+                    const arrayBuffer = await response.arrayBuffer();
 
-                        sound.setOnPlaybackStatusUpdate(status => {
-                            if (status.didJustFinish) setIsPlaying(false);
-                        });
-                    };
-                    reader.readAsDataURL(blob);
+                    // Convert to base64 for Expo FileSystem
+                    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+
+                    // Write to cache
+                    const path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
+                    await FileSystem.writeAsStringAsync(path, base64Data, {
+                        encoding: 'base64',
+                    });
+                    // Create and play audio
+                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                    soundRefs.current[lessonID] = sound;
+
+                    sound.setOnPlaybackStatusUpdate(status => {
+                    if (status.didJustFinish) setIsPlaying(false);
+                    });
                 } else {
                     await soundRefs.current[lessonID].playAsync(); // resume existing
                     setRefresh(x => x + 1);
@@ -220,7 +218,7 @@ export default function LessonsScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-                <AntDesign name="back" size={22} color="white" />
+                <AntDesign name="left" size={22} color="white" />
             </TouchableOpacity>
 
             <ScrollView contentContainerStyle={styles.gridWrapper}>
