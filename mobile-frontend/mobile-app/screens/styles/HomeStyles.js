@@ -136,7 +136,7 @@ export default StyleSheet.create({
         backgroundColor: '#00adb5',
         padding: 10,
         borderRadius: 5,
-        minWidth: 60,
+        minWidth: 100,
         shadowColor: '#30475e',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,

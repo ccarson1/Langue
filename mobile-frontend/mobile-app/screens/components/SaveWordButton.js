@@ -6,7 +6,7 @@ import config from '../../utils/config';
 import CustomPopup from './CustomPopup';
 
 
-export default function SaveWordButton({ payload, words, onSuccess, onError }) {
+export default function SaveWordButton({ payload, words, showSuccess, showError }) {
   const [loading, setLoading] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
@@ -15,13 +15,13 @@ export default function SaveWordButton({ payload, words, onSuccess, onError }) {
   const server = config.SERVER_IP;
   console.log(payload);
   console.log(words);
-  const showSuccess = (message) => {
-    setPopup({ visible: true, message: message, type: 'success' });
-  };
+  // const showSuccess = (message) => {
+  //   setPopup({ visible: true, message: message, type: 'success' });
+  // };
 
-  const showError = (message) => {
-    setPopup({ visible: true, message: message, type: 'error' });
-  };
+  // const showError = (message) => {
+  //   setPopup({ visible: true, message: message, type: 'error' });
+  // };
 
 
   const saveWord = async () => {
@@ -31,7 +31,8 @@ export default function SaveWordButton({ payload, words, onSuccess, onError }) {
     );
 
     if (hasEmptyField) {
-      onError?.('Please fill in all fields.');
+      //onError?.('Please fill in all fields.');
+      showError(data.error);
       return;
     }
     console.log(payload);
@@ -88,14 +89,14 @@ export default function SaveWordButton({ payload, words, onSuccess, onError }) {
           <Text style={styles.buttonText}>Save Word</Text>
         </TouchableOpacity>
       </View>
-      <View>
+      {/* <View>
         <CustomPopup
           visible={popup.visible}
           message={popup.message}
           type={popup.type}
           onClose={() => setPopup({ ...popup, visible: false })}
         />
-      </View>
+      </View> */}
     </View>
 
 

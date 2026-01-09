@@ -9,6 +9,7 @@ import {
   Alert,
   Switch,
   Platform,
+  ProgressBar,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -37,7 +38,9 @@ export default function ImportLessonScreen({ navigation }) {
   const [targetLanguage, setTargetLanguage] = useState('');
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
+  const [progress, setProgress] = useState(0);
   const server = config.SERVER_IP;
+  const progressUrl = `http://${server}:8000/api/lesson-import-progress/`;
 
 
   const fetchLanguages = async () => {
@@ -49,6 +52,27 @@ export default function ImportLessonScreen({ navigation }) {
       console.error('Failed to fetch languages:', err);
       Alert.alert('Error', 'Failed to load language options.');
     }
+  };
+
+  const pollProgress = () => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${server}:8000/api/lesson-import-progress/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setProgress(data.progress);
+
+        if (data.progress >= 100) {
+          clearInterval(interval);
+          setLoading(false);  // hide overlay
+        }
+      } catch (err) {
+        console.error(err);
+        clearInterval(interval);
+        setLoading(false);
+      }
+    }, 1000);
   };
 
 
@@ -221,9 +245,9 @@ export default function ImportLessonScreen({ navigation }) {
 
     try {
       setLoading(true);
+      setProgress(0);
 
       const formData = new FormData();
-
       await appendFileToFormData(formData, 'file', lessonFile);
       await appendFileToFormData(formData, 'audio', audioFile);
       await appendFileToFormData(formData, 'image', imageFile);
@@ -238,12 +262,44 @@ export default function ImportLessonScreen({ navigation }) {
       formData.append('imageReference', imageReference);
       formData.append('title', title);
 
+      // Start polling progress
+      const pollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch(progressUrl, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+            },
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            console.error('Polling error:', text);
+            clearInterval(pollingInterval);
+            setLoading(false);
+            return;
+          }
+
+          const data = await res.json();
+          setProgress(data.progress);
+
+          if (data.progress >= 100) {
+            clearInterval(pollingInterval);
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('Polling fetch error:', err);
+          clearInterval(pollingInterval);
+          setLoading(false);
+        }
+      }, 1000);
+
+      // **Send the POST request to import the lesson**
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          // 👇 DON'T include Content-Type header here! Let fetch set it automatically
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
         },
         body: formData,
       });
@@ -256,6 +312,7 @@ export default function ImportLessonScreen({ navigation }) {
       } else {
         showSuccess(`Success: Lesson imported successfully!`);
         Alert.alert('Success', 'Lesson imported successfully!');
+        setProgress(100);
         navigation.goBack();
       }
     } catch (error) {
@@ -265,6 +322,7 @@ export default function ImportLessonScreen({ navigation }) {
       setLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container}>
@@ -353,8 +411,9 @@ export default function ImportLessonScreen({ navigation }) {
           </View>
         )}
 
-
+        <Text style={styles.label}>Native Language</Text>
         <View style={styles.pickerWrapper}>
+
           <Picker
             selectedValue={nativeLanguage}
             onValueChange={setNativeLanguage}
@@ -373,6 +432,7 @@ export default function ImportLessonScreen({ navigation }) {
           )}
         </View>
 
+        <Text style={styles.label}>Target Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={targetLanguage}
@@ -438,7 +498,23 @@ export default function ImportLessonScreen({ navigation }) {
           />
         )}
 
-        <LoadingOverlay visible={loading} />
+        <View style={{ flex: 1 }}>
+
+          <LoadingOverlay visible={loading} />
+
+          {loading && (
+            <View style={{ marginTop: 20 }}>
+              {Platform.OS === 'android' ? (
+                <ProgressBar styleAttr="Horizontal" progress={progress / 100} indeterminate={false} color="#00adb5" />
+              ) : Platform.OS === 'ios' ? (
+                <ProgressViewIOS progress={progress / 100} />
+              ) : (
+                <progress value={progress} max={100} style={{ width: '100%' }} />
+              )}
+              <Text style={{ color: '#fff' }}>{progress}%</Text>
+            </View>
+          )}
+        </View>
 
       </View>
     </View>

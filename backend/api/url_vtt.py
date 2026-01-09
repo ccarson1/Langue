@@ -1,7 +1,7 @@
 import os
 import yt_dlp
 from pydub import AudioSegment
-
+import whisper
 import webvtt
 import json
 from api.models import Sentence, Lesson, Language
@@ -11,7 +11,7 @@ import uuid
 
 class URL_VTT():
     
-    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id):
+    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id):
         
         self.uuid = str(uuid.uuid4())
         self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.m4a")
@@ -34,6 +34,9 @@ class URL_VTT():
         self.target_id = Language.objects.get(id=self.translate_language)
 
         self.yt_dlp_lang = self.native_id.yt_dlp_lang
+
+        self.lesson_import_progress = lesson_import_progress
+        self.user_id = user_id
 
         print(f"Lesson language: {self.yt_dlp_lang}")
 
@@ -61,6 +64,8 @@ class URL_VTT():
             print(f"Video title: {title}")
             #self.lesson_json["title"] = title
             ydl.download([url])
+
+        self.lesson_import_progress[self.user_id] = 15
 
         # Move subtitles to the desired path
         for file in os.listdir(self.OUTPUT_DIR):
@@ -110,6 +115,9 @@ class URL_VTT():
             
             translated_text = translate_word(text)
 
+            self.lesson_import_progress[self.user_id] += 70 / len(segments)
+            print(f"Progress: {self.lesson_import_progress[self.user_id]}%")
+
             print(f"Here is the lesson_language: {self.lesson_language}")
             print(f"Here is the translate_language: {self.translate_language}")
             
@@ -130,26 +138,51 @@ class URL_VTT():
         with open(f"{self.OUTPUT_DIR}/{data['title']}.json", 'w', encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
+    # def process_lesson(self):
+    #     print("Downloading audio and captions...")
+    #     self.download_audio_and_captions(self.YOUTUBE_URL, self.AUDIO_FILE, self.CAPTIONS_FILE)
+
+
+
+    #     if not os.path.exists(self.AUDIO_FILE) or not os.path.exists(self.CAPTIONS_FILE):
+    #         print("ERROR: Audio or captions file missing.")
+    #         return
+
+    #     print("Parsing captions...")
+    #     segments = self.parse_vtt_to_segments(self.CAPTIONS_FILE)
+    #     print(f"Found {len(segments)} caption segments.")
+
+    #     print("Splitting audio...")
+    #     self.split_audio_segments(self.AUDIO_FILE, segments)
+
+    #     #print("Saving metadata.csv...")
+    #     #pd.DataFrame(metadata).to_csv(self.METADATA_PATH, sep="|", index=False, header=False)
+    #     print("Done!")
+
+    #     #save_to_json(lesson_json)
+
     def process_lesson(self):
         print("Downloading audio and captions...")
         self.download_audio_and_captions(self.YOUTUBE_URL, self.AUDIO_FILE, self.CAPTIONS_FILE)
 
-
-
-        if not os.path.exists(self.AUDIO_FILE) or not os.path.exists(self.CAPTIONS_FILE):
-            print("ERROR: Audio or captions file missing.")
+        if not os.path.exists(self.AUDIO_FILE):
+            print("ERROR: Audio file missing.")
             return
 
-        print("Parsing captions...")
-        segments = self.parse_vtt_to_segments(self.CAPTIONS_FILE)
-        print(f"Found {len(segments)} caption segments.")
+        if os.path.exists(self.CAPTIONS_FILE):
+            print("Parsing captions...")
+            segments = self.parse_vtt_to_segments(self.CAPTIONS_FILE)
+            print(f"Found {len(segments)} caption segments.")
+        else:
+            print("Captions missing, generating with Whisper...")
+            
+            model = whisper.load_model("small")
+            result = model.transcribe(self.AUDIO_FILE)
+            segments = [{"start": seg["start"], "end": seg["end"], "text": seg["text"]} for seg in result["segments"]]
+            print(f"Generated {len(segments)} segments using Whisper.")
 
         print("Splitting audio...")
         self.split_audio_segments(self.AUDIO_FILE, segments)
-
-        #print("Saving metadata.csv...")
-        #pd.DataFrame(metadata).to_csv(self.METADATA_PATH, sep="|", index=False, header=False)
         print("Done!")
 
-        #save_to_json(lesson_json)
 

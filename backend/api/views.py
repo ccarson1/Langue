@@ -26,6 +26,8 @@ from .url_vtt import URL_VTT
 from .vtt import VTT
 from django.utils import timezone
 
+lesson_import_progress = {} 
+
 
 @api_view(['POST'])
 def api_login(request):
@@ -135,6 +137,9 @@ def import_lesson(request):
     nativeLang = get_object_or_404(Language, lang_name=nativeLangName)
     targetLang = get_object_or_404(Language, lang_name=targetLangName)
 
+    user_id = request.user.id
+    lesson_import_progress[user_id] = 0
+
     # Create and save Lesson object
     lesson = Lesson(
         user=request.user,
@@ -155,6 +160,8 @@ def import_lesson(request):
 
     lesson.save()
     
+    
+
     UserLessonsProgress.objects.get_or_create(
         user=request.user,
         lesson=lesson,
@@ -164,8 +171,10 @@ def import_lesson(request):
         }
     )
     
+    lesson_import_progress[user_id] = 5
+
     if urlReference:
-        save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language.id, lesson.native_language.id)
+        save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language.id, lesson.native_language.id, lesson_import_progress, user_id)
         save_lesson_media.process_lesson()
 
         lesson.audio_folder = save_lesson_media.AUDIO_DIR
@@ -188,6 +197,7 @@ def import_lesson(request):
             lesson.image = save_lesson_media.OUTPUT_DIR + "\\" + title
 
         lesson.save()
+    lesson_import_progress[user_id] = 100
 
 
     return Response({
@@ -202,13 +212,20 @@ def import_lesson(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def lesson_import_progress_view(request):
+    user_id = request.user.id
+    progress = lesson_import_progress.get(user_id, 0)
+    return Response({'progress': round(progress)})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_lessons(request):
     user = request.user
     settings = UserSetting.objects.get(user=user)
     print(f"This lessons target language is : {settings.target_language.id}")
     target_lang_id = settings.target_language.id
     lessons = Lesson.objects.filter(target_language_id=target_lang_id, user=user)
-    serializer = LessonSerializer(lessons, many=True)
+    serializer = LessonSerializer(lessons, many=True, context={'request': request})
     return Response(serializer.data)
 
 

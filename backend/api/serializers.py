@@ -92,17 +92,6 @@ class LanguageSerializer(serializers.ModelSerializer):
         model = Language
         fields = ['id', 'lang_name', 'yt_dlp_lang']
 
-class LessonSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Lesson
-        fields = [
-            'id',
-            'user', 
-            'native_language', 
-            'target_language', 
-            'lesson_private',
-            'created_at',
-            'title']
 
 class SentenceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -110,14 +99,32 @@ class SentenceSerializer(serializers.ModelSerializer):
         fields = ['id', 'audio_file', 'sentence', 'translated_sentence', 'lesson_language', 'translate_language']
 
 class LessonSerializer(serializers.ModelSerializer):
-    # nested sentences
     sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
         fields = [
-            'id', 'doc_file', 'audio_file', 'user', 'title', 'url', 'uuid',
-            'native_language', 'target_language', 'lesson_private',
-            'audioUploaded', 'fileUploaded', 'urlReference', 'created_at',
+            'id',
+            'image',
+            'doc_file',
+            'audio_file',
+            'user',
+            'title',
+            'url',
+            'uuid',
+            'native_language',
+            'target_language',
+            'lesson_private',
+            'audioUploaded',
+            'fileUploaded',
+            'urlReference',
+            'created_at',
             'sentences',
         ]
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None

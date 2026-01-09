@@ -111,7 +111,8 @@ export default function SettingsScreen({ navigation }) {
 
       <View style={styles.settingsBox}>
         <Text style={styles.heading}>Settings</Text>
-
+        
+        <Text style={styles.label}>Native Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={nativeLanguage}
@@ -131,6 +132,7 @@ export default function SettingsScreen({ navigation }) {
           )}
         </View>
 
+        <Text style={styles.label}>Target Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={targetLanguage}

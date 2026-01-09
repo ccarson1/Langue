@@ -71,7 +71,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8080',
     'http://localhost:8081',
     'http://192.168.1.5:8000',  # your backend URL if needed
-    'http://10.6.32.163:8000'
+    'http://10.6.80.22:8000',
+    'http://10.6.96.21:8000',
 ]
 
 

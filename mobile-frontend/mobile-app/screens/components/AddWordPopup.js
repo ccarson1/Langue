@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import SaveWordButton from './SendSaveWord';
+import SaveWordButton from './SaveWordButton';
 
 export default function AddWordPopup({
   visible,
@@ -71,17 +71,20 @@ export default function AddWordPopup({
             {/* SaveWordButton instead of plain Add */}
             <SaveWordButton
               payload={{
-                word: selectedText,   // use manual entry OR selectedText
+                word: selectedText,
                 definition: word,
                 nat_id: nat_id,
                 tar_id: tar_id,
               }}
               words={words}
-              onSuccess={() => {
-                showSuccess?.();
+              showSuccess={(msg) => {
+                if (typeof showSuccess === 'function') showSuccess(msg);
                 handleLocalSubmit();
+                onClose();
               }}
-              onError={showError}
+              showError={(msg) => {
+                if (typeof showError === 'function') showError(msg);
+              }}
             />
           </View>
         </View>

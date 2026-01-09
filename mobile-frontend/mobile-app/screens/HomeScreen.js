@@ -58,6 +58,18 @@ export default function HomeScreen({ navigation }) {
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
     const showError = (message) => setPopup({ visible: true, message, type: 'error' });
 
+    const handleAddWord = (newWord) => {
+        // Ensure translatedText is an array
+        setTranslatedText(prev => {
+            if (Array.isArray(prev)) {
+                return [...prev, newWord]; // append new word
+            } else {
+                return [newWord]; // start fresh with the new word
+            }
+        });
+        showSuccess('Word added!');
+    };
+
     // --- Clipboard helper ---
     const copyToClipboard = async () => {
         await Clipboard.setStringAsync(selectedText);
@@ -383,7 +395,8 @@ export default function HomeScreen({ navigation }) {
                     </View> */}
                     <WordList
                         words={Array.isArray(translatedText) ? translatedText : []}
-                        onWordPress={displaySelectedText} // this will pass the clicked word
+                        onWordPress={displaySelectedText}
+                        onAddWord={handleAddWord}
                         selectedText={selectedText}
                         translatedText={translatedText}
                         nat_id={nativeLanguage}
@@ -529,6 +542,7 @@ export default function HomeScreen({ navigation }) {
                     BackHandler.exitApp();
                 }}
             />
+            
 
             <CustomPopup
                 visible={popup.visible}
