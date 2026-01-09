@@ -9,9 +9,17 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
-    expose:
-      - "8000"
-
+      - ./backend/db.sqlite3:/app/db.sqlite3
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SUPERUSER_USERNAME: admin
+      DJANGO_SUPERUSER_EMAIL: admin@example.com
+      DJANGO_SUPERUSER_PASSWOR: password
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py createsuperuser --noinput || true &&
+             python manage.py runserver 0.0.0.0:8000"
   frontend:
     build:
       context: ./mobile-frontend/mobile-app

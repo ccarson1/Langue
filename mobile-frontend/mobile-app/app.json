@@ -6,6 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/langue-logo-3.png",
     "userInterfaceStyle": "light",
+    "platforms": [
+      "android",
+      "ios",
+      "web"
+    ],
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/langue-logo-3.png",
@@ -16,7 +21,6 @@
       "supportsTablet": true
     },
     "android": {
-      "allowCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/langue-logo-3.png",
         "backgroundColor": "#ffffff"
@@ -26,6 +30,14 @@
     },
     "web": {
       "favicon": "./assets/langue-logo-3.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1b4b5981-541a-4a79-b52e-1f1c50bef5af"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
