@@ -138,28 +138,7 @@ class URL_VTT():
         with open(f"{self.OUTPUT_DIR}/{data['title']}.json", 'w', encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # def process_lesson(self):
-    #     print("Downloading audio and captions...")
-    #     self.download_audio_and_captions(self.YOUTUBE_URL, self.AUDIO_FILE, self.CAPTIONS_FILE)
 
-
-
-    #     if not os.path.exists(self.AUDIO_FILE) or not os.path.exists(self.CAPTIONS_FILE):
-    #         print("ERROR: Audio or captions file missing.")
-    #         return
-
-    #     print("Parsing captions...")
-    #     segments = self.parse_vtt_to_segments(self.CAPTIONS_FILE)
-    #     print(f"Found {len(segments)} caption segments.")
-
-    #     print("Splitting audio...")
-    #     self.split_audio_segments(self.AUDIO_FILE, segments)
-
-    #     #print("Saving metadata.csv...")
-    #     #pd.DataFrame(metadata).to_csv(self.METADATA_PATH, sep="|", index=False, header=False)
-    #     print("Done!")
-
-    #     #save_to_json(lesson_json)
 
     def process_lesson(self):
         print("Downloading audio and captions...")

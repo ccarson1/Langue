@@ -101,7 +101,6 @@ export default function LessonsScreen({ navigation }) {
                             <Image source={{ uri: lesson.image }} style={styles.image} resizeMode="cover" />
                         )}
 
-
                         <TouchableOpacity
                             style={styles.button}
                             onPress={async () => {
@@ -142,7 +141,7 @@ export default function LessonsScreen({ navigation }) {
                                 }
                             }}
                         >
-                            <Text style={styles.buttonText}>Click</Text>
+                            <Text style={styles.buttonText}>Read</Text>
                         </TouchableOpacity>
                     </View>
                 ))}

@@ -30,7 +30,7 @@ export default StyleSheet.create({
     },
     title: {
         color: '#eeeeee',
-        fontSize: 22,
+        fontSize: 18,
         fontWeight: '600',
         marginBottom: 12,
     },

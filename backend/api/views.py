@@ -25,6 +25,11 @@ from django.conf import settings
 from .url_vtt import URL_VTT
 from .vtt import VTT
 from django.utils import timezone
+import requests
+from django.core.files.base import ContentFile
+from urllib.parse import urlparse, parse_qs
+import uuid
+
 
 lesson_import_progress = {} 
 
@@ -107,6 +112,61 @@ def translate(request):
 
     return Response({'translated': translated_text, 'inDatabase': 0})
 
+
+
+def extract_youtube_video_id(url):
+    parsed = urlparse(url)
+
+    # youtube.com/watch?v=ID
+    if "youtube.com" in parsed.netloc:
+        if parsed.path == "/watch":
+            return parse_qs(parsed.query).get("v", [None])[0]
+
+        # youtube.com/shorts/ID
+        if parsed.path.startswith("/shorts/"):
+            return parsed.path.split("/shorts/")[1].split("/")[0]
+
+        # youtube.com/embed/ID
+        if parsed.path.startswith("/embed/"):
+            return parsed.path.split("/embed/")[1].split("/")[0]
+
+    # youtu.be/ID
+    if "youtu.be" in parsed.netloc:
+        return parsed.path.lstrip("/")
+
+    return None
+
+
+
+def download_youtube_image(url, lesson):
+    print("DOWNLOAD FUNCTION CALLED")
+
+    video_id = extract_youtube_video_id(url)
+    print("VIDEO ID:", video_id)
+
+    if not video_id:
+        print("NO VIDEO ID FOUND")
+        return False
+
+    for quality in ["maxresdefault", "hqdefault"]:
+        thumbnail_url = f"https://img.youtube.com/vi/{video_id}/{quality}.jpg"
+        print("TRYING:", thumbnail_url)
+
+        response = requests.get(thumbnail_url, timeout=10)
+        print("STATUS:", response.status_code)
+
+        if response.status_code == 200:
+            image_content = ContentFile(response.content)
+            filename = f"youtube_{video_id}.jpg"
+
+            lesson.image.save(filename, image_content, save=True)
+            print("FILE SAVED TO:", lesson.image.path)
+            return True
+
+    print("ALL THUMBNAIL ATTEMPTS FAILED")
+    return False
+
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -140,6 +200,8 @@ def import_lesson(request):
     user_id = request.user.id
     lesson_import_progress[user_id] = 0
 
+
+
     # Create and save Lesson object
     lesson = Lesson(
         user=request.user,
@@ -151,8 +213,22 @@ def import_lesson(request):
         title = title
     )
     
+    print((f"Processing lesson image with urlReference: {urlReference}, imageReference: {imageReference}"))
+    print(f"Lesson URL: {url}")
     
+    if url:
+        print("URL RECEIVED:", url)
 
+    if "youtube" in (url or "").lower() and not image_file:
+        print("YOUTUBE URL DETECTED")
+        success = download_youtube_image(url, lesson)
+        print("DOWNLOAD RESULT:", success)
+
+    # ✅ If an image file was uploaded by the user, use that instead
+    if image_file:
+        lesson.image = image_file
+
+    lesson.save()
     
         
     if urlReference:

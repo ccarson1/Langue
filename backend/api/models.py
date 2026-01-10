@@ -12,7 +12,7 @@ def audio_file_upload_path(instance, filename):
     return f'lessons/user_{instance.user.id}/{instance.uuid}/audio/{filename}'
 
 def image_file_upload_path(instance, filename):
-    return f'lessons/user_{instance.user.id}/{instance.uuid}/image/{filename}'
+    return f'images/{filename}'
 
 class Language(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -90,7 +90,7 @@ class Lesson(models.Model):
     doc_file = models.FileField( null=True, blank=True)
     audio_file = models.FileField(null=True, blank=True)
     audio_folder = models.CharField(max_length=500, blank=True, null=True)
-    image = models.ImageField(null=True, blank=True, default='images/default-01.jpg')
+    image = models.ImageField(null=True, blank=True, default='images/default-01.jpg', upload_to=image_file_upload_path)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
     title = models.CharField(max_length=100, blank=True, null=True)
     url = models.URLField(max_length=1000, blank=True, null=True)
