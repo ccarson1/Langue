@@ -10,6 +10,7 @@ import ImportScreen from './screens/ImportScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import AccountScreen from './screens/AccountScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
+import LessonEditScreen from './screens/LessonEditScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,6 +24,7 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="Lessons" component={LessonsScreen} />
+          <Stack.Screen name="LessonEdit" component={LessonEditScreen} />
           <Stack.Screen name="Listening" component={ListeningScreen} />
           <Stack.Screen name="Import" component={ImportScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />

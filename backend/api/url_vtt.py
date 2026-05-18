@@ -1,5 +1,6 @@
 import os
 import yt_dlp
+from yt_dlp.utils import DownloadError
 from pydub import AudioSegment
 import whisper
 import webvtt
@@ -59,7 +60,10 @@ class URL_VTT():
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url, download=True)
+            try:
+                info_dict = ydl.extract_info(url, download=True)
+            except DownloadError as e:
+                return {"error": str(e)}
             title = info_dict.get("title", "unknown_title")
             print(f"Video title: {title}")
             #self.lesson_json["title"] = title

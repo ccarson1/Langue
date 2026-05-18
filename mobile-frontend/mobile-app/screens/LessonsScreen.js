@@ -94,6 +94,14 @@ export default function LessonsScreen({ navigation }) {
             <ScrollView contentContainerStyle={styles.gridWrapper}>
                 {lessons.map((lesson) => (
                     <View key={lesson.id} style={styles.card}>
+                        <TouchableOpacity
+                            style={styles.editButton}
+                            onPress={() => navigation.navigate("LessonEdit", {
+                                lessonId: lesson.id
+                            })}
+                        >
+                            <AntDesign name="edit" size={20} color="white" />
+                        </TouchableOpacity>
                         <Text style={styles.title}>{lesson.id}</Text>
                         <Text style={styles.title}>{lesson.title}</Text>
 

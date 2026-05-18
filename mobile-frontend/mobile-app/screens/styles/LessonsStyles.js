@@ -55,11 +55,20 @@ export default StyleSheet.create({
     },
 
     backLink: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 10,
-  },
+        position: 'absolute',
+        top: 40,
+        right: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    editButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        zIndex: 10,
+        backgroundColor: '#444',
+        padding: 6,
+        borderRadius: 20,
+    },
 });

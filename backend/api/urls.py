@@ -20,6 +20,7 @@ urlpatterns = [
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
     path('languages/', views.get_languages, name='get_languages'),
     path('lessons/', views.get_lessons, name='get_lessons'),
+    path('edit-lesson/<int:lesson_id>/', views.edit_lesson),
     path('settings/', views.user_settings, name='user_settings'),
     path('account/', views.account, name='account'),
     path('user-progress/', views.user_lessons_progress_view, name='user_lessons_progress'),

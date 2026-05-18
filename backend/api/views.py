@@ -304,6 +304,95 @@ def get_lessons(request):
     serializer = LessonSerializer(lessons, many=True, context={'request': request})
     return Response(serializer.data)
 
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def edit_lesson(request, lesson_id):
+
+    try:
+        lesson = Lesson.objects.get(
+            id=lesson_id,
+            user=request.user
+        )
+
+    except Lesson.DoesNotExist:
+        return Response(
+            {'error': 'Lesson not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == 'GET':
+
+        sentences = Sentence.objects.filter(lesson=lesson)
+
+        data = {
+            'id': lesson.id,
+            'title': lesson.title,
+            'url': lesson.url,
+            'lesson_private': lesson.lesson_private,
+
+            'sentences': [
+                {
+                    'id': s.id,
+                    'sentence': s.sentence,
+                    'translated_sentence': s.translated_sentence
+                }
+                for s in sentences
+            ]
+        }
+
+        return Response(data)
+
+    elif request.method == 'PUT':
+
+        lesson.title = request.data.get(
+            'title',
+            lesson.title
+        )
+
+        lesson.url = request.data.get(
+            'url',
+            lesson.url
+        )
+
+        lesson.lesson_private = request.data.get(
+            'lesson_private',
+            lesson.lesson_private
+        )
+
+        lesson.save()
+
+        incoming_sentences = request.data.get(
+            'sentences',
+            []
+        )
+
+        for s in incoming_sentences:
+
+            try:
+                sentence_obj = Sentence.objects.get(
+                    id=s['id'],
+                    lesson=lesson
+                )
+
+                sentence_obj.sentence = s.get(
+                    'sentence',
+                    sentence_obj.sentence
+                )
+
+                sentence_obj.translated_sentence = s.get(
+                    'translated_sentence',
+                    sentence_obj.translated_sentence
+                )
+
+                sentence_obj.save()
+
+            except Sentence.DoesNotExist:
+                continue
+
+        return Response({
+            'message': 'Lesson updated successfully'
+        })
+
 
 @csrf_exempt
 @api_view(['POST'])

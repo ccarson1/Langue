@@ -55,12 +55,10 @@ export default StyleSheet.create({
     borderWidth: 0,
     borderRadius: 6,
     ...(Platform.OS === 'web' && {
-      appearance: 'none',
-      WebkitAppearance: 'none',
-      MozAppearance: 'none',
-      outline: 'none',
-      border: 'none',
-      boxShadow: 'none',
+
+
+      borderWidth: 0,
+      shadowColor: 'transparent',
 
     }),
   },
