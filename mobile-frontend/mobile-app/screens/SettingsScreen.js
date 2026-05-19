@@ -18,6 +18,8 @@ export default function SettingsScreen({ navigation }) {
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [dictionaries, setDictionaries] = useState([]);
+  const [selectedDictionary, setSelectedDictionary] = useState('');
   const [profilePrivate, setProfilePrivate] = useState(false);
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
@@ -34,41 +36,101 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
+  const fetchDictionaries = async (language) => {
+
+    try {
+
+      const token = await AsyncStorage.getItem(
+        'accessToken'
+      );
+
+      const res = await fetch(
+        `http://${server}:8000/api/dictionaries/?language=${language}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      const data = await res.json();
+
+      setDictionaries(data);
+
+    } catch (err) {
+
+      console.error(err);
+
+      Alert.alert(
+        'Error',
+        'Failed to load dictionaries'
+      );
+    }
+  };
+
   useEffect(() => {
+
     const loadTokenAndSettings = async () => {
+
       try {
-        const storedToken = await AsyncStorage.getItem('accessToken');
+
+        const storedToken = await AsyncStorage.getItem(
+          'accessToken'
+        );
+
         if (!storedToken) {
-          Alert.alert('Error', 'No access token found. Please log in.');
+
+          Alert.alert(
+            'Error',
+            'No access token found. Please log in.'
+          );
+
           return;
         }
+
         setToken(storedToken);
 
-        const decoded = jwtDecode(storedToken);
-        console.log('Decoded token:', decoded);
+        const response = await fetch(
+          `http://${server}:8000/api/settings/`,
+          {
+            method: 'GET',
 
-        const response = await fetch(`http://${server}:8000/api/settings/`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${storedToken}`,
-          },
-        });
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${storedToken}`,
+            },
+          }
+        );
 
         const settings = await response.json();
+
         setNativeLanguage(settings.native_language);
         setTargetLanguage(settings.target_language);
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
 
       } catch (err) {
-        Alert.alert('Error', 'Failed to load settings: ' + err.message);
+
+        Alert.alert(
+          'Error',
+          'Failed to load settings: ' + err.message
+        );
       }
     };
 
-    fetchLanguages(); // <--- fetch language options
-    loadTokenAndSettings(); // <--- fetch user settings
+    fetchLanguages();
+    loadTokenAndSettings();
+
   }, []);
+
+  useEffect(() => {
+
+    if (targetLanguage) {
+
+      fetchDictionaries(targetLanguage);
+    }
+
+  }, [targetLanguage]);
 
   const handleSave = async () => {
     if (!token) {
@@ -87,6 +149,7 @@ export default function SettingsScreen({ navigation }) {
           native_language: nativeLanguage,
           target_language: targetLanguage,
           notifications: notificationsEnabled,
+          dictionary_name: selectedDictionary,
           privacy: profilePrivate,
         }),
       });
@@ -111,12 +174,18 @@ export default function SettingsScreen({ navigation }) {
 
       <View style={styles.settingsBox}>
         <Text style={styles.heading}>Settings</Text>
-        
+
         <Text style={styles.label}>Native Language</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={nativeLanguage}
-            onValueChange={setNativeLanguage}
+            onValueChange={(value) => {
+
+              setTargetLanguage(value);
+
+              setSelectedDictionary('');
+              setDictionaries([]);
+            }}
             style={styles.picker}
             dropdownIconColor="white"
           >
@@ -131,6 +200,7 @@ export default function SettingsScreen({ navigation }) {
             </View>
           )}
         </View>
+
 
         <Text style={styles.label}>Target Language</Text>
         <View style={styles.pickerWrapper}>
@@ -145,6 +215,8 @@ export default function SettingsScreen({ navigation }) {
             ))}
           </Picker>
 
+
+
           {Platform.OS === 'web' && (
             <View style={styles.arrowWrapper}>
               <AntDesign name="down" size={16} color="#eeeeee" />
@@ -152,7 +224,33 @@ export default function SettingsScreen({ navigation }) {
           )}
         </View>
 
+        <Text style={styles.label}>
+          Dictionary
+        </Text>
 
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedDictionary}
+            onValueChange={setSelectedDictionary}
+            style={styles.picker}
+            dropdownIconColor="white"
+          >
+            <Picker.Item
+              label="AI Dictionary"
+              value=""
+            />
+
+            {dictionaries.map((dict) => (
+
+              <Picker.Item
+                key={dict.value}
+                label={dict.label}
+                value={dict.value}
+              />
+            ))}
+
+          </Picker>
+        </View>
 
         <View style={styles.checkboxRow}>
           <Switch

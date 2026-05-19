@@ -137,6 +137,7 @@ class UserSetting(models.Model):
     native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='settings_translations_native')
     target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='settings_translations_target')
     notifications = models.BooleanField(default=True, db_column='notifications')
+    dictionary_name = models.CharField( max_length=255, blank=True, null=True )
     
 class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')

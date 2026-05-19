@@ -29,6 +29,7 @@ import requests
 from django.core.files.base import ContentFile
 from urllib.parse import urlparse, parse_qs
 import uuid
+import json
 
 
 lesson_import_progress = {} 
@@ -80,19 +81,18 @@ def translate(request):
     print(f"Native: {nat_id}")
     print(f"Target: {tar_id}")
 
+    target_language = Language.objects.filter(
+        id=tar_id
+    ).first()
+    native_language = Language.objects.filter(
+        id=nat_id
+    ).first()
+
     if not text or not nat_id or not tar_id:
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
     word = Word.objects.filter(word=text, language_id=tar_id).first()
 
-    # if word:
-    #     word_translation = WordTranslation.objects.filter(
-    #         word_id=word.id,
-    #         native_language_id=nat_id,
-    #         target_language_id=tar_id
-    #     ).first()
-    #     if word_translation:
-    #         return Response({'translated': word_translation.definition, 'inDatabase': 1})
 
     
     if word:
@@ -106,9 +106,70 @@ def translate(request):
         definitions = [t.definition for t in translations]
 
         return Response({'translated': definitions, 'inDatabase': 1})
+    
+    # -----------------------------------
+    # DICTIONARY FALLBACK
+    # -----------------------------------
+
+    user_setting = UserSetting.objects.filter(
+        user=request.user
+    ).first()
+
+    dictionary_name = None
+
+    if user_setting:
+        dictionary_name = user_setting.dictionary_name
+
+    if dictionary_name:
+
+        try:
+            
+
+            lang_code = target_language.yt_dlp_lang
+            
+
+            dictionary_path = os.path.join(
+                settings.BASE_DIR,
+                'dictionaries',
+                lang_code,
+                dictionary_name
+            )
+
+            print(dictionary_path)
+
+            with open(dictionary_path, 'r', encoding='utf-8') as f:
+                dictionary_data = json.load(f)
+
+            search_word = text.strip().lower()
+
+            for entry in dictionary_data:
+
+                dict_word = entry.get(
+                    'word',
+                    ''
+                ).strip().lower()
+
+                if dict_word == search_word:
+
+                    definition = entry.get(
+                        'definition',
+                        ''
+                    ).strip()
+                    print(f"Found in dictionary: {dict_word} -> {definition}")
+                    if definition:
+
+                        return Response({
+                            'translated': [definition],
+                            'inDatabase': 0,
+                            'fromDictionary': 1
+                        })
+
+        except Exception as e:
+
+            print('Dictionary lookup error:', e)
 
     # Replace with your translation function:
-    translated_text = translate_word(text)
+    translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang  )
 
     return Response({'translated': translated_text, 'inDatabase': 0})
 
@@ -304,16 +365,20 @@ def get_lessons(request):
     serializer = LessonSerializer(lessons, many=True, context={'request': request})
     return Response(serializer.data)
 
+def str_to_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() == 'true'
+    return False
+
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser]) 
 def edit_lesson(request, lesson_id):
 
     try:
-        lesson = Lesson.objects.get(
-            id=lesson_id,
-            user=request.user
-        )
-
+        lesson = Lesson.objects.get( id=lesson_id, user=request.user )
     except Lesson.DoesNotExist:
         return Response(
             {'error': 'Lesson not found'},
@@ -344,45 +409,29 @@ def edit_lesson(request, lesson_id):
 
     elif request.method == 'PUT':
 
-        lesson.title = request.data.get(
-            'title',
-            lesson.title
-        )
+        print("FILES:", request.FILES)
+        print("DATA:", request.data)
 
-        lesson.url = request.data.get(
-            'url',
-            lesson.url
-        )
+        lesson.title = request.data.get( 'title', lesson.title )
+        lesson.url = request.data.get( 'url', lesson.url )
+        lesson.lesson_private = str_to_bool(request.data.get('lesson_private'))
 
-        lesson.lesson_private = request.data.get(
-            'lesson_private',
-            lesson.lesson_private
-        )
+        if 'audio_file' in request.FILES:
+            lesson.audio_file = request.FILES.get('audio_file')
 
         lesson.save()
 
-        incoming_sentences = request.data.get(
-            'sentences',
-            []
-        )
+        incoming_sentences = request.data.get( 'sentences', [] )
+
+        if isinstance(incoming_sentences, str):
+            incoming_sentences = json.loads(incoming_sentences)
 
         for s in incoming_sentences:
 
             try:
-                sentence_obj = Sentence.objects.get(
-                    id=s['id'],
-                    lesson=lesson
-                )
-
-                sentence_obj.sentence = s.get(
-                    'sentence',
-                    sentence_obj.sentence
-                )
-
-                sentence_obj.translated_sentence = s.get(
-                    'translated_sentence',
-                    sentence_obj.translated_sentence
-                )
+                sentence_obj = Sentence.objects.get( id=s['id'], lesson=lesson )
+                sentence_obj.sentence = s.get( 'sentence', sentence_obj.sentence )
+                sentence_obj.translated_sentence = s.get( 'translated_sentence', sentence_obj.translated_sentence )
 
                 sentence_obj.save()
 
@@ -500,6 +549,7 @@ def user_settings(request):
                 'native_language': settings.native_language.lang_name,  # or id if you prefer
                 'target_language': settings.target_language.lang_name,
                 'notifications': settings.notifications,
+                'dictionary_name': settings.dictionary_name,
                 # add more fields as needed
             }
             return Response(data)
@@ -511,6 +561,7 @@ def user_settings(request):
         native_id = request.data.get('native_language')
         target_id = request.data.get('target_language')
         notifications = request.data.get('notifications')
+        dictionary_name = request.data.get('dictionary_name')
 
         if native_id is None or target_id is None:
             return Response(
@@ -528,6 +579,7 @@ def user_settings(request):
             settings.native_language = native_lang
             settings.target_language = target_lang
             settings.notifications = bool(notifications)
+            settings.dictionary_name = dictionary_name
             settings.save()
 
             return Response({'message': 'Settings updated successfully'})
@@ -535,6 +587,47 @@ def user_settings(request):
             return Response({'error': 'Invalid language ID'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+@api_view(['GET'])
+def get_dictionaries(request):
+
+    language = request.GET.get('language')
+
+    if not language:
+        return Response([])
+
+    # convert language name to folder code
+    lang_map = {
+        'Lithuanian': 'lt',
+        'Russian': 'ru',
+    }
+
+    lang_code = lang_map.get(language)
+
+    if not lang_code:
+        return Response([])
+
+    dictionary_dir = os.path.join(
+        settings.BASE_DIR,
+        'dictionaries',
+        lang_code
+    )
+
+    if not os.path.exists(dictionary_dir):
+        return Response([])
+
+    dictionaries = []
+
+    for file in os.listdir(dictionary_dir):
+
+        if file.endswith('.json'):
+
+            dictionaries.append({
+                'label': file.replace('.json', ''),
+                'value': file
+            })
+
+    return Response(dictionaries)
 
 @csrf_exempt 
 @api_view(['GET', 'PUT'])

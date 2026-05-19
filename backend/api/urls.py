@@ -22,6 +22,7 @@ urlpatterns = [
     path('lessons/', views.get_lessons, name='get_lessons'),
     path('edit-lesson/<int:lesson_id>/', views.edit_lesson),
     path('settings/', views.user_settings, name='user_settings'),
+    path('dictionaries/', views.get_dictionaries, name='get_dictionaries'),
     path('account/', views.account, name='account'),
     path('user-progress/', views.user_lessons_progress_view, name='user_lessons_progress'),
     path('user-progress/<int:lesson_id>/', views.user_lessons_progress_view, name='user_lessons_progress'),

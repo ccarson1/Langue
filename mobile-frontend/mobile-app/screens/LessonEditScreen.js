@@ -8,13 +8,15 @@ import {
     Alert,
     ScrollView,
     StyleSheet,
-    Switch
+    Switch,
+    Share,
+    Platform
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import config from '../utils/config';
-
+import * as DocumentPicker from 'expo-document-picker';
 export default function LessonEditScreen({
     route,
     navigation
@@ -27,7 +29,7 @@ export default function LessonEditScreen({
     const [title, setTitle] = useState('');
     const [url, setUrl] = useState('');
     const [lessonPrivate, setLessonPrivate] = useState(false);
-
+    const [audioFile, setAudioFile] = useState(null);
     const [sentences, setSentences] = useState([]);
 
     useEffect(() => {
@@ -85,57 +87,130 @@ export default function LessonEditScreen({
     };
 
     const saveLesson = async () => {
-
         try {
+            const token = await AsyncStorage.getItem('accessToken');
 
-            const token = await AsyncStorage.getItem(
-                'accessToken'
-            );
+            const formData = new FormData();
+
+            console.log(JSON.stringify(audioFile, null, 2));
+            formData.append('title', title);
+            formData.append('url', url);
+            formData.append('lesson_private', lessonPrivate);
+            formData.append('sentences', JSON.stringify(sentences));
+
+            if (audioFile) {
+
+                console.log("Uploading audio:", audioFile);
+
+                if (Platform.OS === 'web') {
+
+                    formData.append(
+                        'audio_file',
+                        audioFile.file
+                    );
+
+                } else {
+
+                    formData.append('audio_file', {
+                        uri:
+                            Platform.OS === 'ios'
+                                ? audioFile.uri.replace('file://', '')
+                                : audioFile.uri,
+
+                        name: audioFile.name || 'audio.m4a',
+
+                        type:
+                            audioFile.mimeType ||
+                            audioFile.type ||
+                            'audio/mp4',
+                    });
+                }
+            }
 
             const res = await fetch(
                 `http://${server}:8000/api/edit-lesson/${lessonId}/`,
                 {
                     method: 'PUT',
-
                     headers: {
                         Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                        // ❌ DO NOT set Content-Type manually for FormData
                     },
-
-                    body: JSON.stringify({
-                        title,
-                        url,
-                        lesson_private: lessonPrivate,
-                        sentences
-                    })
+                    body: formData,
                 }
             );
 
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(
-                    data.error || 'Update failed'
-                );
+                throw new Error(data.error || 'Update failed');
             }
 
-            Alert.alert(
-                'Success',
-                'Lesson updated'
-            );
-
+            Alert.alert('Success', 'Lesson updated');
             navigation.goBack();
 
         } catch (error) {
-
             console.error(error);
-
-            Alert.alert(
-                'Error',
-                error.message
-            );
+            Alert.alert('Error', error.message);
         }
     };
+
+    const downloadTxt = async () => {
+
+        const nativeSection = sentences
+            .map((s, i) => `${i + 1}. ${s.sentence}`)
+            .join('\n\n');
+
+        const translatedSection = sentences
+            .map((s, i) => `${i + 1}. ${s.translated_sentence}`)
+            .join('\n\n');
+
+        const content =
+            `${title}
+
+========================
+NATIVE LANGUAGE
+========================
+
+${nativeSection}
+
+========================
+TRANSLATION
+========================
+
+        ${translatedSection}
+        `;
+
+        try {
+
+            if (Platform.OS === 'web') {
+
+                // 🟡 Web fallback: download as file
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${title || 'transcript'}.txt`;
+                a.click();
+
+                URL.revokeObjectURL(url);
+
+            } else {
+
+                // 🟢 Mobile (Expo / native)
+                await Share.share({
+                    title: `${title} transcript`,
+                    message: content
+                });
+            }
+
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to export transcript');
+        }
+    };
+
+
 
     return (
 
@@ -180,6 +255,35 @@ export default function LessonEditScreen({
                     onValueChange={setLessonPrivate}
                 />
 
+            </View>
+            <View style={styles.downloadRow}>
+                <TouchableOpacity
+                    style={styles.downloadButton}
+                    onPress={downloadTxt}
+                >
+                    <Text style={styles.downloadButtonText}>
+                        Download TXT
+                    </Text>
+                </TouchableOpacity>
+            </View>
+            <View style={styles.downloadRow}>
+                <TouchableOpacity
+                    style={styles.downloadButton}
+                    onPress={async () => {
+                        const result = await DocumentPicker.getDocumentAsync({
+                            type: 'audio/*',
+                            copyToCacheDirectory: true,
+                        });
+
+                        if (result.assets && result.assets.length > 0) {
+                            setAudioFile(result.assets[0]);
+                        }
+                    }}
+                >
+                    <Text style={styles.downloadButtonText}>
+                        {audioFile ? 'Audio Selected' : 'Upload Audio'}
+                    </Text>
+                </TouchableOpacity>
             </View>
 
             <Text style={styles.sentencesHeader}>
@@ -255,8 +359,8 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         backgroundColor: '#222831',
         paddingTop: 80,
-        paddingHorizontal: 16,
-        paddingBottom: 120,
+        paddingHorizontal: 10,
+        paddingBottom: 80,
     },
 
     header: {
@@ -278,7 +382,7 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: '#393e46',
         borderRadius: 10,
-        padding: 14,
+        padding: 8,
         color: '#eeeeee',
         fontSize: 16,
         borderWidth: 1,
@@ -326,7 +430,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#393e46',
         borderRadius: 10,
         padding: 14,
-        minHeight: 120,
         color: '#eeeeee',
         fontSize: 15,
         borderWidth: 1,
@@ -361,6 +464,18 @@ const styles = StyleSheet.create({
         top: 40,
         right: 20,
         zIndex: 20,
+    },
+    downloadRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end', // 👈 pushes content right
+        marginTop: 10,
+    },
+    downloadButton: {
+        backgroundColor: '#00adb5',
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 8,
+
     },
 
 });
