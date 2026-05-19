@@ -108,6 +108,7 @@ export default function SettingsScreen({ navigation }) {
         setTargetLanguage(settings.target_language);
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
+        setSelectedDictionary(settings.dictionary_name || '');
 
       } catch (err) {
 
@@ -181,7 +182,7 @@ export default function SettingsScreen({ navigation }) {
             selectedValue={nativeLanguage}
             onValueChange={(value) => {
 
-              setTargetLanguage(value);
+              setNativeLanguage(value);
 
               setSelectedDictionary('');
               setDictionaries([]);
