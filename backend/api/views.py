@@ -1,4 +1,5 @@
 # backend/api/views.py
+
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -30,7 +31,8 @@ from django.core.files.base import ContentFile
 from urllib.parse import urlparse, parse_qs
 import uuid
 import json
-
+import shutil
+from django.db import transaction
 
 lesson_import_progress = {} 
 
@@ -227,125 +229,380 @@ def download_youtube_image(url, lesson):
     print("ALL THUMBNAIL ATTEMPTS FAILED")
     return False
 
-
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def import_lesson(request):
-    print("=== RAW DATA ===")
-    print(request.data)
-    print("=== FILES ===")
-    print(request.FILES)
 
-    url = request.data.get('url')
-    title = request.data.get('title')
-    nativeLangName = request.data.get('nativeLanguage')
-    targetLangName = request.data.get('targetLanguage')
-    audioUploaded = request.data.get('audioUploaded')
-    lessonPrivate = request.data.get('lessonPrivate', 'false').lower() in ['true', '1', 'yes']
-    fileUploaded = request.data.get('fileUploaded', 'false').lower() in ['true', '1', 'yes']
-    urlReference = request.data.get('urlReference', 'false').lower() in ['true', '1', 'yes']
-    imageReference = request.data.get('imageReference', 'false').lower() in ['true', '1', 'yes']
+    lesson = None
+    save_lesson_media = None
 
-    lesson_file = request.FILES.get('file')
-    audio_file = request.FILES.get('audio')
-    image_file = request.FILES.get('image')
+    try:
 
-    print(f"Uploaded image: {image_file}")
-    print(f"Image type: {type(image_file)}")
+        with transaction.atomic():
 
-    nativeLang = get_object_or_404(Language, lang_name=nativeLangName)
-    targetLang = get_object_or_404(Language, lang_name=targetLangName)
+            print("=== RAW DATA ===")
+            print(request.data)
 
-    user_id = request.user.id
-    lesson_import_progress[user_id] = 0
+            url = request.data.get('url')
+            title = request.data.get('title')
+
+            nativeLangName = request.data.get('nativeLanguage')
+            targetLangName = request.data.get('targetLanguage')
+
+            audioUploaded = request.data.get('audioUploaded')
+            lessonPrivate = request.data.get(
+                'lessonPrivate',
+                'false'
+            ).lower() in ['true', '1', 'yes']
+
+            fileUploaded = request.data.get(
+                'fileUploaded',
+                'false'
+            ).lower() in ['true', '1', 'yes']
+
+            urlReference = request.data.get(
+                'urlReference',
+                'false'
+            ).lower() in ['true', '1', 'yes']
+
+            imageReference = request.data.get(
+                'imageReference',
+                'false'
+            ).lower() in ['true', '1', 'yes']
+
+            lesson_file = request.FILES.get('file')
+            audio_file = request.FILES.get('audio')
+            image_file = request.FILES.get('image')
+
+            nativeLang = get_object_or_404(
+                Language,
+                lang_name=nativeLangName
+            )
+
+            targetLang = get_object_or_404(
+                Language,
+                lang_name=targetLangName
+            )
+
+            user_id = request.user.id
+            lesson_import_progress[user_id] = 0
+
+            # CREATE LESSON
+            lesson = Lesson.objects.create(
+                user=request.user,
+                url=url,
+                native_language=nativeLang,
+                target_language=targetLang,
+                lesson_private=lessonPrivate,
+                urlReference=urlReference,
+                title=title
+            )
+
+            # SAVE IMAGE
+            if image_file:
+                lesson.image = image_file
+                lesson.save()
+
+            # YOUTUBE IMAGE
+            elif "youtube" in (url or "").lower():
+
+                success = download_youtube_image(url, lesson)
+
+                if not success:
+                    raise Exception(
+                        "Failed to download YouTube thumbnail"
+                    )
+
+            UserLessonsProgress.objects.get_or_create(
+                user=request.user,
+                lesson=lesson,
+                defaults={
+                    'current_lesson_index': 0,
+                    'last_viewed': timezone.now()
+                }
+            )
+
+            lesson_import_progress[user_id] = 5
+
+            # URL IMPORT
+            if urlReference:
+
+                save_lesson_media = URL_VTT(
+                    lesson.url,
+                    lesson.id,
+                    lesson.target_language.id,
+                    lesson.native_language.id,
+                    lesson_import_progress,
+                    user_id
+                )
+
+                success = save_lesson_media.process_lesson()
+                if not success:
+                    raise Exception(
+                        "YouTube processing failed"
+                    )
+
+                lesson.audio_folder = (
+                    save_lesson_media.AUDIO_DIR
+                )
+
+                lesson.save()
+
+            # FILE IMPORT
+            if fileUploaded and audioUploaded:
+
+                if lesson_file:
+                    lesson.doc_file = lesson_file
+
+                if audio_file:
+                    lesson.audio_file = audio_file
+
+                lesson.save()
+
+                save_lesson_media = VTT(
+                    lesson_file,
+                    audio_file,
+                    lesson.id,
+                    targetLang,
+                    nativeLang
+                )
+
+                csv_path = save_lesson_media.save_csv(
+                    lesson_file
+                )
+
+                if not csv_path:
+                    raise Exception(
+                        "CSV generation failed"
+                    )
+
+                audio_success = (
+                    save_lesson_media.save_audio_as_m4a(
+                        audio_file
+                    )
+                )
+
+                if not audio_success:
+                    raise Exception(
+                        "Audio conversion failed"
+                    )
+
+                split_success = (
+                    save_lesson_media.split_audio_by_csv_ms(
+                        csv_path=csv_path
+                    )
+                )
+
+                if not split_success:
+                    raise Exception(
+                        "Audio splitting failed"
+                    )
+
+                lesson.audio_folder = (
+                    save_lesson_media.AUDIO_DIR
+                )
+
+                lesson.save()
+
+            lesson_import_progress[user_id] = 100
+
+            return Response({
+                'message': 'Lesson uploaded successfully.',
+                'lessonId': lesson.id
+            })
+
+    except Exception as e:
+
+        print("IMPORT ERROR:", str(e))
+
+        lesson_import_progress[user_id] = -1
+
+        # DELETE GENERATED FOLDERS
+        try:
+
+            if save_lesson_media:
+
+                if hasattr(save_lesson_media, 'AUDIO_DIR'):
+
+                    if os.path.exists(
+                        save_lesson_media.AUDIO_DIR
+                    ):
+                        shutil.rmtree(
+                            save_lesson_media.AUDIO_DIR,
+                            ignore_errors=True
+                        )
+
+                if hasattr(save_lesson_media, 'OUTPUT_DIR'):
+
+                    if os.path.exists(
+                        save_lesson_media.OUTPUT_DIR
+                    ):
+                        shutil.rmtree(
+                            save_lesson_media.OUTPUT_DIR,
+                            ignore_errors=True
+                        )
+
+        except Exception as cleanup_error:
+
+            print(
+                "Cleanup error:",
+                str(cleanup_error)
+            )
+
+        # DELETE DATABASE ENTRY
+        try:
+
+            if lesson:
+                lesson.delete()
+
+        except Exception as delete_error:
+
+            print(
+                "Lesson delete error:",
+                str(delete_error)
+            )
+
+        return Response({
+            "error": str(e)
+        }, status=500)
+
+
+# @csrf_exempt
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# @parser_classes([MultiPartParser, FormParser])
+# def import_lesson(request):
+#     print("=== RAW DATA ===")
+#     print(request.data)
+#     print("=== FILES ===")
+#     print(request.FILES)
+
+#     url = request.data.get('url')
+#     title = request.data.get('title')
+#     nativeLangName = request.data.get('nativeLanguage')
+#     targetLangName = request.data.get('targetLanguage')
+#     audioUploaded = request.data.get('audioUploaded')
+#     lessonPrivate = request.data.get('lessonPrivate', 'false').lower() in ['true', '1', 'yes']
+#     fileUploaded = request.data.get('fileUploaded', 'false').lower() in ['true', '1', 'yes']
+#     urlReference = request.data.get('urlReference', 'false').lower() in ['true', '1', 'yes']
+#     imageReference = request.data.get('imageReference', 'false').lower() in ['true', '1', 'yes']
+
+#     lesson_file = request.FILES.get('file')
+#     audio_file = request.FILES.get('audio')
+#     image_file = request.FILES.get('image')
+
+#     print(f"Uploaded image: {image_file}")
+#     print(f"Image type: {type(image_file)}")
+
+#     nativeLang = get_object_or_404(Language, lang_name=nativeLangName)
+#     targetLang = get_object_or_404(Language, lang_name=targetLangName)
+
+#     user_id = request.user.id
+#     lesson_import_progress[user_id] = 0
 
 
 
-    # Create and save Lesson object
-    lesson = Lesson(
-        user=request.user,
-        url=url,
-        native_language=nativeLang,
-        target_language=targetLang,
-        lesson_private=lessonPrivate,
-        urlReference = urlReference,
-        title = title
-    )
+#     # Create and save Lesson object
+#     lesson = Lesson(
+#         user=request.user,
+#         url=url,
+#         native_language=nativeLang,
+#         target_language=targetLang,
+#         lesson_private=lessonPrivate,
+#         urlReference = urlReference,
+#         title = title
+#     )
     
-    print((f"Processing lesson image with urlReference: {urlReference}, imageReference: {imageReference}"))
-    print(f"Lesson URL: {url}")
+#     print((f"Processing lesson image with urlReference: {urlReference}, imageReference: {imageReference}"))
+#     print(f"Lesson URL: {url}")
     
-    if url:
-        print("URL RECEIVED:", url)
+#     if url:
+#         print("URL RECEIVED:", url)
 
-    if "youtube" in (url or "").lower() and not image_file:
-        print("YOUTUBE URL DETECTED")
-        success = download_youtube_image(url, lesson)
-        print("DOWNLOAD RESULT:", success)
+#     if "youtube" in (url or "").lower() and not image_file:
+#         print("YOUTUBE URL DETECTED")
+#         success = download_youtube_image(url, lesson)
+#         print("DOWNLOAD RESULT:", success)
 
-    # ✅ If an image file was uploaded by the user, use that instead
-    if image_file:
-        lesson.image = image_file
+#     # ✅ If an image file was uploaded by the user, use that instead
+#     if image_file:
+#         lesson.image = image_file
 
-    lesson.save()
+#     lesson.save()
     
         
-    if urlReference:
-        print(f"Processing the video url: {url}")
+#     if urlReference:
+#         print(f"Processing the video url: {url}")
 
-    lesson.save()
+#     lesson.save()
     
     
 
-    UserLessonsProgress.objects.get_or_create(
-        user=request.user,
-        lesson=lesson,
-        defaults={
-            'current_lesson_index': 0,
-            'last_viewed': timezone.now()
-        }
-    )
+#     UserLessonsProgress.objects.get_or_create(
+#         user=request.user,
+#         lesson=lesson,
+#         defaults={
+#             'current_lesson_index': 0,
+#             'last_viewed': timezone.now()
+#         }
+#     )
     
-    lesson_import_progress[user_id] = 5
+#     lesson_import_progress[user_id] = 5
 
-    if urlReference:
-        save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language.id, lesson.native_language.id, lesson_import_progress, user_id)
-        save_lesson_media.process_lesson()
+#     if urlReference:
+#         save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language.id, lesson.native_language.id, lesson_import_progress, user_id)
+#         save_lesson_media.process_lesson()
 
-        lesson.audio_folder = save_lesson_media.AUDIO_DIR
-        lesson.save()
+#         lesson.audio_folder = save_lesson_media.AUDIO_DIR
+#         lesson.save()
         
-    if fileUploaded and audioUploaded:
-        save_lesson_media = VTT(lesson_file,audio_file, lesson.id, targetLang, nativeLang)
-        csv_path = save_lesson_media.save_csv(lesson_file)
-        save_lesson_media.save_audio_as_m4a(audio_file)
-        save_lesson_media.split_audio_by_csv_ms(csv_path=csv_path)
+#     if fileUploaded and audioUploaded:
 
-        # if fileUploaded and lesson_file:
-        #     lesson.doc_file = lesson_file
+#         # SAVE FILE REFERENCES FIRST
+#         if lesson_file:
+#             lesson.doc_file = lesson_file
 
-        if audioUploaded and audio_file:
-            #lesson.audio_file = audio_file
-            lesson.audio_folder = save_lesson_media.AUDIO_DIR
+#         if audio_file:
+#             lesson.audio_file = audio_file
 
-        if imageReference and image_file:
-            lesson.image = save_lesson_media.OUTPUT_DIR + "\\" + title
+#         lesson.save()
 
-        lesson.save()
-    lesson_import_progress[user_id] = 100
+#         save_lesson_media = VTT(
+#             lesson_file,
+#             audio_file,
+#             lesson.id,
+#             targetLang,
+#             nativeLang
+#         )
+
+#         csv_path = save_lesson_media.save_csv(lesson_file)
+
+#         save_lesson_media.save_audio_as_m4a(audio_file)
+
+#         save_lesson_media.split_audio_by_csv_ms(
+#             csv_path=csv_path
+#         )
+
+#         lesson.audio_folder = save_lesson_media.AUDIO_DIR
+
+#         if imageReference and image_file:
+#             lesson.image = image_file
+
+#         lesson.save()
+#     lesson_import_progress[user_id] = 100
 
 
-    return Response({
-        'message': 'Lesson uploaded successfully.',
-        'lessonId': lesson.id,
-        'url': lesson.url,
-        'nativeLang': lesson.native_language.id,
-        'targetLang': lesson.target_language.id,
-        'hasDoc': bool(lesson.doc_file),
-        'hasAudio': bool(lesson.audio_file)
-    })
+#     return Response({
+#         'message': 'Lesson uploaded successfully.',
+#         'lessonId': lesson.id,
+#         'url': lesson.url,
+#         'nativeLang': lesson.native_language.id,
+#         'targetLang': lesson.target_language.id,
+#         'hasDoc': bool(lesson.doc_file),
+#         'hasAudio': bool(lesson.audio_file)
+#     })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

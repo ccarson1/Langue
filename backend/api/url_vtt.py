@@ -14,9 +14,16 @@ class URL_VTT():
     
     def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id):
         
+        def normalize_youtube_url(url):
+            if "youtube.com/shorts/" in url:
+                video_id = url.split("/shorts/")[1].split("?")[0]
+                return f"https://www.youtube.com/watch?v={video_id}"
+            return url
+        
+
         self.uuid = str(uuid.uuid4())
         self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.m4a")
-        self.YOUTUBE_URL = YOUTUBE_URL
+        self.YOUTUBE_URL = normalize_youtube_url(YOUTUBE_URL)
 
         self.OUTPUT_DIR = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid)
         self.AUDIO_DIR = os.path.join(self.OUTPUT_DIR, "audio")
@@ -35,47 +42,94 @@ class URL_VTT():
         self.target_id = Language.objects.get(id=self.translate_language)
 
         self.yt_dlp_lang = self.native_id.yt_dlp_lang
+        self.yt_dlp_tar_lang = self.target_id.yt_dlp_lang
 
         self.lesson_import_progress = lesson_import_progress
         self.user_id = user_id
 
         print(f"Lesson language: {self.yt_dlp_lang}")
+        print(f"Translate language: {self.yt_dlp_tar_lang}")
 
 
-    def download_audio_and_captions(self, url, audio_path="audio.m4a", subtitle_path="captions.vtt"):
+    # def download_audio_and_captions(self, url, audio_path="audio.m4a", subtitle_path="captions.vtt"):
+    #     ydl_opts = {
+    #         "format": "bestaudio/best",
+    #         "outtmpl": audio_path,
+    #         'sleep_interval': 3, 
+    #         'max_sleep_interval': 5,
+    #         "quiet": True,
+    #         "writesubtitles": True,
+    #         "writeautomaticsub": True,
+    #         "subtitleslangs": [self.yt_dlp_lang],
+    #         "subtitlesformat": "vtt",
+    #         "skip_download": False,
+    #         "paths": {
+    #             "subtitle": self.OUTPUT_DIR,
+    #         }
+    #     }
+        
+    #     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    #         try:
+    #             info_dict = ydl.extract_info(url, download=True)
+    #         except DownloadError as e:
+    #             return {"error": str(e)}
+    #         title = info_dict.get("title", "unknown_title")
+    #         print(f"Video title: {title}")
+    #         #self.lesson_json["title"] = title
+    #         ydl.download([url])
+
+    #     self.lesson_import_progress[self.user_id] = 15
+
+    #     # Move subtitles to the desired path
+    #     for file in os.listdir(self.OUTPUT_DIR):
+    #         if file.endswith(".vtt"):
+    #             os.rename(os.path.join(self.OUTPUT_DIR, file), subtitle_path)
+    #             break
+
+    def download_audio_and_captions(self, url, audio_path, subtitle_path):
+
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": audio_path,
-            'sleep_interval': 3, 
-            'max_sleep_interval': 5,
             "quiet": True,
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": [self.yt_dlp_lang],
             "subtitlesformat": "vtt",
             "skip_download": False,
-            "paths": {
-                "subtitle": self.OUTPUT_DIR,
-            }
+            "paths": {"subtitle": self.OUTPUT_DIR},
         }
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(url, download=True)
-            except DownloadError as e:
-                return {"error": str(e)}
+
             title = info_dict.get("title", "unknown_title")
             print(f"Video title: {title}")
-            #self.lesson_json["title"] = title
-            ydl.download([url])
+
+        except DownloadError as e:
+            return {"error": str(e)}
+
+        except Exception as e:
+            return {"error": str(e)}
 
         self.lesson_import_progress[self.user_id] = 15
 
-        # Move subtitles to the desired path
+        # move subtitle file safely
+        subtitle_found = False
         for file in os.listdir(self.OUTPUT_DIR):
             if file.endswith(".vtt"):
-                os.rename(os.path.join(self.OUTPUT_DIR, file), subtitle_path)
+                os.rename(
+                    os.path.join(self.OUTPUT_DIR, file),
+                    subtitle_path
+                )
+                subtitle_found = True
                 break
+
+        return {
+            "success": True,
+            "subtitle_found": subtitle_found
+        }
 
     def parse_vtt_to_segments(self, vtt_path):
         segments = []
@@ -117,16 +171,18 @@ class URL_VTT():
             filepath = os.path.join(self.AUDIO_DIR, filename)
             chunk.export(filepath, format="wav")
             
-            translated_text = translate_word(text)
+            translated_text = translate_word(text, self.yt_dlp_lang, self.yt_dlp_tar_lang)
 
             self.lesson_import_progress[self.user_id] += 70 / len(segments)
             print(f"Progress: {self.lesson_import_progress[self.user_id]}%")
 
             print(f"Here is the lesson_language: {self.lesson_language}")
             print(f"Here is the translate_language: {self.translate_language}")
+
+            relative_path = f"lessons/{self.uuid}/audio/{filename}"
             
             sentence = Sentence.objects.create(
-                audio_file=filename,
+                audio_file=relative_path,
                 sentence=text,
                 translated_sentence=translated_text,
                 lesson_language=self.native_id,
@@ -150,7 +206,8 @@ class URL_VTT():
 
         if not os.path.exists(self.AUDIO_FILE):
             print("ERROR: Audio file missing.")
-            return
+            raise Exception("Audio file missing after download")
+            
 
         if os.path.exists(self.CAPTIONS_FILE):
             print("Parsing captions...")
@@ -166,6 +223,11 @@ class URL_VTT():
 
         print("Splitting audio...")
         self.split_audio_segments(self.AUDIO_FILE, segments)
+        self.lesson.audio_file.name = f"lessons/{self.uuid}/audio.m4a"
+        self.lesson.audio_folder = f"media/lessons/{self.uuid}/audio"
+        self.lesson.save()
         print("Done!")
+        print("PROCESS COMPLETED SUCCESSFULLY")
+        return True
 
 
