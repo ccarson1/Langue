@@ -1056,16 +1056,24 @@ def get_audio(request):
     if full_audio:
         try:
             lesson = Lesson.objects.get(id=lesson_id)
+
             print(f"A single audio file has been requested for {lesson_id}")
-            print(lesson.audio_file)
 
-            if not lesson.audio_file:
-                return Response({'error': 'Audio file not set for this lesson'}, status=404)
+            audio_folder = lesson.audio_folder
 
-            # Return the file directly
+            print("Audio folder:", audio_folder)
+
+            audio_path = os.path.join(
+                os.path.dirname(audio_folder),
+                "audio.m4a"
+            )
+
+            print("FULL AUDIO PATH:", audio_path)
+            print("FILE EXISTS:", os.path.exists(audio_path))
+
             return FileResponse(
-                open(lesson.audio_file.path, 'rb'),
-                content_type='audio/m4a'
+                open(audio_path, 'rb'),
+                content_type='audio/mp4'
             )
 
         except Lesson.DoesNotExist:
