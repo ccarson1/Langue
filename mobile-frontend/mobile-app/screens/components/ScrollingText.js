@@ -75,30 +75,39 @@ export default function ScrollingText({ text, isPlaying, width = 200, speed = 50
   const wordCount = text.trim().split(/\s+/).length;
   const shouldDuplicate = wordCount >= MIN_WORD_COUNT;
 
-  useEffect(() => {
+useEffect(() => {
+
     if (!isPlaying || textWidth <= width) {
-      scrollAnim.setValue(0);
-      return;
+        return;
     }
 
     const spacing = 50;
+
     const distance = textWidth + spacing;
+
     const duration = (distance / speed) * 1000;
 
-    const animate = () => {
-      scrollAnim.setValue(0);
-      Animated.timing(scrollAnim, {
-        toValue: -distance,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) animate();
-      });
+    scrollAnim.stopAnimation();
+
+    scrollAnim.setValue(0);
+
+    const animation = Animated.loop(
+        Animated.timing(scrollAnim, {
+            toValue: -distance,
+            duration,
+            easing: Easing.linear,
+            useNativeDriver: true,
+        })
+    );
+
+    animation.start();
+
+    return () => {
+        animation.stop();
+        scrollAnim.stopAnimation();
     };
 
-    animate();
-  }, [isPlaying, textWidth, width, speed]);
+}, [isPlaying, textWidth]);
 
   return (
     <View style={[styles.container, { width, overflow: 'hidden' }]}>

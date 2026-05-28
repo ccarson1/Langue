@@ -379,7 +379,7 @@ def import_lesson(request):
                     )
 
                 audio_success = (
-                    save_lesson_media.save_audio_as_m4a(
+                    save_lesson_media.save_audio_as_mp3(
                         audio_file
                     )
                 )
@@ -1065,16 +1065,16 @@ def get_audio(request):
 
             audio_path = os.path.join(
                 os.path.dirname(audio_folder),
-                "audio.m4a"
+                "audio.mp3"
             )
 
             print("FULL AUDIO PATH:", audio_path)
             print("FILE EXISTS:", os.path.exists(audio_path))
 
-            return FileResponse(
-                open(audio_path, 'rb'),
-                content_type='audio/mp4'
-            )
+            response = FileResponse(open(audio_path, 'rb'), content_type='audio/mp4')
+            response["Content-Length"] = os.path.getsize(audio_path)
+            response["Accept-Ranges"] = "bytes"
+            return response
 
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=404)

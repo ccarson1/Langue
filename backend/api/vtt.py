@@ -18,7 +18,7 @@ class VTT():
     def __init__(self, lesson_file, audio_file, lesson_id, lesson_language_id, translate_language_id):
         
         self.uuid = str(uuid.uuid4())
-        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.m4a")
+        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.mp3")
         self.lesson_file = lesson_file
         self.audio_file = audio_file
         print(type(lesson_file))
@@ -109,11 +109,11 @@ class VTT():
             f.write(uploaded_file.read())
         return csv_path
             
-    def save_audio_as_m4a(self, uploaded_audio):
+    def save_audio_as_mp3(self, uploaded_audio):
         audio_bytes = uploaded_audio.read()
         audio = AudioSegment.from_file(io.BytesIO(audio_bytes))  # auto-detect format
 
 
         os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
-        audio.export(self.AUDIO_FILE, format="ipod")  # 'ipod' = m4a container
+        audio.export(self.AUDIO_FILE, format="mp3")
         

@@ -14,7 +14,7 @@ import AudioProgressBar from './components/AudioProgressBar';
 import ScrollingText from './components/ScrollingText';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
-
+import LoadingOverlay from './components/LoadingOverlay';
 
 
 
@@ -33,6 +33,7 @@ export default function LessonsScreen({ navigation }) {
     const [refresh, setRefresh] = useState(0); //help the Visualizer and progress start with the audio
     const server = config.SERVER_IP;
     const mediaUrl = `http://${server}/media/`;
+    const [playbackStatus, setPlaybackStatus] = useState({});
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -43,6 +44,7 @@ export default function LessonsScreen({ navigation }) {
     };
 
     const fetchLessons = async () => {
+        setLoading(true);
         try {
             const token = await AsyncStorage.getItem('accessToken'); // or wherever you store it
             const res = await fetch(`http://${server}:8000/api/lessons/`, {
@@ -56,6 +58,8 @@ export default function LessonsScreen({ navigation }) {
         } catch (err) {
             console.error('Failed to fetch Lessons:', err);
             Alert.alert('Error', 'Failed to load Lesson options.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -81,7 +85,7 @@ export default function LessonsScreen({ navigation }) {
                 setToken(storedToken);
 
                 const decoded = jwtDecode(storedToken);
-                console.log('Decoded token:', decoded);
+                //console.log('Decoded token:', decoded);
 
                 const response = await fetch(`http://${server}:8000/api/settings/`, {
                     method: 'GET',
@@ -111,6 +115,7 @@ export default function LessonsScreen({ navigation }) {
         setIsPlaying(true);
 
         try {
+
             // Pause all other lessons
             for (const [id, sound] of Object.entries(soundRefs.current)) {
                 if (id !== lessonID.toString()) {
@@ -121,45 +126,9 @@ export default function LessonsScreen({ navigation }) {
 
             // MOBILE
             if (Platform.OS !== 'web') {
-                // MOBILE
+
                 if (!soundRefs.current[lessonID]) {
-                    const response = await fetch(`http://${server}:8000/api/audio/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
-                    });
-
-                    if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
-
-                    // Read response once
-                    const arrayBuffer = await response.arrayBuffer();
-
-                    // Convert to base64 for Expo FileSystem
-                    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-
-                    // Write to cache
-                    const path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
-                    await FileSystem.writeAsStringAsync(path, base64Data, {
-                        encoding: 'base64',
-                    });
-                    // Create and play audio
-                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
-                    soundRefs.current[lessonID] = sound;
-
-                    sound.setOnPlaybackStatusUpdate(status => {
-                    if (status.didJustFinish) setIsPlaying(false);
-                    });
-                } else {
-                    await soundRefs.current[lessonID].playAsync(); // resume existing
-                    setRefresh(x => x + 1);
-                }
-            } else {
-                // WEB
-                console.log(lessonID);
-                if (!soundRefs.current[lessonID]) {
+                    setLoading(true);
                     const response = await fetch(`http://${server}:8000/api/audio/`, {
                         method: 'POST',
                         headers: {
@@ -168,28 +137,158 @@ export default function LessonsScreen({ navigation }) {
                         },
                         body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
                     });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch audio: ${response.status}`);
+                    }
+
+                    const arrayBuffer = await response.arrayBuffer();
+
+                    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+
+                    const path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
+
+                    await FileSystem.writeAsStringAsync(path, base64Data, {
+                        encoding: 'base64',
+                    });
+
+                    const { sound, status } = await Audio.Sound.createAsync(
+                        { uri: path },
+                        {
+                            shouldPlay: false,
+                            progressUpdateIntervalMillis: 100,
+                        }
+                    );
+                    //console.log("🎧 SOUND CREATED for lesson:", lessonID);
+                    // Immediately store the initial status
+                    setPlaybackStatus(prev => ({
+                        ...prev,
+                        [lessonID]: status,
+                    }));
+
+                    soundRefs.current[lessonID] = sound;
+
+                    sound.setOnPlaybackStatusUpdate((status) => {
+                        //console.log("RAW STATUS:", { isLoaded: status.isLoaded, durationMillis: status.durationMillis, positionMillis: status.positionMillis, playableDurationMillis: status.playableDurationMillis, uri: status.uri, });
+
+                        if (status.isLoaded && status.durationMillis <= 1) {
+                            console.warn("⚠️ BAD METADATA DETECTED - duration not resolved yet");
+                        }
+
+                        //console.log( "⏱ position:", status.positionMillis, "duration:", status.durationMillis );
+
+                        setPlaybackStatus(prev => ({
+                            ...prev,
+                            [lessonID]: status,
+                        }));
+
+                        if (status.didJustFinish) {
+                            //console.log("🏁 Finished:", lessonID);
+                            setIsPlaying(false);
+                        }
+                    });
+
+                    // Force metadata refresh
+                    const updatedStatus = await sound.getStatusAsync();
+
+                    setPlaybackStatus(prev => ({
+                        ...prev,
+                        [lessonID]: updatedStatus,
+                    }));
+
+                    //console.log("▶️ Calling playAsync for:", lessonID);
+                    await sound.playAsync();
+                    //console.log("▶️ playAsync returned for:", lessonID);
+
+                } else {
+
+                    await soundRefs.current[lessonID].playAsync();
+                }
+
+                setRefresh(x => x + 1);
+
+            } else {
+
+                if (!soundRefs.current[lessonID]) {
+                    setLoading(true);
+                    const response = await fetch(`http://${server}:8000/api/audio/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
+                    });
+
                     const blob = await response.blob();
+
                     const uri = URL.createObjectURL(blob);
-                    const audioElement = new window.Audio(uri);
+
+                    const audioElement = new window.Audio();
+
+                    audioElement.src = uri;
+                    audioElement.preload = 'auto';
                     audioElement.crossOrigin = 'anonymous';
-                    await audioElement.play();
+
+                    await new Promise((resolve) => {
+                        audioElement.onloadedmetadata = resolve;
+                    });
 
                     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
                     const src = audioCtx.createMediaElementSource(audioElement);
+
                     const analyser = audioCtx.createAnalyser();
+
                     src.connect(analyser);
                     analyser.connect(audioCtx.destination);
+
                     analyser.fftSize = 64;
 
-                    soundRefs.current[lessonID] = { audioElement, analyser };
+                    soundRefs.current[lessonID] = {
+                        audioElement,
+                        analyser,
+                    };
 
-                    audioElement.onended = () => setIsPlaying(false);
+                    const updateStatus = () => {
+
+                        setPlaybackStatus(prev => ({
+                            ...prev,
+                            [lessonID]: {
+                                isLoaded: true,
+                                isPlaying: !audioElement.paused,
+                                positionMillis: audioElement.currentTime * 1000,
+                                durationMillis: audioElement.duration * 1000,
+                            }
+                        }));
+                    };
+
+                    audioElement.addEventListener('timeupdate', updateStatus);
+
+                    audioElement.addEventListener('loadedmetadata', updateStatus);
+
+                    audioElement.addEventListener('play', updateStatus);
+
+                    audioElement.addEventListener('pause', updateStatus);
+
+                    audioElement.onended = () => {
+                        setIsPlaying(false);
+                        updateStatus();
+                    };
+
+                    await audioElement.play();
+
                 } else {
+
                     await soundRefs.current[lessonID].audioElement.play();
                 }
+
+                setRefresh(x => x + 1);
             }
         } catch (e) {
             console.error('Audio error:', e);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -217,6 +316,7 @@ export default function LessonsScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
+            <LoadingOverlay visible={loading} />
             <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
                 <AntDesign name="left" size={22} color="white" />
             </TouchableOpacity>
@@ -233,7 +333,8 @@ export default function LessonsScreen({ navigation }) {
                             />
 
                             <AudioVisualizer
-                                soundRef={{ current: soundRefs.current[lesson.id] }} // wrap in {current: ...} so visualizer works
+                                soundRef={{ current: soundRefs.current[lesson.id] }}
+                                playbackStatus={playbackStatus[lesson.id]}
                                 isPlaying={currentLesson === lesson.id && isPlaying}
                                 onPlay={() => playAudio(lesson.id)}
                                 onPause={pauseAudio}
@@ -244,7 +345,7 @@ export default function LessonsScreen({ navigation }) {
                         <View style={styles.bottomCard}>
                             <AudioProgressBar
                                 soundRef={{ current: soundRefs.current[lesson.id] }}
-                                isPlaying={currentLesson === lesson.id && isPlaying}
+                                playbackStatus={playbackStatus[lesson.id]}
                             />
 
                         </View>

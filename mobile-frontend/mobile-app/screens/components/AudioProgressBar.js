@@ -1,62 +1,78 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import Slider from '@react-native-community/slider';
 
-export default function AudioProgressBar({ soundRef, isPlaying }) {
-    const [position, setPosition] = useState(0);
-    const [duration, setDuration] = useState(1);
+export default function AudioProgressBar({
+    soundRef,
+    playbackStatus,
+}) {
 
-    useEffect(() => {
-        if (!soundRef?.current) return;
+    const position =
+        (playbackStatus?.positionMillis || 0) / 1000;
 
-        // only for native (Expo AV)
-        if (Platform.OS !== 'web') {
-            const subscription = soundRef.current.setOnPlaybackStatusUpdate((status) => {
-                if (!status.isLoaded) return;
-                setPosition(status.positionMillis / 1000);
-                setDuration((status.durationMillis ?? 1000) / 1000);
-            });
+    const duration =
+        playbackStatus?.isLoaded && playbackStatus?.durationMillis > 0
+            ? playbackStatus.durationMillis / 1000
+            : 0;
 
-            return () => {
-                // clear listener when component unmounts
-                soundRef.current.setOnPlaybackStatusUpdate(null);
-            };
-        }
-    }, [soundRef]);
+    const safeDuration = Math.max(duration, position, 1);
 
     const handleSlide = async (value) => {
+
         if (!soundRef?.current) return;
 
-        if (Platform.OS === 'web') {
-            soundRef.current.audioElement.currentTime = value;
-            setPosition(value);
-        } else {
-            await soundRef.current.setPositionAsync(value * 1000);
-            setPosition(value);
+        try {
+
+            if (Platform.OS === 'web') {
+
+                soundRef.current.audioElement.currentTime = value;
+
+            } else {
+
+                await soundRef.current.setPositionAsync(
+                    value * 1000
+                );
+            }
+
+        } catch (e) {
+            console.error("Seek error:", e);
         }
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
+
+            <Text style={styles.timeText}>
+                {formatTime(position)}
+            </Text>
+
             <Slider
                 style={styles.slider}
                 minimumValue={0}
-                maximumValue={duration}
-                value={position}
+                maximumValue={Math.max(duration, 1)}
+                value={Math.min(position, duration || 0)}
                 minimumTrackTintColor="#00adb5"
                 maximumTrackTintColor="#222"
                 thumbTintColor="#00adb5"
                 onSlidingComplete={handleSlide}
             />
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+
+            <Text style={styles.timeText}>
+                {formatTime(duration)}
+            </Text>
+
         </View>
     );
 }
 
 const formatTime = (seconds) => {
+
+    if (!isFinite(seconds)) return '0:00';
+
     const mins = Math.floor(seconds / 60);
+
     const secs = Math.floor(seconds % 60);
+
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
@@ -67,10 +83,17 @@ const styles = StyleSheet.create({
         width: '100%',
         paddingHorizontal: 10,
     },
-    slider: {
-        flex: 1,
-        marginHorizontal: 10,
-    },
+
+    slider: Platform.OS === 'web'
+        ? {
+            width: 300,
+            marginHorizontal: 10,
+        }
+        : {
+            flex: 1,
+            marginHorizontal: 10,
+        },
+
     timeText: {
         color: 'white',
         fontSize: 12,

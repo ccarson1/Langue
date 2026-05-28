@@ -22,7 +22,7 @@ class URL_VTT():
         
 
         self.uuid = str(uuid.uuid4())
-        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.m4a")
+        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.mp3")
         self.YOUTUBE_URL = normalize_youtube_url(YOUTUBE_URL)
 
         self.OUTPUT_DIR = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid)
@@ -223,7 +223,7 @@ class URL_VTT():
 
         print("Splitting audio...")
         self.split_audio_segments(self.AUDIO_FILE, segments)
-        self.lesson.audio_file.name = f"lessons/{self.uuid}/audio.m4a"
+        self.lesson.audio_file.name = f"lessons/{self.uuid}/audio.mp3"
         self.lesson.audio_folder = f"media/lessons/{self.uuid}/audio"
         self.lesson.save()
         print("Done!")
