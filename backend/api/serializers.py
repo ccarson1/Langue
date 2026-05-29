@@ -62,7 +62,12 @@ class SignupSerializer(serializers.Serializer):
             user=user,
             native_language=native_lang,
             target_language=target_lang,
-            notifications=True
+            notifications=True,
+            user_set_volume=1.00,
+            user_set_speed=1.00,
+            repeat_audio=False,
+            repeat_audio_all=False,
+            shuffle_audio=False
         )
 
         return user

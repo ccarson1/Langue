@@ -807,6 +807,11 @@ def user_settings(request):
                 'target_language': settings.target_language.lang_name,
                 'notifications': settings.notifications,
                 'dictionary_name': settings.dictionary_name,
+                'user_set_volume': settings.user_set_volume,
+                'user_set_speed': settings.user_set_speed,
+                'repeat_audio': settings.repeat_audio,
+                'repeat_audio_all': settings.repeat_audio_all,
+                'shuffle_audio': settings.shuffle_audio,
                 # add more fields as needed
             }
             return Response(data)
@@ -819,6 +824,11 @@ def user_settings(request):
         target_id = request.data.get('target_language')
         notifications = request.data.get('notifications')
         dictionary_name = request.data.get('dictionary_name')
+        user_set_volume = request.data.get('user_set_volume')
+        user_set_speed = request.data.get('user_set_speed')
+        repeat_audio = request.data.get('repeat_audio')
+        repeat_audio_all = request.data.get('repeat_audio_all')
+        shuffle_audio = request.data.get('shuffle_audio')
 
         if native_id is None or target_id is None:
             return Response(
@@ -837,6 +847,11 @@ def user_settings(request):
             settings.target_language = target_lang
             settings.notifications = bool(notifications)
             settings.dictionary_name = dictionary_name
+            settings.user_set_volume = float(user_set_volume) if user_set_volume is not None else settings.user_set_volume
+            settings.user_set_speed = float(user_set_speed) if user_set_speed is not None else settings.user_set_speed
+            settings.repeat_audio = repeat_audio if repeat_audio is not None else settings.repeat_audio
+            settings.repeat_audio_all = repeat_audio_all if repeat_audio_all is not None else settings.repeat_audio_all
+            settings.shuffle_audio = shuffle_audio if shuffle_audio is not None else settings.shuffle_audio
             settings.save()
 
             return Response({'message': 'Settings updated successfully'})

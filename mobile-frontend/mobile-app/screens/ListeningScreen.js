@@ -86,6 +86,87 @@ export default function LessonsScreen({ navigation }) {
         }
     };
 
+    const saveAudioSettings = async () => {
+
+        try {
+
+            if (!token) return;
+
+            await fetch(`http://${server}:8000/api/settings/`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+
+                    native_language: nativeLanguage,
+                    target_language: targetLanguage,
+
+                    user_set_volume: volume,
+                    user_set_speed: playbackRate,
+
+                    repeat_audio: repeat,
+                    repeat_audio_all: repeatAll,
+                    shuffle_audio: shuffle,
+                }),
+            });
+
+        } catch (e) {
+
+            console.error("Failed to save audio settings:", e);
+        }
+    };
+
+    const stopAndUnloadAllAudio = async () => {
+
+        try {
+
+            for (const [id, sound] of Object.entries(soundRefs.current)) {
+
+                // WEB
+                if (Platform.OS === 'web') {
+
+                    if (sound.audioElement) {
+
+                        sound.audioElement.pause();
+
+                        sound.audioElement.currentTime = 0;
+
+                        sound.audioElement.src = '';
+
+                        sound.audioElement.load();
+                    }
+
+                    // MOBILE
+                } else {
+
+                    try {
+
+                        await sound.stopAsync();
+
+                    } catch (e) { }
+
+                    try {
+
+                        await sound.unloadAsync();
+
+                    } catch (e) { }
+                }
+            }
+
+            soundRefs.current = {};
+
+            setIsPlaying(false);
+
+            setCurrentLesson(null);
+
+        } catch (e) {
+
+            console.error("Audio cleanup error:", e);
+        }
+    };
+
     useEffect(() => {
         const loadTokenAndSettings = async () => {
             try {
@@ -110,6 +191,24 @@ export default function LessonsScreen({ navigation }) {
                 const settings = await response.json();
                 setNativeLanguage(settings.native_language);
                 setTargetLanguage(settings.target_language);
+
+                setVolume(
+                    settings.user_set_volume !== null
+                        ? parseFloat(settings.user_set_volume)
+                        : 1.0
+                );
+
+                setPlaybackRate(
+                    settings.user_set_speed !== null
+                        ? parseFloat(settings.user_set_speed)
+                        : 1.0
+                );
+
+                setRepeat(settings.repeat_audio ?? false);
+
+                setRepeatAll(settings.repeat_audio_all ?? false);
+
+                setShuffle(settings.shuffle_audio ?? false);
 
 
             } catch (err) {
@@ -173,6 +272,35 @@ export default function LessonsScreen({ navigation }) {
     useEffect(() => {
         lessonsRef.current = lessons;
     }, [lessons]);
+
+    useEffect(() => {
+
+        return () => {
+
+            stopAndUnloadAllAudio();
+        };
+
+    }, []);
+
+    useEffect(() => {
+
+        if (!token) return;
+
+        const timeout = setTimeout(() => {
+
+            saveAudioSettings();
+
+        }, 400);
+
+        return () => clearTimeout(timeout);
+
+    }, [
+        volume,
+        playbackRate,
+        repeat,
+        repeatAll,
+        shuffle
+    ]);
 
     const playNextLesson = async (currentLessonID) => {
 
@@ -485,7 +613,7 @@ export default function LessonsScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <LoadingOverlay visible={loading} />
-            <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.backLink} onPress={async () => { await stopAndUnloadAllAudio(); navigation.goBack(); }}>
                 <AntDesign name="left" size={22} color="white" />
             </TouchableOpacity>
 

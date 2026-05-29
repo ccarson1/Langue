@@ -138,6 +138,11 @@ class UserSetting(models.Model):
     target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='settings_translations_target')
     notifications = models.BooleanField(default=True, db_column='notifications')
     dictionary_name = models.CharField( max_length=255, blank=True, null=True )
+    user_set_volume = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
+    user_set_speed = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
+    repeat_audio = models.BooleanField(default=False, db_column='repeat_audio')
+    repeat_audio_all = models.BooleanField(default=False, db_column='repeat_audio_all')
+    shuffle_audio = models.BooleanField(default=False, db_column='shuffle_audio')
     
 class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
