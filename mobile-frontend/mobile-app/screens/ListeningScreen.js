@@ -15,6 +15,7 @@ import ScrollingText from './components/ScrollingText';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
 import LoadingOverlay from './components/LoadingOverlay';
+import BottomAudioMenu from './components/BottomAudioMenu';
 
 
 
@@ -34,6 +35,17 @@ export default function LessonsScreen({ navigation }) {
     const server = config.SERVER_IP;
     const mediaUrl = `http://${server}/media/`;
     const [playbackStatus, setPlaybackStatus] = useState({});
+
+    const [volume, setVolume] = useState(1.0);
+    const [playbackRate, setPlaybackRate] = useState(1.0);
+
+    const [repeat, setRepeat] = useState(false);
+    const [repeatAll, setRepeatAll] = useState(false);
+    const [shuffle, setShuffle] = useState(false);
+    const repeatRef = useRef(false);
+    const repeatAllRef = useRef(false);
+    const shuffleRef = useRef(false);
+    const lessonsRef = useRef([]);
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -110,6 +122,104 @@ export default function LessonsScreen({ navigation }) {
         loadTokenAndSettings(); // <--- fetch user settings
     }, []);
 
+    useEffect(() => {
+
+        const updateAudioSettings = async () => {
+
+            if (!currentLesson) return;
+
+            const sound = soundRefs.current[currentLesson];
+
+            if (!sound) return;
+
+            try {
+
+                if (Platform.OS === 'web') {
+
+                    sound.audioElement.volume = volume;
+                    sound.audioElement.playbackRate = playbackRate;
+
+                } else {
+
+                    await sound.setVolumeAsync(volume);
+
+                    await sound.setRateAsync(
+                        playbackRate,
+                        true
+                    );
+                }
+
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        updateAudioSettings();
+
+    }, [volume, playbackRate]);
+
+    useEffect(() => {
+        repeatRef.current = repeat;
+    }, [repeat]);
+
+    useEffect(() => {
+        repeatAllRef.current = repeatAll;
+    }, [repeatAll]);
+
+    useEffect(() => {
+        shuffleRef.current = shuffle;
+    }, [shuffle]);
+
+    useEffect(() => {
+        lessonsRef.current = lessons;
+    }, [lessons]);
+
+    const playNextLesson = async (currentLessonID) => {
+
+        const currentLessons = lessonsRef.current;
+
+        if (!currentLessons.length) return;
+
+        const currentIndex = currentLessons.findIndex(
+            l => l.id === currentLessonID
+        );
+
+        let nextLesson;
+
+        // SHUFFLE MODE
+        if (shuffleRef.current) {
+
+            if (currentLessons.length === 1) {
+                nextLesson = currentLessons[0];
+            } else {
+
+                let randomIndex;
+
+                do {
+                    randomIndex = Math.floor(
+                        Math.random() * currentLessons.length
+                    );
+                } while (
+                    currentLessons[randomIndex].id === currentLessonID
+                );
+
+                nextLesson = currentLessons[randomIndex];
+            }
+
+        } else {
+
+            // NORMAL NEXT TRACK
+            const nextIndex =
+                (currentIndex + 1) % currentLessons.length;
+
+            nextLesson = currentLessons[nextIndex];
+        }
+
+        if (nextLesson) {
+            await playAudio(nextLesson.id);
+        }
+    };
+
     const playAudio = async (lessonID) => {
         setCurrentLesson(lessonID);
         setIsPlaying(true);
@@ -118,7 +228,7 @@ export default function LessonsScreen({ navigation }) {
 
             // Pause all other lessons
             for (const [id, sound] of Object.entries(soundRefs.current)) {
-                if (id !== lessonID.toString()) {
+                if (parseInt(id) !== lessonID) {
                     if (Platform.OS === 'web') sound.audioElement?.pause();
                     else await sound.pauseAsync();
                 }
@@ -159,6 +269,13 @@ export default function LessonsScreen({ navigation }) {
                             progressUpdateIntervalMillis: 100,
                         }
                     );
+
+                    await sound.setVolumeAsync(volume);
+
+                    await sound.setRateAsync(
+                        playbackRate,
+                        true
+                    );
                     //console.log("🎧 SOUND CREATED for lesson:", lessonID);
                     // Immediately store the initial status
                     setPlaybackStatus(prev => ({
@@ -168,7 +285,7 @@ export default function LessonsScreen({ navigation }) {
 
                     soundRefs.current[lessonID] = sound;
 
-                    sound.setOnPlaybackStatusUpdate((status) => {
+                    sound.setOnPlaybackStatusUpdate(async (status) => {
                         //console.log("RAW STATUS:", { isLoaded: status.isLoaded, durationMillis: status.durationMillis, positionMillis: status.positionMillis, playableDurationMillis: status.playableDurationMillis, uri: status.uri, });
 
                         if (status.isLoaded && status.durationMillis <= 1) {
@@ -183,7 +300,31 @@ export default function LessonsScreen({ navigation }) {
                         }));
 
                         if (status.didJustFinish) {
-                            //console.log("🏁 Finished:", lessonID);
+
+                            console.log("TRACK FINISHED");
+
+                            // REPEAT CURRENT TRACK
+                            if (repeatRef.current) {
+
+                                console.log("REPEAT CURRENT TRACK");
+
+                                await sound.setPositionAsync(0);
+                                await sound.playAsync();
+
+                                return;
+                            }
+
+                            // REPEAT PLAYLIST / SHUFFLE
+                            if (repeatAllRef.current || shuffleRef.current) {
+
+                                console.log("PLAY NEXT TRACK");
+
+                                await playNextLesson(lessonID);
+
+                                return;
+                            }
+
+                            // STOP PLAYBACK
                             setIsPlaying(false);
                         }
                     });
@@ -227,6 +368,8 @@ export default function LessonsScreen({ navigation }) {
                     const audioElement = new window.Audio();
 
                     audioElement.src = uri;
+                    audioElement.volume = volume;
+                    audioElement.playbackRate = playbackRate;
                     audioElement.preload = 'auto';
                     audioElement.crossOrigin = 'anonymous';
 
@@ -271,9 +414,34 @@ export default function LessonsScreen({ navigation }) {
 
                     audioElement.addEventListener('pause', updateStatus);
 
-                    audioElement.onended = () => {
-                        setIsPlaying(false);
+                    audioElement.onended = async () => {
+
+                        console.log("WEB TRACK FINISHED");
+
                         updateStatus();
+
+                        // REPEAT CURRENT TRACK
+                        if (repeatRef.current) {
+
+                            console.log("WEB REPEAT CURRENT");
+
+                            audioElement.currentTime = 0;
+                            await audioElement.play();
+
+                            return;
+                        }
+
+                        // NEXT TRACK / SHUFFLE
+                        if (repeatAllRef.current || shuffleRef.current) {
+
+                            console.log("WEB NEXT TRACK");
+
+                            await playNextLesson(lessonID);
+
+                            return;
+                        }
+
+                        setIsPlaying(false);
                     };
 
                     await audioElement.play();
@@ -353,6 +521,22 @@ export default function LessonsScreen({ navigation }) {
                     </View>
                 ))}
             </ScrollView>
+            <BottomAudioMenu
+                volume={volume}
+                setVolume={setVolume}
+
+                playbackRate={playbackRate}
+                setPlaybackRate={setPlaybackRate}
+
+                repeat={repeat}
+                setRepeat={setRepeat}
+
+                repeatAll={repeatAll}
+                setRepeatAll={setRepeatAll}
+
+                shuffle={shuffle}
+                setShuffle={setShuffle}
+            />
         </View>
     );
 
