@@ -79,6 +79,7 @@ def translate(request):
     nat_id = request.data.get('native_id', {}).get('id') 
     tar_id = request.data.get('target_id', {}).get('id')
 
+
     print(f"Text: {text}")
     print(f"Native: {nat_id}")
     print(f"Target: {tar_id}")
@@ -1139,7 +1140,7 @@ def get_audio(request):
             print("Audio error:", str(e))
             return Response({'error': 'Server error while fetching audio'}, status=500)
 
-@csrf_exempt  # ✅ Must be OUTERMOST
+@csrf_exempt 
 @api_view(['POST'])
 def change_lesson(request):
     if request.method == 'POST':
@@ -1150,14 +1151,24 @@ def change_lesson(request):
             return Response({'error': 'lesson_id is required'}, status=400)
 
         try:
-            # Get the UserLessonsProgress object for the user and lesson
-            lesson_progress = UserLessonsProgress.objects.get(user=user, lesson_id=lesson_id)
-        except UserLessonsProgress.DoesNotExist:
-            return Response({'error': 'Lesson progress not found for this user and lesson_id'}, status=404)
+            lesson = Lesson.objects.get(id=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response({'error': 'Invalid lesson_id'}, status=400)
 
-        # Update the user's profile
+
+        lesson_progress, created = UserLessonsProgress.objects.get_or_create(
+            user=user,
+            lesson=lesson,
+            defaults={'current_lesson_index': 0}
+        )
+
+        # Update profile
         profile = user.profile
         profile.current_lesson = lesson_progress
         profile.save()
 
-        return Response({'message': 'Current lesson updated successfully'})
+        return Response({
+            'message': 'Current lesson updated successfully',
+            'created': created,
+            'lesson_progress_id': lesson_progress.id
+        })

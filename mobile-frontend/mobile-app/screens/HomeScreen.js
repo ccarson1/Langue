@@ -79,6 +79,26 @@ export default function HomeScreen({ navigation }) {
         showSuccess('Text copied to clipboard!');
     };
 
+    const updateLessonProgress = async (newIndex) => {
+        if (!token || !currentLesson) return;
+
+        try {
+            await fetch(`http://${server}:8000/api/user-progress/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    lesson_id: currentLesson,
+                    current_lesson_index: newIndex,
+                }),
+            });
+        } catch (err) {
+            console.error("Failed to update lesson progress:", err);
+        }
+    };
+
     // --- Audio helpers ---
     const playAudio = async () => {
         if (!currentAudio) return;
@@ -104,7 +124,7 @@ export default function HomeScreen({ navigation }) {
             if (Platform.OS === "web") {
                 // Web: No FileSystem support
                 const url = URL.createObjectURL(blob);
-                const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
+                const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true, volume, rate: playbackRate, shouldCorrectPitch: true, });
                 soundRef.current = sound;
 
                 sound.setOnPlaybackStatusUpdate(status => {
@@ -122,7 +142,7 @@ export default function HomeScreen({ navigation }) {
                         encoding: FileSystem.EncodingType.Base64,
                     });
 
-                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true, volume, rate: playbackRate, shouldCorrectPitch: true, });
                     soundRef.current = sound;
 
                     sound.setOnPlaybackStatusUpdate(status => {
@@ -192,6 +212,7 @@ export default function HomeScreen({ navigation }) {
             setIndex(index + 1);
             setCurrentAudio(rows[index + 1]?.[0] || '');
             setDescription('');
+            updateLessonProgress(index + 1);
         }
     };
     const back = () => {
@@ -199,6 +220,7 @@ export default function HomeScreen({ navigation }) {
             setIndex(index - 1);
             setCurrentAudio(rows[index - 1]?.[0] || '');
             setDescription('');
+            updateLessonProgress(index - 1);
         }
     };
 
@@ -222,11 +244,18 @@ export default function HomeScreen({ navigation }) {
     };
 
     const saveAudioSettings = async () => {
+        if (!token || !nativeLanguage || !targetLanguage) { return; }
         try {
+            console.log({
+                nativeLanguage,
+                targetLanguage,
+                volume,
+                playbackRate
+            });
             const response = await fetch(
                 `http://${server}:8000/api/settings/`,
                 {
-                    method: "PATCH",
+                    method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
@@ -234,8 +263,8 @@ export default function HomeScreen({ navigation }) {
                     body: JSON.stringify({
                         user_set_volume: volume,
                         user_set_speed: playbackRate,
-                        native_language: nativeLanguage,
-                        target_language: targetLanguage,
+                        native_language: nativeLanguage.lang_name,
+                        target_language: targetLanguage.lang_name,
                     }),
                 }
             );
@@ -327,6 +356,8 @@ export default function HomeScreen({ navigation }) {
                 const progressRes = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, { headers: { Authorization: `Bearer ${token}` } });
                 if (progressRes.ok) {
                     const progressData = await progressRes.json();
+                    console.log("nativeLanguage:", nativeLanguage);
+                    console.log("targetLanguage:", targetLanguage);
                     setNativeLanguage(progressData.native_lang);
                     setTargetLanguage(progressData.target_lang);
                     setIndex(progressData.current_lesson_index || 0);
@@ -351,8 +382,24 @@ export default function HomeScreen({ navigation }) {
             if (!soundRef.current) return;
 
             try {
-                await soundRef.current.setVolumeAsync(volume);
-                await soundRef.current.setRateAsync(playbackRate, true);
+                if (Platform.OS === 'web') {
+                    const status = await soundRef.current.getStatusAsync();
+
+                    if (status.isLoaded) {
+                        await soundRef.current.setVolumeAsync(volume);
+                        await soundRef.current.setRateAsync(
+                            playbackRate,
+                            true
+                        );
+                    }
+                } else {
+                    await soundRef.current.setVolumeAsync(volume);
+
+                    await soundRef.current.setRateAsync(
+                        playbackRate,
+                        true
+                    );
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -360,6 +407,21 @@ export default function HomeScreen({ navigation }) {
 
         updateAudioSettings();
     }, [volume, playbackRate]);
+
+    // --- Save settings ---
+    useEffect(() => {
+        if (!token) return;
+
+        const timeout = setTimeout(() => {
+            saveAudioSettings();
+        }, 400);
+
+        return () => clearTimeout(timeout);
+
+    }, [
+        volume,
+        playbackRate
+    ]);
 
     // --- Render ---
     if (!appIsReady) return null; // splash screen remains
