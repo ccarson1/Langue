@@ -22,6 +22,7 @@ export default function BottomAudioMenu({
     setRepeatAll,
     shuffle,
     setShuffle,
+    showToggles = true,
 }) {
 
     const [expanded, setExpanded] = useState(false);
@@ -61,10 +62,10 @@ export default function BottomAudioMenu({
             </TouchableOpacity>
 
             {expanded && (
-                <View style={styles.content}>
+                <View style={[styles.content, !showToggles && styles.contentNoToggles]} >
 
                     {/* LEFT SIDE - SLIDERS */}
-                    <View style={styles.leftColumn}>
+                    <View style={[styles.leftColumn, !showToggles && styles.fullWidthColumn]} >
 
                         {/* Volume */}
                         <View style={styles.sliderCard}>
@@ -108,42 +109,35 @@ export default function BottomAudioMenu({
                     </View>
 
                     {/* RIGHT SIDE - TOGGLES */}
-                    <View style={styles.rightColumn}>
+                    {showToggles && (
+                        <View style={styles.rightColumn}>
 
-                        <View style={styles.toggleCard}>
-                            <Text style={styles.label}>
-                                Repeat
-                            </Text>
+                            <View style={styles.toggleCard}>
+                                <Text style={styles.label}>Repeat</Text>
+                                <Switch
+                                    value={repeat}
+                                    onValueChange={setRepeat}
+                                />
+                            </View>
 
-                            <Switch
-                                value={repeat}
-                                onValueChange={setRepeat}
-                            />
+                            <View style={styles.toggleCard}>
+                                <Text style={styles.label}>Repeat All</Text>
+                                <Switch
+                                    value={repeatAll}
+                                    onValueChange={setRepeatAll}
+                                />
+                            </View>
+
+                            <View style={styles.toggleCard}>
+                                <Text style={styles.label}>Shuffle</Text>
+                                <Switch
+                                    value={shuffle}
+                                    onValueChange={setShuffle}
+                                />
+                            </View>
+
                         </View>
-
-                        <View style={styles.toggleCard}>
-                            <Text style={styles.label}>
-                                Repeat All
-                            </Text>
-
-                            <Switch
-                                value={repeatAll}
-                                onValueChange={setRepeatAll}
-                            />
-                        </View>
-
-                        <View style={styles.toggleCard}>
-                            <Text style={styles.label}>
-                                Shuffle
-                            </Text>
-
-                            <Switch
-                                value={shuffle}
-                                onValueChange={setShuffle}
-                            />
-                        </View>
-
-                    </View>
+                    )}
 
                 </View>
             )}
@@ -223,5 +217,12 @@ const styles = StyleSheet.create({
     slider: {
         width: '100%',
         height: 12,
+    },
+    contentNoToggles: {
+        flexDirection: 'column',
+    },
+
+    fullWidthColumn: {
+        flex: 1,
     },
 });

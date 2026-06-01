@@ -23,6 +23,7 @@ import EditWordPopup from './components/EditWordPopup';
 
 import styles from './styles/HomeStyles';
 import config from '../utils/config';
+import BottomAudioMenu from "./components/BottomAudioMenu";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -53,6 +54,8 @@ export default function HomeScreen({ navigation }) {
     const [description, setDescription] = useState('');
 
     const soundRef = useRef(null);
+    const [volume, setVolume] = useState(1.0);
+    const [playbackRate, setPlaybackRate] = useState(1.0);
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
@@ -99,35 +102,35 @@ export default function HomeScreen({ navigation }) {
             const blob = await response.blob();
 
             if (Platform.OS === "web") {
-            // Web: No FileSystem support
-            const url = URL.createObjectURL(blob);
-            const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
-            soundRef.current = sound;
-
-            sound.setOnPlaybackStatusUpdate(status => {
-                if (status.didJustFinish) setIsPlaying(false);
-            });
-
-        } else {
-            // Native: Use FileSystem
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64Data = reader.result.split(",")[1];
-                const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
-
-                await FileSystem.writeAsStringAsync(path, base64Data, {
-                    encoding: FileSystem.EncodingType.Base64,
-                });
-
-                const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                // Web: No FileSystem support
+                const url = URL.createObjectURL(blob);
+                const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
                 soundRef.current = sound;
 
                 sound.setOnPlaybackStatusUpdate(status => {
                     if (status.didJustFinish) setIsPlaying(false);
                 });
-            };
-            reader.readAsDataURL(blob);
-        }
+
+            } else {
+                // Native: Use FileSystem
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64Data = reader.result.split(",")[1];
+                    const path = FileSystem.cacheDirectory + `audio-${Date.now()}.mp3`;
+
+                    await FileSystem.writeAsStringAsync(path, base64Data, {
+                        encoding: FileSystem.EncodingType.Base64,
+                    });
+
+                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                    soundRef.current = sound;
+
+                    sound.setOnPlaybackStatusUpdate(status => {
+                        if (status.didJustFinish) setIsPlaying(false);
+                    });
+                };
+                reader.readAsDataURL(blob);
+            }
 
         } catch (e) {
             console.error('Audio error:', e);
@@ -218,6 +221,60 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
+    const saveAudioSettings = async () => {
+        try {
+            const response = await fetch(
+                `http://${server}:8000/api/settings/`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        user_set_volume: volume,
+                        user_set_speed: playbackRate,
+                        native_language: nativeLanguage,
+                        target_language: targetLanguage,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error(data);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useEffect(() => {
+        if (!token) return;
+
+        const fetchSettings = async () => {
+            try {
+                const res = await fetch(`http://${server}:8000/api/settings/`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+
+                    setVolume(data.user_set_volume ?? 1.0);
+                    setPlaybackRate(data.user_set_speed ?? 1.0);
+                }
+            } catch (e) {
+                console.error("Failed to load settings:", e);
+            }
+        };
+
+        fetchSettings();
+    }, [token]);
+
     // --- Initialization ---
     useEffect(() => {
         const init = async () => {
@@ -288,6 +345,21 @@ export default function HomeScreen({ navigation }) {
         };
         fetchLessonData();
     }, [token, currentLesson]);
+
+    useEffect(() => {
+        const updateAudioSettings = async () => {
+            if (!soundRef.current) return;
+
+            try {
+                await soundRef.current.setVolumeAsync(volume);
+                await soundRef.current.setRateAsync(playbackRate, true);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        updateAudioSettings();
+    }, [volume, playbackRate]);
 
     // --- Render ---
     if (!appIsReady) return null; // splash screen remains
@@ -542,13 +614,21 @@ export default function HomeScreen({ navigation }) {
                     BackHandler.exitApp();
                 }}
             />
-            
+
 
             <CustomPopup
                 visible={popup.visible}
                 message={popup.message}
                 type={popup.type}
                 onClose={() => setPopup({ ...popup, visible: false })}
+            />
+
+            <BottomAudioMenu
+                volume={volume}
+                setVolume={setVolume}
+                playbackRate={playbackRate}
+                setPlaybackRate={setPlaybackRate}
+                showToggles={false}
             />
 
             <LoadingOverlay visible={loading} />
