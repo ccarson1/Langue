@@ -46,6 +46,7 @@ export default function LessonsScreen({ navigation }) {
     const repeatAllRef = useRef(false);
     const shuffleRef = useRef(false);
     const lessonsRef = useRef([]);
+    const [downloadedLessons, setDownloadedLessons] = useState({});
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -166,6 +167,130 @@ export default function LessonsScreen({ navigation }) {
             console.error("Audio cleanup error:", e);
         }
     };
+
+    const getAudioPath = (lessonID) => {
+        return FileSystem.documentDirectory + `lesson-${lessonID}.mp3`;
+    };
+
+    const isDownloaded = async (lessonID) => {
+        if (Platform.OS === 'web') {
+            return false;
+        }
+
+        const info = await FileSystem.getInfoAsync(
+            getAudioPath(lessonID)
+        );
+
+        return info.exists;
+    };
+
+    const downloadAudio = async (lessonID) => {
+        try {
+
+            setLoading(true);
+
+            const response = await fetch(
+                `http://${server}:8000/api/audio/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        lesson_id: lessonID,
+                        full_audio: true
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Download failed");
+            }
+
+            // WEB DOWNLOAD
+            if (Platform.OS === 'web') {
+
+                const blob = await response.blob();
+
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+
+                a.href = url;
+                a.download = `lesson-${lessonID}.mp3`;
+
+                document.body.appendChild(a);
+
+                a.click();
+
+                document.body.removeChild(a);
+
+                URL.revokeObjectURL(url);
+
+                return;
+            }
+
+            // MOBILE DOWNLOAD
+            const arrayBuffer = await response.arrayBuffer();
+
+            const base64Data =
+                Buffer.from(arrayBuffer).toString('base64');
+
+            const path = getAudioPath(lessonID);
+
+            await FileSystem.writeAsStringAsync(
+                path,
+                base64Data,
+                {
+                    encoding: 'base64',
+                }
+            );
+
+            setDownloadedLessons(prev => ({
+                ...prev,
+                [lessonID]: true
+            }));
+
+            showSuccess("Audio downloaded");
+
+        } catch (e) {
+
+            console.error(e);
+
+            showError("Download failed");
+
+        } finally {
+
+            setLoading(false);
+        }
+    };
+
+    const loadDownloadedStatus = async () => {
+
+        if (Platform.OS === 'web') return;
+
+        const downloaded = {};
+
+        for (const lesson of lessons) {
+
+            const info = await FileSystem.getInfoAsync(
+                getAudioPath(lesson.id)
+            );
+
+            downloaded[lesson.id] = info.exists;
+        }
+
+        setDownloadedLessons(downloaded);
+    };
+
+    useEffect(() => {
+
+        if (lessons.length) {
+            loadDownloadedStatus();
+        }
+
+    }, [lessons]);
 
     useEffect(() => {
         const loadTokenAndSettings = async () => {
@@ -365,31 +490,43 @@ export default function LessonsScreen({ navigation }) {
             // MOBILE
             if (Platform.OS !== 'web') {
 
+
                 if (!soundRefs.current[lessonID]) {
-                    setLoading(true);
-                    const response = await fetch(`http://${server}:8000/api/audio/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
-                    });
 
-                    if (!response.ok) {
-                        throw new Error(`Failed to fetch audio: ${response.status}`);
+                    let path;
+
+                    const downloaded = await isDownloaded(lessonID);
+
+                    if (downloaded) {
+
+                        path = getAudioPath(lessonID);
+
+                    } else {
+
+                        setLoading(true);
+                        const response = await fetch(`http://${server}:8000/api/audio/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ lesson_id: lessonID, full_audio: true }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch audio: ${response.status}`);
+                        }
+
+                        const arrayBuffer = await response.arrayBuffer();
+
+                        const base64Data = Buffer.from(arrayBuffer).toString('base64');
+
+                        path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
+
+                        await FileSystem.writeAsStringAsync(path, base64Data, {
+                            encoding: 'base64',
+                        });
                     }
-
-                    const arrayBuffer = await response.arrayBuffer();
-
-                    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-
-                    const path = FileSystem.cacheDirectory + `audio-${lessonID}.mp3`;
-
-                    await FileSystem.writeAsStringAsync(path, base64Data, {
-                        encoding: 'base64',
-                    });
-
                     const { sound, status } = await Audio.Sound.createAsync(
                         { uri: path },
                         {
@@ -404,7 +541,10 @@ export default function LessonsScreen({ navigation }) {
                         playbackRate,
                         true
                     );
-                    //console.log("🎧 SOUND CREATED for lesson:", lessonID);
+
+                    const fileInfo = await FileSystem.getInfoAsync(path);
+                    console.log(fileInfo);
+                    console.log("🎧 SOUND CREATED for lesson:", lessonID);
                     // Immediately store the initial status
                     setPlaybackStatus(prev => ({
                         ...prev,
@@ -637,6 +777,7 @@ export default function LessonsScreen({ navigation }) {
                                 width={120}
                                 height={40}
                             />
+
                         </View>
                         <View style={styles.bottomCard}>
                             <AudioProgressBar
@@ -645,7 +786,20 @@ export default function LessonsScreen({ navigation }) {
                             />
 
                         </View>
-
+                        <TouchableOpacity
+                            onPress={() => downloadAudio(lesson.id)}
+                            style={{ marginLeft: 10 }}
+                        >
+                            <MaterialIcons
+                                name={
+                                    downloadedLessons[lesson.id]
+                                        ? "download-done"
+                                        : "download"
+                                }
+                                size={24}
+                                color="white"
+                            />
+                        </TouchableOpacity>
                     </View>
                 ))}
             </ScrollView>

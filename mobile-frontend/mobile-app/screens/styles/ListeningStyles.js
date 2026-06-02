@@ -4,7 +4,8 @@ export default StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#222831',
-        paddingTop: 80,
+        paddingTop: 30,
+        paddingBottom: 50,
     },
 
     gridWrapper: {
