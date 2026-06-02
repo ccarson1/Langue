@@ -1,13 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 
-export default function EditWordPopup({ visible, word, onSave, onCancel }) {
-    const [editedWord, setEditedWord] = useState('');
+export default function EditDefinitionPopup({ visible, Definition, translationID, server, token, showSuccess, showError, onCancel, onUpdated }) {
+    const [editedDefinition, setEditedDefinition] = useState('');
     console.log(visible)
-
+    console.log("This is the ID of the current translation: " + translationID)
     useEffect(() => {
-        setEditedWord(word || '');
-    }, [word]);
+        if (visible) {
+            setEditedDefinition(Definition || '');
+        }
+    }, [visible, Definition]);
+
+    const saveDefinitionEdit = async (definition, translationID) => {
+        console.log({ server, token, showSuccess, showError });
+        try {
+            const response = await fetch(
+                `http://${server}:8000/api/update-word-translation/`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        translation_id: translationID,
+                        definition: definition,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+            if (response.ok) {
+                console.log('Updated:', data);
+                console.log("✅ SUCCESS BLOCK REACHED");
+                showSuccess?.('Definition updated');
+                onUpdated?.(translationID, definition);
+
+                onCancel(); // close modal
+                
+            } else {
+                console.error(data);
+                if (showError) {
+                    showError?.(data.error || 'Failed to update definition');
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            showError('Failed to update definition');
+        }
+        
+    };
 
     return (
         <Modal
@@ -18,17 +60,17 @@ export default function EditWordPopup({ visible, word, onSave, onCancel }) {
         >
             <View style={styles.overlay}>
                 <View style={styles.popup}>
-                    <Text style={styles.title}>Edit Word</Text>
+                    <Text style={styles.title}>Edit Definition</Text>
                     <TextInput
                         style={styles.input}
-                        value={editedWord}
-                        onChangeText={setEditedWord}
+                        value={editedDefinition}
+                        onChangeText={setEditedDefinition}
                         autoFocus
                     />
                     <View style={styles.buttons}>
                         <TouchableOpacity
                             style={[styles.button, styles.saveButton]}
-                            onPress={() => onSave(editedWord)}
+                            onPress={() => saveDefinitionEdit(editedDefinition, translationID)}
                         >
                             <Text style={styles.buttonText}>Save</Text>
                         </TouchableOpacity>

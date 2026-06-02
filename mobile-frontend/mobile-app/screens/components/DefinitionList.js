@@ -1,26 +1,34 @@
-// WordList.js
+// DefinitionList.js
 import React, { useState, useEffect } from 'react';
 import { ScrollView, Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AddWordPopup from './AddWordPopup';
-import EditWordPopup from './EditWordPopup';
+import AddDefinitionPopup from './AddDefinitionPopup';
+import EditDefinitionPopup from './EditDefinitionPopup';
 
-export default function WordList({ words = [], onWordPress, onAddWord, translatedText, selectedText, nat_id, tar_id, popup }) {
+export default function DefinitionList({ definitions = [], translationIDs = [], onWordPress, onAddDefinition, translatedText, selectedText, nat_id, tar_id, popup, server, token, showSuccess, showError, onDefinitionUpdated, onRefreshTranslation }) {
     const [isPopupVisible, setPopupVisible] = useState(false);
     const [isEditVisible, setEditVisible] = useState(false);
     const [wordCursor, setWordCursor] = useState('')
+    const [translationID, setTranslationID] = useState(null);
+
 
     useEffect(() => {
-        console.log(`Word List translated text ${words}`)
-        console.log(`Word Cursor ${wordCursor}`)
+        console.log(`Definition List translated text ${definitions}`);
+        console.log(`Definition Cursor ${wordCursor}`)
+        console.log(`Definition List translation IDs ${translationIDs}`)
     })
 
 
-    const editClickedWord = (word) => {
-        const wordAsString = Array.isArray(word) ? word.join(", ") : String(word);
-        setWordCursor(wordAsString);
+    const editClickedDefinition = (definition, translationID) => {
+        const definitionAsString = Array.isArray(definition) ? definition.join(", ") : String(definition);
+        console.log(`Clicked definition: ${definitionAsString}, Translation ID: ${translationID}`);
+        setWordCursor(definitionAsString);
+        setTranslationID(translationID);
         setEditVisible(true);
     };
+
+
+
 
     return (
         <View style={styles.wrapper}>
@@ -29,15 +37,15 @@ export default function WordList({ words = [], onWordPress, onAddWord, translate
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={true}
             >
-                {words.map((word, index) => (
+                {definitions.map((definition, index) => (
                     <TouchableOpacity
                         key={index}
-                        onPress={() => editClickedWord(word)}
+                        onPress={() => editClickedDefinition(definition, translationIDs[index])}
                         style={styles.wordWrapper}
 
                     >
                         <Text style={styles.wordText}>
-                            {Array.isArray(word) ? word.join(", ") : word}
+                            {Array.isArray(definition) ? definition.join(", ") : definition}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -49,28 +57,36 @@ export default function WordList({ words = [], onWordPress, onAddWord, translate
             </TouchableOpacity>
 
             {/* Popup */}
-            <AddWordPopup
+            <AddDefinitionPopup
                 visible={isPopupVisible}
                 onClose={() => setPopupVisible(false)}
-                onSubmit={onAddWord} // calls parent handler
+                onSubmit={onAddDefinition} // calls parent handler
                 selectedText={selectedText}
                 translatedText={translatedText}
-                words={words}
+                definitions={definitions}
                 nat_id={nat_id}
                 tar_id={tar_id}
                 popup={popup}
+                server={server}
+                token={token}
+                showSuccess={showSuccess}
+                showError={showError}
             />
 
             {isEditVisible && (
-                <EditWordPopup
+                <EditDefinitionPopup
                     visible={isEditVisible}
-                    word={wordCursor}
-                    onSave={(newWord) => {
-                        // handle saving here (update parent state or DB)
-                        console.log("Saved word:", newWord);
-                        setEditVisible(false);
-                    }}
+                    Definition={wordCursor}
+                    translationID={translationID}
+                    server={server}
+                    token={token}
+                    showSuccess={showSuccess}
+                    showError={showError}
                     onCancel={() => setEditVisible(false)}
+                    onUpdated={(id, def) => {
+                        onDefinitionUpdated?.(id, def);
+                        onRefreshTranslation?.(selectedText);
+                    }}
                 />
             )}
 

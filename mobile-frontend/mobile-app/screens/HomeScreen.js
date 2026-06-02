@@ -18,8 +18,8 @@ import ExitConfirmationModal from './components/ExitConfirmationModal';
 import LoadingOverlay from './components/LoadingOverlay';
 import ProgressBar from './components/ProgressBar';
 import CustomPopup from './components/CustomPopup';
-import WordList from './components/WordList';
-import EditWordPopup from './components/EditWordPopup';
+import DefinitionList from './components/DefinitionList';
+
 
 import styles from './styles/HomeStyles';
 import config from '../utils/config';
@@ -43,6 +43,7 @@ export default function HomeScreen({ navigation }) {
     const [currentAudio, setCurrentAudio] = useState(null);
     const [selectedText, setSelectedText] = useState('');
     const [translatedText, setTranslatedText] = useState('');
+    const [translationIDs, setTranslationIDs] = useState([]);
     const [multiDefinition, setMultiDefinition] = useState(false);
     const [multiDefDisplay, setMultiDefDisplay] = useState('');
     const [nativeLanguage, setNativeLanguage] = useState('');
@@ -61,16 +62,34 @@ export default function HomeScreen({ navigation }) {
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
     const showError = (message) => setPopup({ visible: true, message, type: 'error' });
 
-    const handleAddWord = (newWord) => {
+    const handleAddDefinition = (newDefinition) => {
         // Ensure translatedText is an array
         setTranslatedText(prev => {
             if (Array.isArray(prev)) {
-                return [...prev, newWord]; // append new word
+                return [...prev, newDefinition]; // append new definition
             } else {
-                return [newWord]; // start fresh with the new word
+                return [newDefinition]; // start fresh with the new definition
             }
         });
-        showSuccess('Word added!');
+        showSuccess('Definition added!');
+    };
+
+
+
+    const refreshTranslation = async (word) => {
+        const translation = await translateWord(word);
+        setTranslatedText(translation);
+    };
+
+    const handleUpdateDefinition = (id, def) => {
+        setTranslatedText(prev => {
+            if (!Array.isArray(prev)) return prev;
+            return prev.map(item =>
+                item.translation_id === id
+                    ? { ...item, definition: def }
+                    : item
+            );
+        });
     };
 
     // --- Clipboard helper ---
@@ -194,6 +213,8 @@ export default function HomeScreen({ navigation }) {
                 } else {
                     setMultiDefinition(false);
                 }
+                setTranslationIDs(data.translation_ids || []);
+                console.log("Translation response:", data.translated[0].definition);
                 return data.translated;
             } else {
                 showError('Translation API error');
@@ -527,15 +548,22 @@ export default function HomeScreen({ navigation }) {
                         
 
                     </View> */}
-                    <WordList
-                        words={Array.isArray(translatedText) ? translatedText : []}
+                    <DefinitionList
+                        definitions={Array.isArray(translatedText) ? translatedText : []}
+                        translationIDs={translationIDs}
                         onWordPress={displaySelectedText}
-                        onAddWord={handleAddWord}
+                        onAddDefinition={handleAddDefinition}
                         selectedText={selectedText}
                         translatedText={translatedText}
                         nat_id={nativeLanguage}
                         tar_id={targetLanguage}
                         popup={popup}
+                        token={token}
+                        server={server}
+                        showSuccess={showSuccess}
+                        showError={showError}
+                        onDefinitionUpdated={handleUpdateDefinition}
+                        onRefreshTranslation={refreshTranslation}
                     />
 
                     <View style={styles.separatorDotted} />

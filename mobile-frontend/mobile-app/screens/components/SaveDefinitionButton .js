@@ -6,15 +6,15 @@ import config from '../../utils/config';
 import CustomPopup from './CustomPopup';
 
 
-export default function SaveWordButton({ payload, words, showSuccess, showError }) {
+export default function SaveDefinitionButton({ payload, definitions, showSuccess, showError }) {
   const [loading, setLoading] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
-  console.log(`SendSaveWord popup: `)
+  console.log(`SendSaveDefinition popup: `)
   console.log(popup)
   const server = config.SERVER_IP;
   console.log(payload);
-  console.log(words);
+  console.log(definitions);
   // const showSuccess = (message) => {
   //   setPopup({ visible: true, message: message, type: 'success' });
   // };
@@ -24,7 +24,7 @@ export default function SaveWordButton({ payload, words, showSuccess, showError 
   // };
 
 
-  const saveWord = async () => {
+  const saveDefinition = async () => {
 
     const hasEmptyField = Object.values(payload).some(
       value => value === null || value === undefined || value === ''
@@ -36,7 +36,7 @@ export default function SaveWordButton({ payload, words, showSuccess, showError 
       return;
     }
     console.log(payload);
-    console.log(words);
+    console.log(definitions);
 
     setLoading(true);
     setButtonDisabled(true);
@@ -62,16 +62,16 @@ export default function SaveWordButton({ payload, words, showSuccess, showError 
         //Alert.alert('Error', data.error);
       } else {
         //onSuccess?.('Word saved successfully!');
-        showSuccess('Word saved successfully!');
-        words.push(payload["definition"])
+        showSuccess('Definition saved successfully!');
+        definitions.push(payload["definition"])
         //Alert.alert('Success', 'Word saved successfully!');
         console.log(data);
       }
     } catch (error) {
-      console.error('Error saving word:', error);
-      //onError?.('Failed to save word. Please try again.');
-      showError('Error saving word:', error);
-      //Alert.alert('Error', 'Failed to save word. Please try again.');
+      console.error('Error saving definition:', error);
+      //onError?.('Failed to save definition. Please try again.');
+      showError('Error saving definition:', error);
+      //Alert.alert('Error', 'Failed to save definition. Please try again.');
     } finally {
       setLoading(false);
       setButtonDisabled(false);
@@ -83,10 +83,10 @@ export default function SaveWordButton({ payload, words, showSuccess, showError 
       <View style={styles.saveBtn}>
         <TouchableOpacity
 
-          onPress={saveWord}
+          onPress={saveDefinition}
           disabled={buttonDisabled}
         >
-          <Text style={styles.buttonText}>Save Word</Text>
+          <Text style={styles.buttonText}>Save Definition</Text>
         </TouchableOpacity>
       </View>
       {/* <View>

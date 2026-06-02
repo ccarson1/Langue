@@ -136,12 +136,11 @@ export default StyleSheet.create({
         backgroundColor: '#00adb5',
         padding: 10,
         borderRadius: 5,
-        minWidth: 100,
+        minWidth: 130,
         shadowColor: '#30475e',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 6,
-
 
         // Android shadow
         elevation: 4,

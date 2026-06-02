@@ -96,7 +96,8 @@ def translate(request):
 
     word = Word.objects.filter(word=text, language_id=tar_id).first()
 
-
+    print(f"Word found in DB: {word}")
+    print(f"Word ID: {word.id if word else 'N/A'}")
     
     if word:
         translations = WordTranslation.objects.filter(
@@ -107,8 +108,19 @@ def translate(request):
 
         # Return an array of definitions
         definitions = [t.definition for t in translations]
+        print(f"Definitions from DB: {definitions}")
+        print(f"Definitions IDs: {[t.id for t in translations]}")
+        response_data = { 'translated': definitions, 'inDatabase': 1, 'translation_ids': [t.id for t in translations]}
+        print(f"Response data: {response_data}")
+        return Response(response_data)
 
-        return Response({'translated': definitions, 'inDatabase': 1})
+        # data = [ { "id": t.id, "definition": t.definition } for t in translations ]
+
+        # print(f"Definitions from DB: {[d['definition'] for d in data]}")
+        # print(f"Definition IDs: {[d['id'] for d in data]}")
+
+        # return Response({ "translated": data, "inDatabase": 1 })
+    
     
     # -----------------------------------
     # DICTIONARY FALLBACK
@@ -1172,3 +1184,36 @@ def change_lesson(request):
             'created': created,
             'lesson_progress_id': lesson_progress.id
         })
+
+@api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def update_word_translation(request):
+    translation_id = request.data.get('translation_id')
+    definition = request.data.get('definition')
+
+    if not translation_id:
+        return Response(
+            {'error': 'translation_id is required'},
+            status=400
+        )
+
+    try:
+        translation = WordTranslation.objects.get(
+            id=translation_id,
+            user=request.user
+        )
+    except WordTranslation.DoesNotExist:
+        return Response(
+            {'error': 'Translation not found'},
+            status=404
+        )
+
+    translation.definition = definition
+    translation.save()
+
+    return Response({
+        'message': 'Definition updated successfully',
+        'translation_id': translation.id,
+        'definition': translation.definition
+    })

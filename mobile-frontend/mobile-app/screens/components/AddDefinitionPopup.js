@@ -1,37 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import SaveWordButton from './SaveWordButton';
+import SaveDefinitionButton  from './SaveDefinitionButton ';
 
-export default function AddWordPopup({
+export default function AddDefinitionPopup({
   visible,
   onClose,
   onSubmit,
   selectedText,
   translatedText,
-  words,
+  definitions,
   nat_id,
   tar_id,
+  server,
+  token,
   showSuccess,
   showError,
 }) {
-  const [word, setWord] = useState('');
+  const [definition, setDefinition] = useState('');
 
 
 
-  const t_word = (typeof translatedText === "object" && translatedText !== null) ? String(translatedText[0]) : translatedText;
+  const t_definition = (typeof translatedText === "object" && translatedText !== null) ? String(translatedText[0]) : translatedText;
 
   useEffect(() => {
-    if (words && words.length >= 1) {
-      setWord('');        // or some other logic
+    if (definitions && definitions.length >= 1) {
+      setDefinition('');        // or some other logic
     } else {
-      setWord(t_word);
+      setDefinition(t_definition);
     }
   }, [translatedText]);
 
   useEffect(() => {
     console.log(`${typeof translatedText[0]}`)
-    console.log(`This is the word ${word}`);
-    console.log(`This is the words ${words}`);
+    console.log(`This is the definition ${definition}`);
+    console.log(`This is the definitions ${definitions}`);
     console.log(`This is the selected Text ${selectedText}`);
     console.log(`This is the translated Text ${translatedText.length}`);
     console.log(`This is the natural ID ${nat_id}`);
@@ -42,9 +44,9 @@ export default function AddWordPopup({
 
 
   const handleLocalSubmit = () => {
-    if (word.trim()) {
-      onSubmit(word.trim());
-      setWord('');
+    if (definition.trim()) {
+      onSubmit(definition.trim());
+      setDefinition('');
       onClose();
     }
   };
@@ -53,13 +55,13 @@ export default function AddWordPopup({
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <Text style={styles.title}>Add New Word</Text>
+          <Text style={styles.title}>Add New Definition</Text>
           <TextInput
             style={styles.input}
-            placeholder={word}
+            placeholder={definition}
 
-            value={word}
-            onChangeText={setWord}
+            value={definition}
+            onChangeText={setDefinition}
           />
 
           <View style={styles.buttons}>
@@ -68,15 +70,15 @@ export default function AddWordPopup({
               <Text style={styles.buttonText}>Cancel</Text>
             </TouchableOpacity>
 
-            {/* SaveWordButton instead of plain Add */}
-            <SaveWordButton
+            {/* SaveDefinitionButton instead of plain Add */}
+            <SaveDefinitionButton
               payload={{
                 word: selectedText,
-                definition: word,
+                definition: definition,
                 nat_id: nat_id,
                 tar_id: tar_id,
               }}
-              words={words}
+              definitions={definitions}
               showSuccess={(msg) => {
                 if (typeof showSuccess === 'function') showSuccess(msg);
                 handleLocalSubmit();
