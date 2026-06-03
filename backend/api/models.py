@@ -148,6 +148,8 @@ class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     audio_file = models.CharField(max_length=50)
     sentence = models.CharField(max_length=250)
+    start_ms = models.PositiveIntegerField(default=0)
+    end_ms = models.PositiveIntegerField(default=0)
     translated_sentence = models.CharField(max_length=250)
     lesson_language = models.ForeignKey(Language, db_column='lesson_lang_id', related_name='lesson_sentences', on_delete=models.CASCADE)
     translate_language = models.ForeignKey(Language, db_column='translate_lang_id', related_name='translation_sentences', on_delete=models.CASCADE)

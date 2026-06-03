@@ -31,6 +31,8 @@ export default function LessonEditScreen({
     const [lessonPrivate, setLessonPrivate] = useState(false);
     const [audioFile, setAudioFile] = useState(null);
     const [sentences, setSentences] = useState([]);
+    const [sentencesExpanded, setSentencesExpanded] = useState(false);
+    const [audioExpanded, setAudioExpanded] = useState(false);
 
     useEffect(() => {
         fetchLesson();
@@ -286,57 +288,118 @@ TRANSLATION
                 </TouchableOpacity>
             </View>
 
-            <Text style={styles.sentencesHeader}>
-                Sentences
-            </Text>
-
-            <View style={styles.tableHeader}>
-
-                <Text style={styles.headerColumn}>
-                    Native
+            <TouchableOpacity
+                style={styles.collapseHeader}
+                onPress={() => setSentencesExpanded(!sentencesExpanded)}
+            >
+                <Text style={styles.collapseHeaderText}>
+                    Sentences {setSentencesExpanded ? '▲' : '▼'}
                 </Text>
 
-                <Text style={styles.headerColumn}>
-                    Translation
+            </TouchableOpacity>
+
+
+            {sentencesExpanded && (
+                <>
+                    <View style={styles.tableHeader}>
+                        <Text style={styles.headerColumn}>
+                            Native
+                        </Text>
+
+                        <Text style={styles.headerColumn}>
+                            Translation
+                        </Text>
+                    </View>
+
+                    {sentences.map((item, index) => (
+                        <View
+                            key={item.id}
+                            style={styles.row}
+                        >
+                            <TextInput
+                                style={styles.columnInput}
+                                multiline
+                                value={item.sentence}
+                                onChangeText={(text) =>
+                                    updateSentence(
+                                        index,
+                                        'sentence',
+                                        text
+                                    )
+                                }
+                            />
+
+                            <TextInput
+                                style={styles.columnInput}
+                                multiline
+                                value={item.translated_sentence}
+                                onChangeText={(text) =>
+                                    updateSentence(
+                                        index,
+                                        'translated_sentence',
+                                        text
+                                    )
+                                }
+                            />
+                        </View>
+                    ))}
+                </>
+            )}
+
+            <TouchableOpacity
+                style={styles.collapseHeader}
+                onPress={() => setAudioExpanded(!audioExpanded)}
+            >
+                <Text style={styles.collapseHeaderText}>
+                    Audio Splitting {audioExpanded ? '▲' : '▼'}
                 </Text>
+            </TouchableOpacity>
 
-            </View>
+            {audioExpanded && (
+                <>
+                    <View style={styles.tableHeader}>
+                        <Text style={styles.headerColumn}>
+                            Start MS
+                        </Text>
 
-            {sentences.map((item, index) => (
+                        <Text style={styles.headerColumn}>
+                            End MS
+                        </Text>
+                    </View>
+                    {sentences.map((item, index) => (
+                        <View
+                            key={item.id}
+                            style={styles.row}
+                        >
+                            <TextInput
+                                style={styles.columnInput}
+                                multiline
+                                value={item.start_ms}
+                                onChangeText={(text) =>
+                                    updateSentence(
+                                        index,
+                                        'start_ms',
+                                        parseInt(text, 10) || 0
+                                    )
+                                }
+                            />
 
-                <View
-                    key={item.id}
-                    style={styles.row}
-                >
-
-                    <TextInput
-                        style={styles.columnInput}
-                        multiline
-                        value={item.sentence}
-                        onChangeText={(text) =>
-                            updateSentence(
-                                index,
-                                'sentence',
-                                text
-                            )
-                        }
-                    />
-
-                    <TextInput
-                        style={styles.columnInput}
-                        multiline
-                        value={item.translated_sentence}
-                        onChangeText={(text) =>
-                            updateSentence(
-                                index,
-                                'translated_sentence',
-                                text
-                            )
-                        }
-                    />
-
-                </View>
-            ))}
+                            <TextInput
+                                style={styles.columnInput}
+                                multiline
+                                value={item.end_ms}
+                                onChangeText={(text) =>
+                                    updateSentence(
+                                        index,
+                                        'end_ms',
+                                        parseInt(text, 10) || 0
+                                    )
+                                }
+                            />
+                        </View>
+                    ))}
+                </>
+            )}
 
             <TouchableOpacity
                 style={styles.saveButton}
@@ -476,6 +539,23 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         borderRadius: 8,
 
+    },
+    collapseHeader: {
+        backgroundColor: '#393e46',
+        borderRadius: 10,
+        padding: 8,
+        color: '#eeeeee',
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: '#4b525c',
+        marginTop: 20,
+        marginBottom: 20,
+    },
+
+    collapseHeaderText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#eeeeee',
     },
 
 });

@@ -94,6 +94,8 @@ class VTT():
                 sentence = Sentence.objects.create(
                     audio_file=filename,
                     sentence=target,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
                     translated_sentence=native,
                     lesson_language=native_id,
                     translate_language=target_id,

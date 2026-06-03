@@ -278,7 +278,7 @@ def import_lesson(request):
 
             nativeLang = get_object_or_404( Language, lang_name=nativeLangName )
             targetLang = get_object_or_404( Language, lang_name=targetLangName )
-            
+
             user_id = request.user.id
             lesson_import_progress[user_id] = 0
 
@@ -649,6 +649,8 @@ def edit_lesson(request, lesson_id):
                 {
                     'id': s.id,
                     'sentence': s.sentence,
+                    'start_ms': s.start_ms,
+                    'end_ms': s.end_ms,
                     'translated_sentence': s.translated_sentence
                 }
                 for s in sentences
@@ -681,6 +683,8 @@ def edit_lesson(request, lesson_id):
             try:
                 sentence_obj = Sentence.objects.get( id=s['id'], lesson=lesson )
                 sentence_obj.sentence = s.get( 'sentence', sentence_obj.sentence )
+                sentence_obj.start_ms = s.get( 'start_ms', sentence_obj.start_ms )
+                sentence_obj.end_ms = s.get( 'end_ms', sentence_obj.end_ms )
                 sentence_obj.translated_sentence = s.get( 'translated_sentence', sentence_obj.translated_sentence )
 
                 sentence_obj.save()

@@ -51,41 +51,6 @@ class URL_VTT():
         print(f"Translate language: {self.yt_dlp_tar_lang}")
 
 
-    # def download_audio_and_captions(self, url, audio_path="audio.m4a", subtitle_path="captions.vtt"):
-    #     ydl_opts = {
-    #         "format": "bestaudio/best",
-    #         "outtmpl": audio_path,
-    #         'sleep_interval': 3, 
-    #         'max_sleep_interval': 5,
-    #         "quiet": True,
-    #         "writesubtitles": True,
-    #         "writeautomaticsub": True,
-    #         "subtitleslangs": [self.yt_dlp_lang],
-    #         "subtitlesformat": "vtt",
-    #         "skip_download": False,
-    #         "paths": {
-    #             "subtitle": self.OUTPUT_DIR,
-    #         }
-    #     }
-        
-    #     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-    #         try:
-    #             info_dict = ydl.extract_info(url, download=True)
-    #         except DownloadError as e:
-    #             return {"error": str(e)}
-    #         title = info_dict.get("title", "unknown_title")
-    #         print(f"Video title: {title}")
-    #         #self.lesson_json["title"] = title
-    #         ydl.download([url])
-
-    #     self.lesson_import_progress[self.user_id] = 15
-
-    #     # Move subtitles to the desired path
-    #     for file in os.listdir(self.OUTPUT_DIR):
-    #         if file.endswith(".vtt"):
-    #             os.rename(os.path.join(self.OUTPUT_DIR, file), subtitle_path)
-    #             break
-
     def download_audio_and_captions(self, url, audio_path, subtitle_path):
 
         ydl_opts = {
@@ -184,6 +149,8 @@ class URL_VTT():
             sentence = Sentence.objects.create(
                 audio_file=relative_path,
                 sentence=text,
+                start_ms=start_ms,
+                end_ms=end_ms,
                 translated_sentence=translated_text,
                 lesson_language=self.native_id,
                 translate_language=self.target_id,
