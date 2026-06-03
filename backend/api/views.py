@@ -265,40 +265,20 @@ def import_lesson(request):
             targetLangName = request.data.get('targetLanguage')
 
             audioUploaded = request.data.get('audioUploaded')
-            lessonPrivate = request.data.get(
-                'lessonPrivate',
-                'false'
-            ).lower() in ['true', '1', 'yes']
+            lessonPrivate = request.data.get( 'lessonPrivate', 'false' ).lower() in ['true', '1', 'yes']
 
-            fileUploaded = request.data.get(
-                'fileUploaded',
-                'false'
-            ).lower() in ['true', '1', 'yes']
+            fileUploaded = request.data.get( 'fileUploaded', 'false' ).lower() in ['true', '1', 'yes']
 
-            urlReference = request.data.get(
-                'urlReference',
-                'false'
-            ).lower() in ['true', '1', 'yes']
-
-            imageReference = request.data.get(
-                'imageReference',
-                'false'
-            ).lower() in ['true', '1', 'yes']
+            urlReference = request.data.get( 'urlReference', 'false' ).lower() in ['true', '1', 'yes']
+            imageReference = request.data.get( 'imageReference', 'false' ).lower() in ['true', '1', 'yes']
 
             lesson_file = request.FILES.get('file')
             audio_file = request.FILES.get('audio')
             image_file = request.FILES.get('image')
 
-            nativeLang = get_object_or_404(
-                Language,
-                lang_name=nativeLangName
-            )
-
-            targetLang = get_object_or_404(
-                Language,
-                lang_name=targetLangName
-            )
-
+            nativeLang = get_object_or_404( Language, lang_name=nativeLangName )
+            targetLang = get_object_or_404( Language, lang_name=targetLangName )
+            
             user_id = request.user.id
             lesson_import_progress[user_id] = 0
 
