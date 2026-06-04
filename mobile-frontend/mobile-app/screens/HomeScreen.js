@@ -22,18 +22,20 @@ import DefinitionList from './components/DefinitionList';
 
 
 import styles from './styles/HomeStyles';
-import config from '../utils/config';
+//import config from '../utils/config';
+import { getServerIP } from '../utils/config';
 import BottomAudioMenu from "./components/BottomAudioMenu";
 
-SplashScreen.preventAutoHideAsync();
+//SplashScreen.preventAutoHideAsync();
 
 export default function HomeScreen({ navigation }) {
     const { width, height } = useWindowDimensions();
-    const server = config.SERVER_IP;
+
 
     // State
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
+    const [serverIP, setServerIP] = useState('');
     const [appIsReady, setAppIsReady] = useState(false);
     const [loading, setLoading] = useState(false);
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
@@ -102,7 +104,7 @@ export default function HomeScreen({ navigation }) {
         if (!token || !currentLesson) return;
 
         try {
-            await fetch(`http://${server}:8000/api/user-progress/`, {
+            await fetch(`http://${serverIP}:8000/api/user-progress/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -129,7 +131,7 @@ export default function HomeScreen({ navigation }) {
                 soundRef.current = null;
             }
 
-            const response = await fetch(`http://${server}:8000/api/audio/`, {
+            const response = await fetch(`http://${serverIP}:8000/api/audio/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -195,7 +197,7 @@ export default function HomeScreen({ navigation }) {
     const translateWord = async (word) => {
         setLoading(true);
         try {
-            const response = await fetch(`http://${server}:8000/api/translate/`, {
+            const response = await fetch(`http://${serverIP}:8000/api/translate/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -274,7 +276,7 @@ export default function HomeScreen({ navigation }) {
                 playbackRate
             });
             const response = await fetch(
-                `http://${server}:8000/api/settings/`,
+                `http://${serverIP}:8000/api/settings/`,
                 {
                     method: "PUT",
                     headers: {
@@ -305,7 +307,7 @@ export default function HomeScreen({ navigation }) {
 
         const fetchSettings = async () => {
             try {
-                const res = await fetch(`http://${server}:8000/api/settings/`, {
+                const res = await fetch(`http://${serverIP}:8000/api/settings/`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -334,6 +336,9 @@ export default function HomeScreen({ navigation }) {
                     // Example: 'Roboto': require('../assets/fonts/Roboto-Regular.ttf')
                 });
 
+                const ip = await getServerIP();
+                setServerIP(ip);
+
                 const storedToken = await AsyncStorage.getItem('accessToken');
                 if (storedToken) {
                     setToken(storedToken);
@@ -345,6 +350,7 @@ export default function HomeScreen({ navigation }) {
             } finally {
                 setAppIsReady(true);
                 await SplashScreen.hideAsync();
+                setAppIsReady(true);
             }
         };
         init();
@@ -356,7 +362,7 @@ export default function HomeScreen({ navigation }) {
 
         const fetchUserProfile = async () => {
             try {
-                const res = await fetch(`http://${server}:8000/api/profile/`, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await fetch(`http://${serverIP}:8000/api/profile/`, { headers: { Authorization: `Bearer ${token}` } });
                 if (res.ok) {
                     const userData = await res.json();
                     setUser(userData);
@@ -374,7 +380,7 @@ export default function HomeScreen({ navigation }) {
 
         const fetchLessonData = async () => {
             try {
-                const progressRes = await fetch(`http://${server}:8000/api/user-progress/?lesson_id=${currentLesson}`, { headers: { Authorization: `Bearer ${token}` } });
+                const progressRes = await fetch(`http://${serverIP}:8000/api/user-progress/?lesson_id=${currentLesson}`, { headers: { Authorization: `Bearer ${token}` } });
                 if (progressRes.ok) {
                     const progressData = await progressRes.json();
                     console.log("nativeLanguage:", nativeLanguage);
@@ -384,7 +390,7 @@ export default function HomeScreen({ navigation }) {
                     setIndex(progressData.current_lesson_index || 0);
                 }
 
-                const lessonRes = await fetch(`http://${server}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
+                const lessonRes = await fetch(`http://${serverIP}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
                 if (lessonRes.ok) {
                     const lessonData = await lessonRes.json();
                     const parsed = (lessonData.sentences || []).map(s => [s.audio_file, s.sentence, s.translated_sentence]);
@@ -559,7 +565,7 @@ export default function HomeScreen({ navigation }) {
                         tar_id={targetLanguage}
                         popup={popup}
                         token={token}
-                        server={server}
+                        server={serverIP}
                         showSuccess={showSuccess}
                         showError={showError}
                         onDefinitionUpdated={handleUpdateDefinition}

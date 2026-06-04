@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TextInput, Button, Alert, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { getServerIP } from '../utils/config';
 
 export default function ResetPasswordScreen({ navigation }) {
     const [email, setEmail] = useState('');
+    const [serverIP, setServerIP] = useState('');
+
+    useEffect(() => {
+        const loadIP = async () => {
+            const ip = await getServerIP();
+            setServerIP(ip);
+        };
+        loadIP();
+    }, []);
 
     const handleReset = async () => {
     if (!email) {
@@ -13,7 +23,7 @@ export default function ResetPasswordScreen({ navigation }) {
     }
 
     try {
-        const response = await fetch('http://localhost:8000/api/password_reset/', {
+        const response = await fetch(`http://${serverIP}:8000/api/password_reset/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),

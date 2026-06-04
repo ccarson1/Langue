@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SignupStyles';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import LogoutButton from './components/LogoutButton';
+import { getServerIP } from '../utils/config';
 
 export default function SignupScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -12,50 +13,60 @@ export default function SignupScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [token, setToken] = useState(null);
+  const [serverIP, setServerIP] = useState('');
 
-useEffect(() => {
-  const fetchToken = async () => {
-    const storedToken = await AsyncStorage.getItem('accessToken');
-    setToken(storedToken);
+  useEffect(() => {
+    const loadIP = async () => {
+      const ip = await getServerIP();
+      setServerIP(ip);
+    };
+    loadIP();
+  }, []);
 
-    if (storedToken) {
+  useEffect(() => {
+    if (!serverIP) return;
+    const fetchToken = async () => {
+      const storedToken = await AsyncStorage.getItem('accessToken');
+      setToken(storedToken);
+
+      if (storedToken) {
+        try {
+          const decoded = jwtDecode(storedToken);
+          console.log('User info from token:', decoded);
+        } catch (err) {
+          console.error('Failed to decode token:', err);
+        }
+      }
+    };
+
+    const fetchAccountInfo = async () => {
+      await fetchToken(); // <-- wait for token before continuing
+
+      const accessToken = await AsyncStorage.getItem('accessToken');
       try {
-        const decoded = jwtDecode(storedToken);
-        console.log('User info from token:', decoded);
-      } catch (err) {
-        console.error('Failed to decode token:', err);
+        const response = await fetch(`http://${serverIP}:8000/api/account/`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch account info');
+        }
+
+        const data = await response.json();
+        setUsername(data.username);
+        setEmail(data.email);
+        console.log('Account info:', data);
+      } catch (error) {
+        console.error('Error:', error);
       }
-    }
-  };
+    };
 
-  const fetchAccountInfo = async () => {
-    await fetchToken(); // <-- wait for token before continuing
-
-    const accessToken = await AsyncStorage.getItem('accessToken');
-    try {
-      const response = await fetch('http://192.168.1.5:8000/api/account/', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch account info');
-      }
-
-      const data = await response.json();
-      setUsername(data.username);
-      setEmail(data.email);
-      console.log('Account info:', data);
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
-
-  fetchAccountInfo();
-}, []);
+    fetchAccountInfo();
+  }, [serverIP]);
 
   const handleSignup = async () => {
     const accessToken = await AsyncStorage.getItem('accessToken');
@@ -65,7 +76,7 @@ useEffect(() => {
     }
 
     try {
-      const response = await fetch('http://192.168.1.5:8000/api/account', {
+      const response = await fetch(`http://${serverIP}:8000/api/account`, {
         method: 'PUT', // This should be PUT if you're updating the account
         headers: {
           'Content-Type': 'application/json',

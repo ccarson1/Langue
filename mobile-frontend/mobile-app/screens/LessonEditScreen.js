@@ -15,7 +15,7 @@ import {
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import config from '../utils/config';
+import { getServerIP } from '../utils/config';
 import * as DocumentPicker from 'expo-document-picker';
 export default function LessonEditScreen({
     route,
@@ -24,8 +24,6 @@ export default function LessonEditScreen({
 
     const { lessonId } = route.params;
 
-    const server = config.SERVER_IP;
-
     const [title, setTitle] = useState('');
     const [url, setUrl] = useState('');
     const [lessonPrivate, setLessonPrivate] = useState(false);
@@ -33,10 +31,20 @@ export default function LessonEditScreen({
     const [sentences, setSentences] = useState([]);
     const [sentencesExpanded, setSentencesExpanded] = useState(false);
     const [audioExpanded, setAudioExpanded] = useState(false);
+    const [serverIP, setServerIP] = useState('');
 
     useEffect(() => {
-        fetchLesson();
+        const loadIP = async () => {
+            const ip = await getServerIP();
+            setServerIP(ip);
+        };
+        loadIP();
     }, []);
+
+    useEffect(() => {
+        if (!serverIP) return;
+        fetchLesson();
+    }, [serverIP]);
 
     const fetchLesson = async () => {
 
@@ -47,7 +55,7 @@ export default function LessonEditScreen({
             );
 
             const res = await fetch(
-                `http://${server}:8000/api/edit-lesson/${lessonId}/`,
+                `http://${serverIP}:8000/api/edit-lesson/${lessonId}/`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -130,7 +138,7 @@ export default function LessonEditScreen({
             }
 
             const res = await fetch(
-                `http://${server}:8000/api/edit-lesson/${lessonId}/`,
+                `http://${serverIP}:8000/api/edit-lesson/${lessonId}/`,
                 {
                     method: 'PUT',
                     headers: {

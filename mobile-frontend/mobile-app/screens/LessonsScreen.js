@@ -4,7 +4,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from "./styles/LessonsStyles"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
-import config from '../utils/config';
+import { getServerIP } from '../utils/config';
 
 
 
@@ -15,13 +15,13 @@ export default function LessonsScreen({ navigation }) {
     const [nativeLanguage, setNativeLanguage] = useState('');
     const [targetLanguage, setTargetLanguage] = useState('');
     const [lessons, setLessons] = useState([]);
-    const server = config.SERVER_IP;
-    const mediaUrl = `http://${server}/media/`;
+    const [serverIP, setServerIP] = useState('');
+    const mediaUrl = `http://${serverIP}/media/`;
 
     const fetchLessons = async () => {
         try {
             const token = await AsyncStorage.getItem('accessToken'); // or wherever you store it
-            const res = await fetch(`http://${server}:8000/api/lessons/`, {
+            const res = await fetch(`http://${serverIP}:8000/api/lessons/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -37,7 +37,7 @@ export default function LessonsScreen({ navigation }) {
 
     const fetchLanguages = async () => {
         try {
-            const res = await fetch(`http://${server}:8000/api/languages/`);
+            const res = await fetch(`http://${serverIP}:8000/api/languages/`);
             const data = await res.json();
             setLanguages(data); // assuming data is an array of { id, lang_name }
         } catch (err) {
@@ -47,6 +47,15 @@ export default function LessonsScreen({ navigation }) {
     };
 
     useEffect(() => {
+        const loadIP = async () => {
+            const ip = await getServerIP();
+            setServerIP(ip);
+        };
+        loadIP();
+    }, []);
+
+    useEffect(() => {
+        if (!serverIP) return;
         const loadTokenAndSettings = async () => {
             try {
                 const storedToken = await AsyncStorage.getItem('accessToken');
@@ -59,7 +68,7 @@ export default function LessonsScreen({ navigation }) {
                 const decoded = jwtDecode(storedToken);
                 console.log('Decoded token:', decoded);
 
-                const response = await fetch(`http://${server}:8000/api/settings/`, {
+                const response = await fetch(`http://${serverIP}:8000/api/settings/`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -80,7 +89,7 @@ export default function LessonsScreen({ navigation }) {
         fetchLessons();
         fetchLanguages(); // <--- fetch language options
         loadTokenAndSettings(); // <--- fetch user settings
-    }, []);
+    }, [serverIP]);
 
 
 
@@ -120,7 +129,7 @@ export default function LessonsScreen({ navigation }) {
                                         return;
                                     }
 
-                                    const res = await fetch(`http://${server}:8000/api/change-lesson/`, {
+                                    const res = await fetch(`http://${serverIP}:8000/api/change-lesson/`, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',

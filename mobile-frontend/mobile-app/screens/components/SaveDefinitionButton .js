@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Alert, Text, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from '../styles/HomeStyles';
-import config from '../../utils/config';
+import { getServerIP } from '../../utils/config';
 import CustomPopup from './CustomPopup';
 
 
@@ -12,7 +12,7 @@ export default function SaveDefinitionButton({ payload, definitions, showSuccess
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
   console.log(`SendSaveDefinition popup: `)
   console.log(popup)
-  const server = config.SERVER_IP;
+  const [serverIP, setServerIP] = useState('');
   console.log(payload);
   console.log(definitions);
   // const showSuccess = (message) => {
@@ -23,6 +23,13 @@ export default function SaveDefinitionButton({ payload, definitions, showSuccess
   //   setPopup({ visible: true, message: message, type: 'error' });
   // };
 
+  useEffect(() => {
+    const loadIP = async () => {
+      const ip = await getServerIP();
+      setServerIP(ip);
+    };
+    loadIP();
+  }, []);
 
   const saveDefinition = async () => {
 
@@ -45,7 +52,7 @@ export default function SaveDefinitionButton({ payload, definitions, showSuccess
       const accessToken = await AsyncStorage.getItem('accessToken');
       console.log(accessToken);
 
-      const response = await fetch(`http://${server}:8000/api/save_word/`, {
+      const response = await fetch(`http://${serverIP}:8000/api/save_word/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

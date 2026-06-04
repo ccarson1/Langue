@@ -21,7 +21,7 @@ import styles from './styles/ImportStyles';
 import CustomPopup from './components/CustomPopup';
 import LoadingOverlay from './components/LoadingOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import config from '../utils/config';
+import { getServerIP } from '../utils/config';
 
 export default function ImportLessonScreen({ navigation }) {
   const [url, setUrl] = useState('');
@@ -41,13 +41,13 @@ export default function ImportLessonScreen({ navigation }) {
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
   const [progress, setProgress] = useState(0);
-  const server = config.SERVER_IP;
-  const progressUrl = `http://${server}:8000/api/lesson-import-progress/`;
+  const [serverIP, setServerIP] = useState('');
+  const progressUrl = `http://${serverIP}:8000/api/lesson-import-progress/`;
 
 
   const fetchLanguages = async () => {
     try {
-      const res = await fetch(`http://${server}:8000/api/languages/`);
+      const res = await fetch(`http://${serverIP}:8000/api/languages/`);
       const data = await res.json();
       setLanguages(data); // assuming data is an array of { id, lang_name }
     } catch (err) {
@@ -59,7 +59,7 @@ export default function ImportLessonScreen({ navigation }) {
   const pollProgress = () => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${server}:8000/api/lesson-import-progress/`, {
+        const res = await fetch(`${serverIP}:8000/api/lesson-import-progress/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -84,8 +84,16 @@ export default function ImportLessonScreen({ navigation }) {
     }, 1000);
   };
 
+  useEffect(() => {
+    const loadIP = async () => {
+      const ip = await getServerIP();
+      setServerIP(ip);
+    };
+    loadIP();
+  }, []);
 
   useEffect(() => {
+    if (!serverIP) return;
     const loadTokenAndSettings = async () => {
       try {
         const storedToken = await AsyncStorage.getItem('accessToken');
@@ -98,7 +106,7 @@ export default function ImportLessonScreen({ navigation }) {
         const decoded = jwtDecode(storedToken);
         console.log('Decoded token:', decoded);
 
-        const response = await fetch(`http://${server}:8000/api/settings/`, {
+        const response = await fetch(`http://${serverIP}:8000/api/settings/`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -117,7 +125,7 @@ export default function ImportLessonScreen({ navigation }) {
 
     fetchLanguages(); // <--- fetch language options
     loadTokenAndSettings(); // <--- fetch user settings
-  }, []);
+  }, [serverIP]);
 
   const showSuccess = (message) => {
     setPopup({ visible: true, message: message, type: 'success' });
@@ -250,7 +258,7 @@ export default function ImportLessonScreen({ navigation }) {
       return;
     }
 
-    const apiUrl = `http://${server}:8000/api/import-lesson/`;
+    const apiUrl = `http://${serverIP}:8000/api/import-lesson/`;
 
     try {
       setLoading(true);
@@ -317,11 +325,11 @@ export default function ImportLessonScreen({ navigation }) {
 
 
       if (!response.ok) {
-        clearInterval(pollingInterval); 
-        setLoading(false); 
+        clearInterval(pollingInterval);
+        setLoading(false);
         showError(`Import failed: ${data.error || 'Unknown error'}`);
         Alert.alert('Import failed', data.error || 'Unknown error');
-        return; 
+        return;
       } else {
         showSuccess(`Success: Lesson imported successfully!`);
         Alert.alert('Success', 'Lesson imported successfully!');

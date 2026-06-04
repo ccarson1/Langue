@@ -6,7 +6,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from "./styles/ListeningStyles"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
-import config from '../utils/config';
+import { getServerIP } from '../utils/config';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import CustomPopup from './components/CustomPopup';
 import AudioVisualizer from './components/AudioVisualizer';
@@ -16,6 +16,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
 import LoadingOverlay from './components/LoadingOverlay';
 import BottomAudioMenu from './components/BottomAudioMenu';
+
 
 
 
@@ -32,8 +33,8 @@ export default function LessonsScreen({ navigation }) {
     const soundRef = useRef(null);
     const soundRefs = useRef({});
     const [refresh, setRefresh] = useState(0); //help the Visualizer and progress start with the audio
-    const server = config.SERVER_IP;
-    const mediaUrl = `http://${server}/media/`;
+    const [serverIP, setServerIP] = useState('');
+    const mediaUrl = `http://${serverIP}/media/`;
     const [playbackStatus, setPlaybackStatus] = useState({});
 
     const [volume, setVolume] = useState(1.0);
@@ -47,6 +48,7 @@ export default function LessonsScreen({ navigation }) {
     const shuffleRef = useRef(false);
     const lessonsRef = useRef([]);
     const [downloadedLessons, setDownloadedLessons] = useState({});
+    const initializedRef = useRef(false);
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -56,11 +58,19 @@ export default function LessonsScreen({ navigation }) {
         setPopup({ visible: true, message: message, type: 'error' });
     };
 
+    useEffect(() => {
+        const loadIP = async () => {
+            const ip = await getServerIP();
+            setServerIP(ip);
+        };
+        loadIP();
+    }, []);
+
     const fetchLessons = async () => {
         setLoading(true);
         try {
             const token = await AsyncStorage.getItem('accessToken'); // or wherever you store it
-            const res = await fetch(`http://${server}:8000/api/lessons/`, {
+            const res = await fetch(`http://${serverIP}:8000/api/lessons/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -78,7 +88,7 @@ export default function LessonsScreen({ navigation }) {
 
     const fetchLanguages = async () => {
         try {
-            const res = await fetch(`http://${server}:8000/api/languages/`);
+            const res = await fetch(`http://${serverIP}:8000/api/languages/`);
             const data = await res.json();
             setLanguages(data); // assuming data is an array of { id, lang_name }
         } catch (err) {
@@ -92,8 +102,9 @@ export default function LessonsScreen({ navigation }) {
         try {
 
             if (!token) return;
+            
 
-            await fetch(`http://${server}:8000/api/settings/`, {
+            await fetch(`http://${serverIP}:8000/api/settings/`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -190,7 +201,7 @@ export default function LessonsScreen({ navigation }) {
             setLoading(true);
 
             const response = await fetch(
-                `http://${server}:8000/api/audio/`,
+                `http://${serverIP}:8000/api/audio/`,
                 {
                     method: 'POST',
                     headers: {
@@ -293,6 +304,7 @@ export default function LessonsScreen({ navigation }) {
     }, [lessons]);
 
     useEffect(() => {
+        if (!serverIP) return;
         const loadTokenAndSettings = async () => {
             try {
                 const storedToken = await AsyncStorage.getItem('accessToken');
@@ -305,7 +317,7 @@ export default function LessonsScreen({ navigation }) {
                 const decoded = jwtDecode(storedToken);
                 //console.log('Decoded token:', decoded);
 
-                const response = await fetch(`http://${server}:8000/api/settings/`, {
+                const response = await fetch(`http://${serverIP}:8000/api/settings/`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -335,6 +347,8 @@ export default function LessonsScreen({ navigation }) {
 
                 setShuffle(settings.shuffle_audio ?? false);
 
+                initializedRef.current = true;
+
 
             } catch (err) {
                 Alert.alert('Error', 'Failed to load settings: ' + err.message);
@@ -344,7 +358,7 @@ export default function LessonsScreen({ navigation }) {
         fetchLessons();
         fetchLanguages(); // <--- fetch language options
         loadTokenAndSettings(); // <--- fetch user settings
-    }, []);
+    }, [serverIP]);
 
     useEffect(() => {
 
@@ -410,6 +424,7 @@ export default function LessonsScreen({ navigation }) {
     useEffect(() => {
 
         if (!token) return;
+        if (!initializedRef.current) return;
 
         const timeout = setTimeout(() => {
 
@@ -504,7 +519,7 @@ export default function LessonsScreen({ navigation }) {
                     } else {
 
                         setLoading(true);
-                        const response = await fetch(`http://${server}:8000/api/audio/`, {
+                        const response = await fetch(`http://${serverIP}:8000/api/audio/`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -620,7 +635,7 @@ export default function LessonsScreen({ navigation }) {
 
                 if (!soundRefs.current[lessonID]) {
                     setLoading(true);
-                    const response = await fetch(`http://${server}:8000/api/audio/`, {
+                    const response = await fetch(`http://${serverIP}:8000/api/audio/`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

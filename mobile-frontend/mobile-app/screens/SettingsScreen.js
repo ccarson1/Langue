@@ -12,7 +12,7 @@ import { Picker } from '@react-native-picker/picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SettingsStyles';
-import config from '../utils/config';
+import { getServerIP } from '../utils/config';
 
 export default function SettingsScreen({ navigation }) {
   const [nativeLanguage, setNativeLanguage] = useState('');
@@ -23,11 +23,12 @@ export default function SettingsScreen({ navigation }) {
   const [profilePrivate, setProfilePrivate] = useState(false);
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
-  const server = config.SERVER_IP;
+  const [serverIP, setServerIP] = useState('');
 
   const fetchLanguages = async () => {
+    if (!serverIP) return;
     try {
-      const res = await fetch(`http://${server}:8000/api/languages/`);
+      const res = await fetch(`http://${serverIP}:8000/api/languages/`);
       const data = await res.json();
       setLanguages(data); // assuming data is an array of { id, lang_name }
     } catch (err) {
@@ -45,7 +46,7 @@ export default function SettingsScreen({ navigation }) {
       );
 
       const res = await fetch(
-        `http://${server}:8000/api/dictionaries/?language=${language}`,
+        `http://${serverIP}:8000/api/dictionaries/?language=${language}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -69,7 +70,15 @@ export default function SettingsScreen({ navigation }) {
   };
 
   useEffect(() => {
+        const loadIP = async () => {
+            const ip = await getServerIP();
+            setServerIP(ip);
+        };
+        loadIP();
+    }, []);
 
+  useEffect(() => {
+    if (!serverIP) return;
     const loadTokenAndSettings = async () => {
 
       try {
@@ -91,7 +100,7 @@ export default function SettingsScreen({ navigation }) {
         setToken(storedToken);
 
         const response = await fetch(
-          `http://${server}:8000/api/settings/`,
+          `http://${serverIP}:8000/api/settings/`,
           {
             method: 'GET',
 
@@ -122,7 +131,7 @@ export default function SettingsScreen({ navigation }) {
     fetchLanguages();
     loadTokenAndSettings();
 
-  }, []);
+  }, [serverIP]);
 
   useEffect(() => {
 
@@ -140,7 +149,7 @@ export default function SettingsScreen({ navigation }) {
     }
 
     try {
-      const response = await fetch(`http://${server}:8000/api/settings/`, {
+      const response = await fetch(`http://${serverIP}:8000/api/settings/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
