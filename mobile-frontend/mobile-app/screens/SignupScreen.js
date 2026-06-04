@@ -172,7 +172,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import styles from './styles/SignupStyles'
 import AntDesign from '@expo/vector-icons/AntDesign';
 import CustomPopup from './components/CustomPopup';
@@ -263,126 +263,128 @@ export default function SignupScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-        <AntDesign name="left" size={22} color="white" />
-      </TouchableOpacity>
-
-      <View style={styles.signupBox}>
-        <Text style={styles.heading}>Create Account</Text>
-
-        {/* Server IP + Connect */}
-        <Text style={styles.label}>Server IP</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-          <TextInput
-            style={[styles.input, { flex: 1, marginBottom: 0 }]}
-            placeholder="e.g. 10.6.96.21"
-            placeholderTextColor="#aaa"
-            value={serverIP}
-            onChangeText={(val) => {
-              setServerIP(val);
-              setConnected(false); // reset connection if IP changes
-              setLanguages([]);
-            }}
-            autoCapitalize="none"
-            keyboardType="numeric"
-          />
-          <TouchableOpacity
-            style={[styles.button, { marginBottom: 0, paddingHorizontal: 16, backgroundColor: connected ? '#4CAF50' : '#007AFF' }]}
-            onPress={handleConnect}
-            disabled={connecting}
-          >
-            <Text style={styles.buttonText}>
-              {connecting ? '...' : connected ? '✓' : 'Connect'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.label}>Username</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Username"
-          placeholderTextColor="#aaa"
-          value={username}
-          onChangeText={setUsername}
-          autoCapitalize="none"
-        />
-
-        <Text style={styles.label}>Email address</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#aaa"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-
-        <Text style={styles.label}>Native Language</Text>
-        <Picker
-          selectedValue={native_language}
-          onValueChange={(itemValue) => setNative(itemValue)}
-          style={styles.input}
-          enabled={connected}
-        >
-          <Picker.Item label={connected ? "Select Native Language" : "Connect to server first"} value="" />
-          {languages.map((lang) => (
-            <Picker.Item key={lang.id} label={lang.lang_name} value={lang.id} />
-          ))}
-        </Picker>
-
-        <Text style={styles.label}>Target Language</Text>
-        <Picker
-          selectedValue={target_language}
-          onValueChange={(itemValue) => setTarget(itemValue)}
-          style={styles.input}
-          enabled={connected}
-        >
-          <Picker.Item label={connected ? "Select Target Language" : "Connect to server first"} value="" />
-          {languages.map((lang) => (
-            <Picker.Item key={lang.id} label={lang.lang_name} value={lang.id} />
-          ))}
-        </Picker>
-
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#aaa"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <Text style={styles.label}>Confirm Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          placeholderTextColor="#aaa"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleSignup}>
-          <Text style={styles.buttonText}>Sign Up</Text>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+          <AntDesign name="left" size={22} color="white" />
         </TouchableOpacity>
 
-        <Text style={styles.loginLink}>
-          Already have an account?{' '}
-          <Text style={styles.loginLinkText} onPress={() => navigation.navigate('Login')}>
-            Log in
-          </Text>
-        </Text>
-      </View>
+        <View style={styles.signupBox}>
+          <Text style={styles.heading}>Create Account</Text>
 
-      <CustomPopup
-        visible={popup.visible}
-        message={popup.message}
-        type={popup.type}
-        onClose={() => setPopup({ ...popup, visible: false })}
-      />
-    </View>
+          {/* Server IP + Connect */}
+          <Text style={styles.label}>Server IP</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="e.g. 10.6.96.21"
+              placeholderTextColor="#aaa"
+              value={serverIP}
+              onChangeText={(val) => {
+                setServerIP(val);
+                setConnected(false); // reset connection if IP changes
+                setLanguages([]);
+              }}
+              autoCapitalize="none"
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              style={[styles.button, { marginBottom: 0, paddingHorizontal: 16, backgroundColor: connected ? '#4CAF50' : '#007AFF' }]}
+              onPress={handleConnect}
+              disabled={connecting}
+            >
+              <Text style={styles.buttonText}>
+                {connecting ? '...' : connected ? '✓' : 'Connect'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>Username</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Username"
+            placeholderTextColor="#aaa"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>Email address</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#aaa"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          <Text style={styles.label}>Native Language</Text>
+          <Picker
+            selectedValue={native_language}
+            onValueChange={(itemValue) => setNative(itemValue)}
+            style={styles.input}
+            enabled={connected}
+          >
+            <Picker.Item label={connected ? "Select Native Language" : "Connect to server first"} value="" />
+            {languages.map((lang) => (
+              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.id} />
+            ))}
+          </Picker>
+
+          <Text style={styles.label}>Target Language</Text>
+          <Picker
+            selectedValue={target_language}
+            onValueChange={(itemValue) => setTarget(itemValue)}
+            style={styles.input}
+            enabled={connected}
+          >
+            <Picker.Item label={connected ? "Select Target Language" : "Connect to server first"} value="" />
+            {languages.map((lang) => (
+              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.id} />
+            ))}
+          </Picker>
+
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#aaa"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <Text style={styles.label}>Confirm Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor="#aaa"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+
+          <TouchableOpacity style={styles.button} onPress={handleSignup}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.loginLink}>
+            Already have an account?{' '}
+            <Text style={styles.loginLinkText} onPress={() => navigation.navigate('Login')}>
+              Log in
+            </Text>
+          </Text>
+        </View>
+
+        <CustomPopup
+          visible={popup.visible}
+          message={popup.message}
+          type={popup.type}
+          onClose={() => setPopup({ ...popup, visible: false })}
+        />
+      </View>
+    </ScrollView>
   );
 }

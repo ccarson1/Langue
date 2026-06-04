@@ -1,6 +1,6 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
-import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Audio } from 'expo-av';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -454,6 +454,7 @@ export default function HomeScreen({ navigation }) {
     if (!appIsReady) return null; // splash screen remains
 
     return (
+        
         <View style={styles.container}>
             {/* Top Section */}
             <View style={styles.topSection}>

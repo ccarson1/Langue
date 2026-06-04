@@ -17,29 +17,32 @@ export default function ResetPasswordScreen({ navigation }) {
     }, []);
 
     const handleReset = async () => {
-    if (!email) {
-        Alert.alert('Validation Error', 'Please enter your email address.');
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://${serverIP}:8000/api/password_reset/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Failed to reset password.');
+        if (!email) {
+            Alert.alert('Validation Error', 'Please enter your email address.');
+            return;
         }
 
-        Alert.alert('Success', 'Check your email for a password reset link.');
-    } catch (err) {
-        console.error(err);
-        Alert.alert('Error', err.message || 'Something went wrong.');
-    }
-};
+        try {
+            const response = await fetch(`http://${serverIP}:8000/api/password_reset/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to reset password.');
+            }
+
+            
+            navigation.navigate('ResetPasswordConfirm', {
+                email,
+            });
+        } catch (err) {
+            console.error(err);
+            Alert.alert('Error', err.message || 'Something went wrong.');
+        }
+    };
 
     return (
 
@@ -130,3 +133,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
+
+

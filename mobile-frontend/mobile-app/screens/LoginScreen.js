@@ -29,6 +29,39 @@ export default function LoginScreen({ navigation }) {
     setPopup({ visible: true, message, type: 'error' });
   };
 
+  const handleConnectServer = async () => {
+    if (!serverIP.trim()) {
+      showError('Please enter a server IP address.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `http://${serverIP.trim()}:8000/api/csrf/`
+      );
+
+      if (!response.ok) {
+        throw new Error('Server not reachable');
+      }
+
+      await saveServerIP(serverIP.trim());
+
+      setPopup({
+        visible: true,
+        message: 'Server connected successfully!',
+        type: 'success',
+      });
+
+    } catch (err) {
+      console.error(err);
+      showError('Cannot connect to server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogin = async () => {
     if (!serverIP.trim()) {
       showError('Please enter a server IP address.');
@@ -104,11 +137,18 @@ export default function LoginScreen({ navigation }) {
           onChangeText={setPassword}
         />
 
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#555' }]}
+          onPress={handleConnectServer}
+        >
+          <Text style={styles.buttonText}>Connect to Server</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Log In</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('ResetPasswordScreen')}>
+        <TouchableOpacity onPress={() => navigation.navigate('ResetPassword')}>
           <Text style={styles.forgot}>Forgot password?</Text>
         </TouchableOpacity>
 

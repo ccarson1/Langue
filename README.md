@@ -50,3 +50,9 @@ git pull --rebase origin main
 docker-compose build
 docker-compose up -d
 
+
+
+# Mail server test
+# Run this using docker to receive test emails
+docker run -p 8025:8025 -p 1025:1025 mailhog/mailhog
+

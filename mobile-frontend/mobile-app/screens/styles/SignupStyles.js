@@ -1,10 +1,11 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, Platform  } from "react-native";
 export default StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#222831',
     justifyContent: 'center',
     alignItems: 'center',
+    
   },
   backLink: {
     position: 'absolute',
@@ -15,8 +16,16 @@ export default StyleSheet.create({
   signupBox: {
     backgroundColor: '#393e46',
     padding: 24,
+    marginTop: Platform.select({
+      web: 80,
+      default: 40,
+    }),
+    marginBottom: Platform.select({
+      web: 80,
+      default: 40,
+    }),
     borderRadius: 10,
-    width: 320,
+    width: "80%",
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
