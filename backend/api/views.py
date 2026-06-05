@@ -979,7 +979,8 @@ def user_lessons_progress_view(request):
             "current_lesson_index": progress.current_lesson_index,
             "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
             "native_lang": native_lang_data,
-            "target_lang": target_lang_data
+            "target_lang": target_lang_data,
+            
         }
 
         return Response(data)
@@ -1043,11 +1044,15 @@ def lesson_detail_with_sentences(request, lesson_id):
                     "id": s.id,
                     "audio_file": s.audio_file,
                     "sentence": s.sentence,
-                    "translated_sentence": s.translated_sentence
+                    "translated_sentence": s.translated_sentence,
+                    "start_ms": s.start_ms,
+                    "end_ms": s.end_ms
                 }
                 for s in sentences
             ]
         }
+
+        print(lesson_data['sentences'])
 
         return Response(lesson_data, status=status.HTTP_200_OK)
 

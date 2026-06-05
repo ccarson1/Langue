@@ -90,7 +90,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserLessonsProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserLessonsProgress
-        fields = ['id', 'user', 'lesson', 'current_lesson_index', 'last_viewed']
+        fields = ['id', 'user', 'lesson', 'current_lesson_index', 'last_viewed', 'start_ms', 'end_ms']
         
 class LanguageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -101,7 +101,7 @@ class LanguageSerializer(serializers.ModelSerializer):
 class SentenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sentence
-        fields = ['id', 'audio_file', 'sentence', 'translated_sentence', 'lesson_language', 'translate_language']
+        fields = ['id', 'audio_file', 'sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms']
 
 class LessonSerializer(serializers.ModelSerializer):
     sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
