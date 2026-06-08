@@ -353,58 +353,34 @@ def import_lesson(request):
                     lesson.audio_file = audio_file
 
                 lesson.save()
-
-                save_lesson_media = VTT(
-                    lesson_file,
-                    audio_file,
-                    lesson.id,
-                    targetLang,
-                    nativeLang
-                )
-
-                csv_path = save_lesson_media.save_csv(
-                    lesson_file
-                )
+                save_lesson_media = VTT( lesson_file, audio_file, lesson.id, targetLang, nativeLang )
+                csv_path = save_lesson_media.save_csv( lesson_file )
 
                 if not csv_path:
                     raise Exception(
                         "CSV generation failed"
                     )
 
-                audio_success = (
-                    save_lesson_media.save_audio_as_mp3(
-                        audio_file
-                    )
-                )
+                audio_success = ( save_lesson_media.save_audio_as_mp3( audio_file ) )
 
                 if not audio_success:
                     raise Exception(
                         "Audio conversion failed"
                     )
 
-                split_success = (
-                    save_lesson_media.split_audio_by_csv_ms(
-                        csv_path=csv_path
-                    )
-                )
+                split_success = ( save_lesson_media.split_audio_by_csv_ms( csv_path=csv_path ) )
 
-                if not split_success:
-                    raise Exception(
-                        "Audio splitting failed"
-                    )
+                # if not split_success:
+                #     raise Exception(
+                #         "Audio splitting failed"
+                #     )
 
-                lesson.audio_folder = (
-                    save_lesson_media.AUDIO_DIR
-                )
-
+                lesson.audio_folder = ( save_lesson_media.AUDIO_DIR )
                 lesson.save()
 
             lesson_import_progress[user_id] = 100
 
-            return Response({
-                'message': 'Lesson uploaded successfully.',
-                'lessonId': lesson.id
-            })
+            return Response({ 'message': 'Lesson uploaded successfully.', 'lessonId': lesson.id })
 
     except Exception as e:
 

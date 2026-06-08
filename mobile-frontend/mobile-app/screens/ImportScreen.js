@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system';
 
 import {
   View,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -245,6 +246,33 @@ export default function ImportLessonScreen({ navigation }) {
     }
   }
 
+async function appendFileToFormData(formData, fieldName, file) {
+  if (!file) return;
+
+  // WEB
+  if (Platform.OS === 'web') {
+    // Expo DocumentPicker on web usually provides a browser File object
+    if (file.file instanceof File) {
+      formData.append(fieldName, file.file);
+      return;
+    }
+
+    // Fallback: convert blob URI to Blob
+    const response = await fetch(file.uri);
+    const blob = await response.blob();
+
+    formData.append(fieldName, blob, file.name);
+    return;
+  }
+
+  // IOS / ANDROID
+  formData.append(fieldName, {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType || 'application/octet-stream',
+  });
+}
+
   const handleImport = async () => {
     if (!url && !lessonFile) {
       showError(`Missing input: Please provide a URL or upload a file.`);
@@ -263,6 +291,10 @@ export default function ImportLessonScreen({ navigation }) {
     try {
       setLoading(true);
       setProgress(0);
+
+      console.log(lessonFile);
+      console.log(audioFile);
+      console.log(imageFile);
 
       const formData = new FormData();
       await appendFileToFormData(formData, 'file', lessonFile);
@@ -346,199 +378,212 @@ export default function ImportLessonScreen({ navigation }) {
 
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-        <AntDesign name="left" size={22} color="white" />
-      </TouchableOpacity>
+    <ScrollView
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingBottom: 40,
+        paddingTop: 20,
+        backgroundColor: '#222831',
+      }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={true}
+    >
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+          <AntDesign name="left" size={22} color="white" />
+        </TouchableOpacity>
 
-      <View style={styles.importBox}>
-        <Text style={styles.heading}>Import Lesson</Text>
 
-        <View>
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Title here"
-            placeholderTextColor="#aaa"
-            value={title}
-            onChangeText={setTitle}
-            autoCapitalize="none"
-          />
-        </View>
+        <View style={styles.importBox}>
+          <Text style={styles.heading}>Import Lesson</Text>
 
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={imageReference}
-            onValueChange={setImageReference}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
-        </View>
-
-        {imageReference && (
           <View>
-            <Text style={styles.label}>Lesson Image</Text>
-            <TouchableOpacity style={styles.button} onPress={handleImagePick}>
-              <Text style={styles.buttonText}>
-                {imageFile ? `Selected: ${imageFile.name}` : 'Choose File'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={urlReference}
-            onValueChange={setURLReference}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Upload Lesson URL</Text>
-        </View>
-        {urlReference && (
-          <View>
-            <Text style={styles.label}>Lesson URL (optional)</Text>
+            <Text style={styles.label}>Title</Text>
             <TextInput
               style={styles.input}
-              placeholder="Paste URL here"
+              placeholder="Enter Title here"
               placeholderTextColor="#aaa"
-              value={url}
-              onChangeText={setUrl}
+              value={title}
+              onChangeText={setTitle}
               autoCapitalize="none"
             />
           </View>
-        )}
 
-
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={fileUploaded}
-            onValueChange={setFileUploaded}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Upload Lesson File</Text>
-        </View>
-
-        {fileUploaded && (
-          <View>
-            <Text style={styles.label}>Lesson File</Text>
-            <TouchableOpacity style={styles.button} onPress={handleFilePick}>
-              <Text style={styles.buttonText}>
-                {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={imageReference}
+              onValueChange={setImageReference}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
           </View>
-        )}
 
-        <Text style={styles.label}>Native Language</Text>
-        <View style={styles.pickerWrapper}>
-
-          <Picker
-            selectedValue={nativeLanguage}
-            onValueChange={setNativeLanguage}
-            style={styles.picker}
-            dropdownIconColor="white"
-          >
-            {languages.map((lang) => (
-              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
-            ))}
-          </Picker>
-
-          {Platform.OS === 'web' && (
-            <View style={styles.arrowWrapper}>
-              <AntDesign name="down" size={16} color="#eeeeee" />
+          {imageReference && (
+            <View>
+              <Text style={styles.label}>Lesson Image</Text>
+              <TouchableOpacity style={styles.button} onPress={handleImagePick}>
+                <Text style={styles.buttonText}>
+                  {imageFile ? `Selected: ${imageFile.name}` : 'Choose File'}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
-        </View>
 
-        <Text style={styles.label}>Target Language</Text>
-        <View style={styles.pickerWrapper}>
-          <Picker
-            selectedValue={targetLanguage}
-            onValueChange={setTargetLanguage}
-            style={styles.picker}
-            dropdownIconColor="white"
-          >
-            {languages.map((lang) => (
-              <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
-            ))}
-          </Picker>
-
-          {Platform.OS === 'web' && (
-            <View style={styles.arrowWrapper}>
-              <AntDesign name="down" size={16} color="#eeeeee" />
-            </View>
-          )}
-        </View>
-
-
-
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={lessonPrivate}
-            onValueChange={setLessonPrivate}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Make Lesson Private</Text>
-        </View>
-
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={audioUploaded}
-            onValueChange={setAudioUploaded}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Provide Audio</Text>
-        </View>
-        {audioUploaded && (
-          <View>
-            <Text style={styles.label}>Audio Upload</Text>
-            <TouchableOpacity style={styles.button} onPress={handleAudioPick}>
-              <Text style={styles.buttonText}>
-                {audioFile ? `Selected: ${audioFile.name}` : 'Choose Audio'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={urlReference}
+              onValueChange={setURLReference}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Upload Lesson URL</Text>
           </View>
-        )}
-
-
-        <TouchableOpacity style={styles.button} onPress={handleImport}>
-          <Text style={styles.buttonText}>Import Lesson</Text>
-        </TouchableOpacity>
-
-        {popup.visible && popup.message && (
-          <CustomPopup
-            visible={true}
-            message={popup.message}
-            type={popup.type}
-            onClose={() => setPopup({ ...popup, visible: false })}
-          />
-        )}
-
-        <View style={{ flex: 1 }}>
-
-          <LoadingOverlay visible={loading} />
-
-          {loading && (
-            <View style={{ marginTop: 20 }}>
-              {Platform.OS === 'android' ? (
-                <ProgressBar styleAttr="Horizontal" progress={progress / 100} indeterminate={false} color="#00adb5" />
-              ) : Platform.OS === 'ios' ? (
-                <ProgressViewIOS progress={progress / 100} />
-              ) : (
-                <progress value={progress} max={100} style={{ width: '100%' }} />
-              )}
-              <Text style={{ color: '#fff' }}>{progress}%</Text>
+          {urlReference && (
+            <View>
+              <Text style={styles.label}>Lesson URL (optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Paste URL here"
+                placeholderTextColor="#aaa"
+                value={url}
+                onChangeText={setUrl}
+                autoCapitalize="none"
+              />
             </View>
           )}
+
+
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={fileUploaded}
+              onValueChange={setFileUploaded}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Upload Lesson File</Text>
+          </View>
+
+          {fileUploaded && (
+            <View>
+              <Text style={styles.label}>Lesson File</Text>
+              <TouchableOpacity style={styles.button} onPress={handleFilePick}>
+                <Text style={styles.buttonText}>
+                  {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <Text style={styles.label}>Native Language</Text>
+          <View style={styles.pickerWrapper}>
+
+            <Picker
+              selectedValue={nativeLanguage}
+              onValueChange={setNativeLanguage}
+              style={styles.picker}
+              dropdownIconColor="white"
+            >
+              {languages.map((lang) => (
+                <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
+              ))}
+            </Picker>
+
+            {Platform.OS === 'web' && (
+              <View style={styles.arrowWrapper}>
+                <AntDesign name="down" size={16} color="#eeeeee" />
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.label}>Target Language</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={targetLanguage}
+              onValueChange={setTargetLanguage}
+              style={styles.picker}
+              dropdownIconColor="white"
+            >
+              {languages.map((lang) => (
+                <Picker.Item key={lang.id} label={lang.lang_name} value={lang.lang_name} />
+              ))}
+            </Picker>
+
+            {Platform.OS === 'web' && (
+              <View style={styles.arrowWrapper}>
+                <AntDesign name="down" size={16} color="#eeeeee" />
+              </View>
+            )}
+          </View>
+
+
+
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={lessonPrivate}
+              onValueChange={setLessonPrivate}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Make Lesson Private</Text>
+          </View>
+
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={audioUploaded}
+              onValueChange={setAudioUploaded}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Provide Audio</Text>
+          </View>
+          {audioUploaded && (
+            <View>
+              <Text style={styles.label}>Audio Upload</Text>
+              <TouchableOpacity style={styles.button} onPress={handleAudioPick}>
+                <Text style={styles.buttonText}>
+                  {audioFile ? `Selected: ${audioFile.name}` : 'Choose Audio'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+
+          <TouchableOpacity style={styles.button} onPress={handleImport}>
+            <Text style={styles.buttonText}>Import Lesson</Text>
+          </TouchableOpacity>
+
+          {popup.visible && popup.message && (
+            <CustomPopup
+              visible={true}
+              message={popup.message}
+              type={popup.type}
+              onClose={() => setPopup({ ...popup, visible: false })}
+            />
+          )}
+
+          <View style={{ flex: 1 }}>
+
+            <LoadingOverlay visible={loading} />
+
+            {loading && (
+              <View style={{ marginTop: 20 }}>
+                {Platform.OS === 'android' ? (
+                  <ProgressBar styleAttr="Horizontal" progress={progress / 100} indeterminate={false} color="#00adb5" />
+                ) : Platform.OS === 'ios' ? (
+                  <ProgressViewIOS progress={progress / 100} />
+                ) : (
+                  <progress value={progress} max={100} style={{ width: '100%' }} />
+                )}
+                <Text style={{ color: '#fff' }}>{progress}%</Text>
+              </View>
+            )}
+          </View>
+
         </View>
 
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

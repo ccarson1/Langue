@@ -143,7 +143,6 @@ export default function LessonEditScreen({
                     method: 'PUT',
                     headers: {
                         Authorization: `Bearer ${token}`,
-                        // ❌ DO NOT set Content-Type manually for FormData
                     },
                     body: formData,
                 }
@@ -310,6 +309,8 @@ TRANSLATION
             {sentencesExpanded && (
                 <>
                     <View style={styles.tableHeader}>
+                        <Text style={styles.headerColumnSmall}>#</Text>
+
                         <Text style={styles.headerColumn}>
                             Native
                         </Text>
@@ -320,41 +321,70 @@ TRANSLATION
                     </View>
 
                     {sentences.map((item, index) => (
-                        <View
-                            key={item.id}
-                            style={styles.row}
-                        >
-                            <TextInput
-                                style={styles.columnInput}
-                                multiline
-                                value={item.sentence}
-                                onChangeText={(text) =>
-                                    updateSentence(
-                                        index,
-                                        'sentence',
-                                        text
-                                    )
-                                }
-                            />
+                        <View key={item.id} style={styles.row}>
 
-                            <TextInput
-                                style={styles.columnInput}
-                                multiline
-                                value={item.translated_sentence}
-                                onChangeText={(text) =>
-                                    updateSentence(
-                                        index,
-                                        'translated_sentence',
-                                        text
-                                    )
-                                }
-                            />
+                            <Text style={styles.headerColumnSmall}>
+                                {index + 1}
+                            </Text>
+
+                            <View style={styles.sentenceColumn}>
+                                <TextInput
+                                    style={styles.columnInput}
+                                    multiline
+                                    value={item.sentence}
+                                    onChangeText={(text) =>
+                                        updateSentence(index, 'sentence', text)
+                                    }
+                                />
+
+                                <TextInput
+                                    style={styles.timeInput}
+                                    value={String(item.start_ms)}
+                                    onChangeText={(text) =>
+                                        updateSentence(
+                                            index,
+                                            'start_ms',
+                                            parseInt(text, 10) || 0
+                                        )
+                                    }
+                                />
+                            </View>
+
+                            <View style={styles.sentenceColumn}>
+                                <TextInput
+                                    style={styles.columnInput}
+                                    multiline
+                                    value={item.translated_sentence}
+                                    onChangeText={(text) =>
+                                        updateSentence(
+                                            index,
+                                            'translated_sentence',
+                                            text
+                                        )
+                                    }
+                                />
+
+                                <TextInput
+                                    style={styles.timeInput}
+                                    value={String(item.end_ms)}
+                                    onChangeText={(text) =>
+                                        updateSentence(
+                                            index,
+                                            'end_ms',
+                                            parseInt(text, 10) || 0
+                                        )
+                                    }
+                                />
+                            </View>
+
                         </View>
+
+
                     ))}
                 </>
             )}
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
                 style={styles.collapseHeader}
                 onPress={() => setAudioExpanded(!audioExpanded)}
             >
@@ -366,6 +396,9 @@ TRANSLATION
             {audioExpanded && (
                 <>
                     <View style={styles.tableHeader}>
+                        <Text style={styles.headerColumnSmall}>
+                            
+                        </Text>
                         <Text style={styles.headerColumn}>
                             Start MS
                         </Text>
@@ -379,6 +412,11 @@ TRANSLATION
                             key={item.id}
                             style={styles.row}
                         >
+                            <Text
+                                style={styles.headerColumnSmall}
+                            >
+                                {index + 1}
+                            </Text>
                             <TextInput
                                 style={styles.columnInput}
                                 multiline
@@ -407,7 +445,7 @@ TRANSLATION
                         </View>
                     ))}
                 </>
-            )}
+            )} */}
 
             <TouchableOpacity
                 style={styles.saveButton}
@@ -489,6 +527,13 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         textAlign: 'center',
     },
+    headerColumnSmall: {
+        flex: 0.10,
+        color: '#00adb5',
+        fontSize: 18,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
 
     row: {
         flexDirection: 'row',
@@ -564,6 +609,19 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#eeeeee',
+    },
+    sentenceColumn: {
+        flex: 1,
+    },
+
+    timeInput: {
+        marginTop: 5,
+        backgroundColor: '#393e46',
+        borderRadius: 10,
+        padding: 8,
+        color: '#eeeeee',
+        borderWidth: 1,
+        borderColor: '#4b525c',
     },
 
 });

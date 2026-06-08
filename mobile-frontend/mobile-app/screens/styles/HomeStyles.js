@@ -43,8 +43,6 @@ export default StyleSheet.create({
         top: 60,
     },
 
-
-
     navContainer: {
         display: 'flex',
     },
@@ -55,10 +53,12 @@ export default StyleSheet.create({
 
     // Middle section - main content with fixed space
     middleSection: {
-        flex: 0.6,
-        width: 300,
+        flex: .5,
+        width: '80%',
         justifyContent: 'center',
         alignItems: 'center',
+
+
     },
 
     // Bottom section - controls with fixed space
@@ -73,15 +73,30 @@ export default StyleSheet.create({
         color: 'white',
         textAlign: 'center',
         marginBottom: 20,
+
     },
 
     // Word container with fixed dimensions
     wordContainer: {
         minHeight: 100,
-        width: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+        width: '100%',
+        height: 120,
         marginBottom: 20,
+        paddingHorizontal: 20,
+        overflow: 'scroll',
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#888 #444444',
+        overflowX: 'hidden',
+    },
+    wordScroll: {
+        flex: 1,
+    },
+    wordWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
     },
     btnText: {
         textAlign: 'center',
@@ -92,14 +107,15 @@ export default StyleSheet.create({
         fontStyle: 'italic',
         textAlign: 'right',
         color: '$666',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        top: 20,
+        
     },
 
     word: {
         fontSize: 20,
         color: 'white',
-        textAlign: 'center',
-        paddingHorizontal: 10,
+        paddingHorizontal: 4,
     },
     defHeader: {
         fontSize: 25,
@@ -127,6 +143,9 @@ export default StyleSheet.create({
         height: '80%',
         minHeight: 250, // Fixed minimum height
         position: 'relative',
+        overflowY: 'scroll',
+        paddingBottom: 0,
+
     },
 
     saveBtn: {
@@ -249,6 +268,8 @@ export default StyleSheet.create({
         color: '#333',
         flexWrap: 'wrap',
         width: '100%',
-        padding: 8,
+        paddingTop: 10,
+        paddingHorizontal: 8,
+        paddingBottom: 30,
     },
 });

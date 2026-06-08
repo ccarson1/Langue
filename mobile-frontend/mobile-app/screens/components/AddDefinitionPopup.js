@@ -30,16 +30,16 @@ export default function AddDefinitionPopup({
     }
   }, [translatedText]);
 
-  useEffect(() => {
-    console.log(`${typeof translatedText[0]}`)
-    console.log(`This is the definition ${definition}`);
-    console.log(`This is the definitions ${definitions}`);
-    console.log(`This is the selected Text ${selectedText}`);
-    console.log(`This is the translated Text ${translatedText.length}`);
-    console.log(`This is the natural ID ${nat_id}`);
-    console.log(`This is the target ID ${tar_id}`);
+  // useEffect(() => {
+  //   console.log(`${typeof translatedText[0]}`)
+  //   console.log(`This is the definition ${definition}`);
+  //   console.log(`This is the definitions ${definitions}`);
+  //   console.log(`This is the selected Text ${selectedText}`);
+  //   console.log(`This is the translated Text ${translatedText.length}`);
+  //   console.log(`This is the natural ID ${nat_id}`);
+  //   console.log(`This is the target ID ${tar_id}`);
 
-  })
+  // })
 
 
 

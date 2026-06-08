@@ -43,6 +43,8 @@ export default function HomeScreen({ navigation }) {
     const [index, setIndex] = useState(0);
     const [currentLesson, setCurrentLesson] = useState(null);
     const [currentAudio, setCurrentAudio] = useState(null);
+    const [startMs, setStartMs] = useState(0);
+    const [endMs, setEndMs] = useState(0);
     const [selectedText, setSelectedText] = useState('');
     const [translatedText, setTranslatedText] = useState('');
     const [translationIDs, setTranslationIDs] = useState([]);
@@ -123,7 +125,9 @@ export default function HomeScreen({ navigation }) {
 
     // --- Audio helpers ---
     const playAudio = async () => {
-        if (!lessonAudio) return;
+        console.log("Playing index:", index);
+        console.log("segmentStart:", rows[index][3]);
+        if (!lessonAudio || !rows[index]) return;
 
         try {
             if (!soundRef.current) {
@@ -141,27 +145,32 @@ export default function HomeScreen({ navigation }) {
             }
 
             const sound = soundRef.current;
+            sound.setOnPlaybackStatusUpdate(null);
+            await sound.stopAsync();
 
-            const startMs = rows[index][3];
-            const endMs = rows[index][4];
 
-            // Jump to the start position
-            await sound.setPositionAsync(startMs);
+            const segmentStart = rows[index][3];
+            const segmentEnd = rows[index][4];
 
-            // Start playback
+            setStartMs(segmentStart);
+            setEndMs(segmentEnd);
+
+            await sound.setPositionAsync(segmentStart);
             await sound.playAsync();
 
             setIsPlaying(true);
 
+            const currentIndex = index;
+
             sound.setOnPlaybackStatusUpdate(async (status) => {
                 if (!status.isLoaded) return;
 
-                if (status.positionMillis >= endMs) {
+                // ignore callback from old play requests
+                if (currentIndex !== index) return;
+
+                if (status.positionMillis >= segmentEnd) {
                     await sound.pauseAsync();
-
-                    // Optional: rewind to start of segment
-                    await sound.setPositionAsync(startMs);
-
+                    await sound.setPositionAsync(segmentStart);
                     setIsPlaying(false);
                 }
             });
@@ -520,11 +529,12 @@ export default function HomeScreen({ navigation }) {
                     position: 'absolute',
                     top: height / 9,
                     right: 0,
-                    padding: 10, // optional padding
+                    padding: 10,
                 }}>
                     <Text style={{
                         color: 'white',
                         fontSize: width * 0.02,
+
                     }}>
                         Hello, {user.username}
                     </Text>
@@ -537,7 +547,11 @@ export default function HomeScreen({ navigation }) {
 
                 {/* Fixed-height word container */}
                 <View style={styles.wordContainer}>
-                    <Text>
+                    <ScrollView
+                        style={styles.wordScroll}
+                        contentContainerStyle={styles.wordWrap}
+                        showsVerticalScrollIndicator={true}
+                    >
                         {rows[index]?.[1].split(' ').map((word, i) => (
                             <Text
                                 key={i}
@@ -553,10 +567,10 @@ export default function HomeScreen({ navigation }) {
                                 {i < rows[index]?.[2].split(' ').length - 1 ? ' ' : ''}
                             </Text>
                         ))}
-                    </Text>
+                    </ScrollView>
                 </View>
                 {/* Fixed-height definition container */}
-                <View style={styles.defContainer}>
+                <ScrollView style={styles.defContainer}>
                     <View>
                         <Text style={styles.defHeader}>Definition</Text>
                     </View>
@@ -644,7 +658,7 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.buttonText}>Translate Sentence</Text>
                         </TouchableOpacity>
                     </View> */}
-                </View>
+                </ScrollView>
             </View>
 
             {menuOpen && (

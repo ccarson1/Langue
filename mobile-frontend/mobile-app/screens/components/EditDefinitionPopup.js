@@ -31,8 +31,8 @@ export default function EditDefinitionPopup({ visible, Definition, translationID
 
             const data = await response.json();
             if (response.ok) {
-                console.log('Updated:', data);
-                console.log("✅ SUCCESS BLOCK REACHED");
+                // console.log('Updated:', data);
+                // console.log("✅ SUCCESS BLOCK REACHED");
                 showSuccess?.('Definition updated');
                 onUpdated?.(translationID, definition);
 

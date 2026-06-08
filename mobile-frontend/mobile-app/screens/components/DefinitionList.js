@@ -12,11 +12,11 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
     const [translationID, setTranslationID] = useState(null);
 
 
-    useEffect(() => {
-        console.log(`Definition List translated text ${definitions}`);
-        console.log(`Definition Cursor ${wordCursor}`)
-        console.log(`Definition List translation IDs ${translationIDs}`)
-    })
+    // useEffect(() => {
+    //     console.log(`Definition List translated text ${definitions}`);
+    //     console.log(`Definition Cursor ${wordCursor}`)
+    //     console.log(`Definition List translation IDs ${translationIDs}`)
+    // })
 
 
     const editClickedDefinition = (definition, translationID) => {

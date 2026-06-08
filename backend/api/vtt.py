@@ -50,13 +50,13 @@ class VTT():
         audio = AudioSegment.from_file(audio_path)
         os.makedirs(output_dir, exist_ok=True)
         
-        def sanitize_filename_component(s):
-            s = s.strip()
-            # Replace spaces and tabs with underscore
-            s = re.sub(r'[\s]+', '_', s)
-            # Remove all characters except alphanumerics, underscore, dash
-            s = re.sub(r'[^\w\-]', '', s)
-            return s
+        # def sanitize_filename_component(s):
+        #     s = s.strip()
+        #     # Replace spaces and tabs with underscore
+        #     s = re.sub(r'[\s]+', '_', s)
+        #     # Remove all characters except alphanumerics, underscore, dash
+        #     s = re.sub(r'[^\w\-]', '', s)
+        #     return s
 
         with open(csv_path, newline='', encoding='utf-8-sig') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -76,15 +76,18 @@ class VTT():
                 segment = audio[start_ms:end_ms]
                 
                 # Use native and target columns for filenames (sanitize)
-                native = sanitize_filename_component(row.get('native', ''))
-                target = sanitize_filename_component(row.get('target', ''))
+                # native = sanitize_filename_component(row.get('native', ''))
+                # target = sanitize_filename_component(row.get('target', ''))
+
+                native = row.get('native', '')
+                target = row.get('target', '')
 
                 if native == '' or None:
                     native = translate_word(target)
 
                 filename = f"segment_{i+1:03d}_{native}_{target}.wav"
                 filepath = os.path.join(output_dir, filename)
-                segment.export(filepath, format="wav")
+                #segment.export(filepath, format="wav")
                 print(f"Exported {filename} from {start_ms}ms to {end_ms}ms")
 
                 lesson = Lesson.objects.get(id=self.lesson_id)
@@ -93,10 +96,10 @@ class VTT():
 
                 sentence = Sentence.objects.create(
                     audio_file=filename,
-                    sentence=target,
+                    sentence=native,
                     start_ms=start_ms,
                     end_ms=end_ms,
-                    translated_sentence=native,
+                    translated_sentence=target,
                     lesson_language=native_id,
                     translate_language=target_id,
                     lesson=lesson
@@ -111,11 +114,22 @@ class VTT():
             f.write(uploaded_file.read())
         return csv_path
             
-    def save_audio_as_mp3(self, uploaded_audio):
-        audio_bytes = uploaded_audio.read()
-        audio = AudioSegment.from_file(io.BytesIO(audio_bytes))  # auto-detect format
+    # def save_audio_as_mp3(self, uploaded_audio):
+    #     audio_bytes = uploaded_audio.read()
+    #     audio = AudioSegment.from_file(io.BytesIO(audio_bytes))  # auto-detect format
 
 
-        os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
-        audio.export(self.AUDIO_FILE, format="mp3")
+    #     os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
+    #     audio.export(self.AUDIO_FILE, format="mp3")
         
+    def save_audio_as_mp3(self, uploaded_audio):
+        try:
+            uploaded_audio.seek(0)  # IMPORTANT: reset stream
+            audio = AudioSegment.from_file(uploaded_audio)
+            os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
+            audio.export(self.AUDIO_FILE, format="mp3")
+            return True
+
+        except Exception as e:
+            print("Audio conversion error:", str(e))
+            return False
