@@ -17,6 +17,7 @@ import ListeningScreen from './screens/ListeningScreen';
 import ImportScreen from './screens/ImportScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import AccountScreen from './screens/AccountScreen';
+import LiveTVScreen from './screens/LiveTVScreen';
 
 import LessonEditScreen from './screens/LessonEditScreen';
 
@@ -65,6 +66,7 @@ export default function App() {
           <Stack.Screen name="Account" component={AccountScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen name="ResetPasswordConfirm" component={ResetPasswordConfirmScreen} />
+          <Stack.Screen name="LiveTVScreen" component={LiveTVScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </>

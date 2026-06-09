@@ -10,6 +10,9 @@ import {
 
 import Slider from '@react-native-community/slider';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import AudioWaveVisualizer from './AudioWaveVisualizer';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import { FontAwesome } from '@expo/vector-icons';
 
 export default function BottomAudioMenu({
     volume,
@@ -23,16 +26,21 @@ export default function BottomAudioMenu({
     shuffle,
     setShuffle,
     showToggles = true,
+    showAudioVisualizer = false,
+    lessonId = null,
+    audioDurationMs = null,
 }) {
 
     const [expanded, setExpanded] = useState(false);
+
+    const containerHeight = showAudioVisualizer ? 460 : 260;
 
     const slideAnim = useRef(new Animated.Value(35)).current;
 
     const toggleMenu = () => {
 
         Animated.timing(slideAnim, {
-            toValue: expanded ? 35 : 260,
+            toValue: expanded ? 35 : containerHeight,
             duration: 250,
             useNativeDriver: false,
         }).start();
@@ -138,6 +146,19 @@ export default function BottomAudioMenu({
 
                         </View>
                     )}
+                    {showAudioVisualizer && (
+                        <View>
+                            <Text style={styles.label}>Audio Visualizer</Text>
+                            <AudioWaveVisualizer
+                                lessonId={lessonId}
+                                durationMs={audioDurationMs}
+                                volume={volume}
+                                playbackRate={playbackRate}
+                            />
+
+                        </View>
+
+                    )}
 
                 </View>
             )}
@@ -225,4 +246,5 @@ const styles = StyleSheet.create({
     fullWidthColumn: {
         flex: 1,
     },
+
 });

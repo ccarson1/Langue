@@ -698,6 +698,17 @@ export default function HomeScreen({ navigation }) {
                         </TouchableOpacity>
                     )}
 
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('LiveTVScreen');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Live TV</Text>
+                        </TouchableOpacity>
+                    )}
+
                     {user ? (
                         <TouchableOpacity
                             onPress={() => {
