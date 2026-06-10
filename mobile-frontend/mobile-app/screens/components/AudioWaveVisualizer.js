@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -12,33 +12,23 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { FontAwesome } from '@expo/vector-icons';
 import { getServerIP } from '../../utils/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import { Audio } from 'expo-av';
+import { Buffer } from 'buffer';
 
-
+global.Buffer = Buffer;
 const WAVEFORM_HEIGHT = 90;
 const BAR_WIDTH = 3;
 const BAR_GAP = 1.5;
 const BAR_UNIT = BAR_WIDTH + BAR_GAP;
-const PIXELS_PER_SECOND = 60; // how wide 1 second of audio is in pixels
 const CURSOR_WIDTH = 2;
 
-/**
- * Generates a fake-but-plausible waveform array of `count` values (0..1).
- * Replace this with real decoded PCM data if you have access to audio bytes.
- */
-function buildFakeWaveform(durationMs, barCount) {
-    // Creates a smoothly-varying waveform using sin + noise
-    const result = [];
-    for (let i = 0; i < barCount; i++) {
-        const t = i / barCount;
-        const base =
-            0.3 * Math.abs(Math.sin(t * Math.PI * 8)) +
-            0.25 * Math.abs(Math.sin(t * Math.PI * 23 + 1.2)) +
-            0.15 * Math.abs(Math.sin(t * Math.PI * 47 + 0.5)) +
-            0.1 * Math.random();
-        result.push(Math.min(1, base));
-    }
-    return result;
-}
+// How many px from either edge triggers auto-scroll while dragging
+const EDGE_SCROLL_ZONE = 60;
+// How fast (px per frame) the view scrolls when in the edge zone
+const EDGE_SCROLL_SPEED = 8;
+
+
 
 export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRate = 1 }) {
     const [token, setToken] = useState(null);
@@ -53,32 +43,34 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
     const [durationMs, setDurationMs] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
 
-
     const screenWidth = Dimensions.get('window').width;
 
-
-
-    // Total waveform width in pixels
     const totalDurationSec = durationMs / 1000;
-    const totalWidth = Math.max(
-        screenWidth,
-        totalDurationSec * PIXELS_PER_SECOND
-    );
-    const barCount = Math.floor(totalWidth / BAR_UNIT);
+    const totalWidth = Math.max(screenWidth, waveformData.length * BAR_UNIT);
 
+    // ── Refs that keep PanResponder handlers free of stale closures ────────────
+    const cursorXRef = useRef(0);
+    const scrollOffsetRef = useRef(0);
+    const totalWidthRef = useRef(totalWidth);
+    const durationMsRef = useRef(durationMs);
+    const screenWidthRef = useRef(screenWidth);
+    const isDraggingRef = useRef(false);
+
+    // Keep all refs in sync with the latest derived/state values
+    useEffect(() => { totalWidthRef.current = totalWidth; }, [totalWidth]);
+    useEffect(() => { durationMsRef.current = durationMs; }, [durationMs]);
+    useEffect(() => { screenWidthRef.current = screenWidth; }, [screenWidth]);
+
+    // Edge-scroll animation frame ref — cancelled when drag ends
+    const edgeScrollRAF = useRef(null);
+
+    // ── Token & server IP ──────────────────────────────────────────────────────
     useEffect(() => {
         const loadToken = async () => {
-            const token_g =
-                await AsyncStorage.getItem('accessToken');
-
-            console.log(
-                "Loaded accessToken:",
-                token_g
-            );
-
+            const token_g = await AsyncStorage.getItem('accessToken');
+            console.log("Loaded accessToken:", token_g);
             setToken(token_g);
         };
-
         loadToken();
     }, []);
 
@@ -90,28 +82,21 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
         loadIP();
     }, []);
 
+    // ── Volume / rate sync ─────────────────────────────────────────────────────
     useEffect(() => {
-
-        if (!soundRef.current) {
-            return;
-        }
+        if (!soundRef.current) return;
         if (Platform.OS === 'web') {
             soundRef.current.volume = volume;
-
         } else {
             soundRef.current.setVolumeAsync(volume);
         }
-
     }, [volume]);
 
     useEffect(() => {
-        if (!soundRef.current) {
-            return;
-        }
+        if (!soundRef.current) return;
         if (Platform.OS === 'web') {
             soundRef.current.playbackRate = playbackRate;
         } else {
-
             soundRef.current.setRateAsync(
                 playbackRate,
                 true,
@@ -120,161 +105,222 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
         }
     }, [playbackRate]);
 
-    // Build waveform bars on mount / when duration changes
+    // ── Move cursor to match playback position (only when not dragging) ────────
     useEffect(() => {
-        setWaveformData(buildFakeWaveform(durationMs, barCount));
-    }, [durationMs, barCount]);
+        if (durationMs <= 0 || isDragging) return;
+        const newCursorX = (positionMillis / durationMs) * totalWidth;
+        updateCursor(newCursorX);
+    }, [positionMillis, durationMs, totalWidth, isDragging]);
 
+    // ── Auto-scroll to keep cursor centred (only when NOT dragging) ───────────
     useEffect(() => {
-        if (durationMs <= 0 || isDragging) {
-            return;
-        }
+        if (!scrollRef.current || isDragging) return;
+        const desiredOffset = Math.max(
+            0,
+            Math.min(cursorX - screenWidth / 2, totalWidth - screenWidth)
+        );
+        scrollRef.current.scrollTo({ x: desiredOffset, animated: false });
+    }, [cursorX, screenWidth, totalWidth, isDragging]);
 
-        const newCursorX =
-            (positionMillis / durationMs) * totalWidth;
-
-        setCursorX(newCursorX);
-
-    }, [
-        positionMillis,
-        durationMs,
-        totalWidth,
-        isDragging,
-    ]);
-
+    // ── Waveform fetch ─────────────────────────────────────────────────────────
     useEffect(() => {
-        if (
-            !scrollRef.current ||
-            isDragging
-        ) {
-            return;
-        }
+        if (!token || !serverIP || !lessonId) return;
 
-        const desiredOffset =
-            Math.max(
-                0,
-                cursorX - screenWidth / 2
-            );
+        const loadWaveform = async () => {
+            try {
+                const response = await fetch(
+                    `http://${serverIP}:8000/api/waveform/`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ lesson_id: lessonId }),
+                    }
+                );
+                const data = await response.json();
+                setWaveformData(data.waveform);
+            } catch (err) {
+                console.error('Waveform load failed', err);
+            }
+        };
 
-        scrollRef.current.scrollTo({
-            x: desiredOffset,
-            animated: false,
-        });
+        loadWaveform();
+    }, [token, serverIP, lessonId]);
 
-    }, [
-        cursorX,
-        screenWidth,
-        isDragging,
-    ]);
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    const updateCursor = (x) => {
+        const clampedX = Math.max(0, Math.min(x, totalWidthRef.current));
+        cursorXRef.current = clampedX;
+        setCursorX(clampedX);
+    };
 
-    // Convert absolute cursor X → time string "ss.mmm"
     const xToTime = useCallback(
         (x) => {
             const clampedX = Math.max(0, Math.min(x, totalWidth));
-            const totalMs = (clampedX / PIXELS_PER_SECOND) * 1000;
+            const totalMs = (clampedX / totalWidth) * durationMs;
             const secs = Math.floor(totalMs / 1000);
             const ms = Math.floor(totalMs % 1000);
             return `${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
         },
-        [totalWidth]
+        [totalWidth, durationMs]
     );
 
-    // Keep scrollOffsetX up-to-date inside panResponder callbacks
-    const scrollOffsetRef = useRef(0);
     const handleScroll = (e) => {
         const x = e.nativeEvent.contentOffset.x;
         scrollOffsetRef.current = x;
         setScrollOffsetX(x);
     };
 
-    // Patch panResponder to read from ref so closure stays fresh
+    // ── Edge-scroll loop ───────────────────────────────────────────────────────
+    // Called on every animation frame while the user is dragging near an edge.
+    const startEdgeScroll = (fingerScreenX) => {
+        const step = () => {
+            if (!isDraggingRef.current) return;
+
+            const sw = screenWidthRef.current;
+            const tw = totalWidthRef.current;
+            let delta = 0;
+
+            if (fingerScreenX < EDGE_SCROLL_ZONE) {
+                // Near left edge — scroll left
+                delta = -EDGE_SCROLL_SPEED * (1 - fingerScreenX / EDGE_SCROLL_ZONE);
+            } else if (fingerScreenX > sw - EDGE_SCROLL_ZONE) {
+                // Near right edge — scroll right
+                delta = EDGE_SCROLL_SPEED * (1 - (sw - fingerScreenX) / EDGE_SCROLL_ZONE);
+            }
+
+            if (delta !== 0 && scrollRef.current) {
+                const newOffset = Math.max(
+                    0,
+                    Math.min(scrollOffsetRef.current + delta, tw - sw)
+                );
+                scrollRef.current.scrollTo({ x: newOffset, animated: false });
+                scrollOffsetRef.current = newOffset;
+
+                // Also nudge the cursor along with the scroll
+                const newCursor = Math.max(
+                    0,
+                    Math.min(cursorXRef.current + delta, tw)
+                );
+                cursorXRef.current = newCursor;
+                setCursorX(newCursor);
+            }
+
+            edgeScrollRAF.current = requestAnimationFrame(step);
+        };
+
+        cancelAnimationFrame(edgeScrollRAF.current);
+        edgeScrollRAF.current = requestAnimationFrame(step);
+    };
+
+    const stopEdgeScroll = () => {
+        cancelAnimationFrame(edgeScrollRAF.current);
+        edgeScrollRAF.current = null;
+    };
+
+    // ── PanResponder ───────────────────────────────────────────────────────────
+    // All values accessed from refs → never stale.
     const freshPan = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
+
             onPanResponderGrant: (evt) => {
+                isDraggingRef.current = true;
                 setIsDragging(true);
+
                 const absX = evt.nativeEvent.locationX + scrollOffsetRef.current;
-                setCursorX(Math.max(0, Math.min(absX, totalWidth)));
+                const clampedX = Math.max(0, Math.min(absX, totalWidthRef.current));
+                cursorXRef.current = clampedX;
+                setCursorX(clampedX);
+
+                startEdgeScroll(evt.nativeEvent.locationX);
             },
+
             onPanResponderMove: (evt) => {
-                const absX = evt.nativeEvent.locationX + scrollOffsetRef.current;
-                setCursorX(Math.max(0, Math.min(absX, totalWidth)));
+                const fingerScreenX = evt.nativeEvent.locationX;
+                const absX = fingerScreenX + scrollOffsetRef.current;
+                const clampedX = Math.max(0, Math.min(absX, totalWidthRef.current));
+                cursorXRef.current = clampedX;
+                setCursorX(clampedX);
+
+                // Update the edge-scroll loop with the latest finger position
+                startEdgeScroll(fingerScreenX);
             },
+
             onPanResponderRelease: async () => {
+                isDraggingRef.current = false;
+                stopEdgeScroll();
 
                 const seekMillis =
-                    (cursorX / totalWidth) *
-                    durationMs;
+                    (cursorXRef.current / totalWidthRef.current) * durationMsRef.current;
 
                 if (soundRef.current) {
-
                     if (Platform.OS === 'web') {
-
-                        soundRef.current.currentTime =
-                            seekMillis / 1000;
-
+                        soundRef.current.currentTime = seekMillis / 1000;
                     } else {
-
-                        await soundRef.current
-                            .setPositionAsync(
-                                seekMillis
-                            );
+                        await soundRef.current.setPositionAsync(seekMillis);
                     }
                 }
 
                 setPositionMillis(seekMillis);
                 setIsDragging(false);
             },
-            onPanResponderTerminate: () => setIsDragging(false),
+
+            onPanResponderTerminate: () => {
+                isDraggingRef.current = false;
+                stopEdgeScroll();
+                setIsDragging(false);
+            },
         })
     ).current;
 
-    // Cursor position relative to current scroll view (for rendering)
+    // ── Cursor screen position ─────────────────────────────────────────────────
     const cursorScreenX = cursorX - scrollOffsetX;
     const timeLabel = xToTime(cursorX);
 
+    // ── Audio helpers ──────────────────────────────────────────────────────────
     const getAudioPath = (lessonID) => {
         return FileSystem.documentDirectory + `lesson-${lessonID}.mp3`;
     };
 
     const isDownloaded = async (lessonID) => {
-        if (Platform.OS === 'web') {
-            return false;
-        }
-
-        const info = await FileSystem.getInfoAsync(
-            getAudioPath(lessonID)
-        );
-
+        if (Platform.OS === 'web') return false;
+        const info = await FileSystem.getInfoAsync(getAudioPath(lessonID));
         return info.exists;
     };
 
-    const playAudio = async () => {
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
 
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+
+        return btoa(binary);
+    }
+
+    const playAudio = async () => {
         if (!token) {
-            console.log(
-                "Token has not loaded yet"
-            );
+            console.log("Token has not loaded yet");
             return;
         }
 
         try {
-
-            // Already loaded -> resume playback
+            // Already loaded → resume
             if (soundRef.current) {
-
                 if (Platform.OS === 'web') {
                     await soundRef.current.play();
                 } else {
                     await soundRef.current.playAsync();
                 }
-
                 setIsPlaying(true);
                 return;
             }
 
-            // Fetch audio from backend
             const response = await fetch(
                 `http://${serverIP}:8000/api/audio/`,
                 {
@@ -283,25 +329,18 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify({
-                        lesson_id: lessonId,
-                        full_audio: true,
-                    }),
+                    body: JSON.stringify({ lesson_id: lessonId, full_audio: true }),
                 }
             );
 
             if (!response.ok) {
-                throw new Error(
-                    `Failed to fetch audio: ${response.status}`
-                );
+                throw new Error(`Failed to fetch audio: ${response.status}`);
             }
 
-            // ---------------- WEB ----------------
+            // ── Web ──
             if (Platform.OS === 'web') {
-
                 const blob = await response.blob();
                 const audioUrl = URL.createObjectURL(blob);
-
                 const audio = new window.Audio(audioUrl);
                 audio.volume = volume;
                 audio.playbackRate = playbackRate;
@@ -309,196 +348,100 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
 
                 audio.addEventListener('loadedmetadata', () => {
                     setDurationMs(audio.duration * 1000);
-                }
-                );
-
+                });
                 audio.addEventListener('timeupdate', () => {
                     setPositionMillis(audio.currentTime * 1000);
-                }
-                );
-
+                });
                 audio.addEventListener('ended', () => {
                     setIsPlaying(false);
                     setPositionMillis(0);
-                }
-                );
+                });
 
                 soundRef.current = audio;
-
                 await audio.play();
-
                 setIsPlaying(true);
             }
 
-            // ---------------- MOBILE ----------------
+            // ── Mobile ──
             else {
+                const arrayBuffer = await response.arrayBuffer();
 
-                const arrayBuffer =
-                    await response.arrayBuffer();
+                // Convert directly to base64 WITHOUT Buffer/FileSystem
+                const base64 = arrayBufferToBase64(arrayBuffer);
 
-                const base64Data =
-                    Buffer.from(arrayBuffer)
-                        .toString('base64');
-
-                const path =
-                    FileSystem.cacheDirectory +
-                    `audio-${lessonId}.mp3`;
-
-                await FileSystem.writeAsStringAsync(
-                    path,
-                    base64Data,
-                    {
-                        encoding: 'base64',
-                    }
-                );
+                const uri = `data:audio/mp3;base64,${base64}`;
 
                 const { sound } = await Audio.Sound.createAsync(
-                    { uri: path },
-                    {
-                        shouldPlay: false,
-                        progressUpdateIntervalMillis: 50,
-                    }
+                    { uri },
+                    { shouldPlay: false, progressUpdateIntervalMillis: 50 }
                 );
 
                 await sound.setVolumeAsync(volume);
-
                 await sound.setRateAsync(
                     playbackRate,
                     true,
                     Audio.PitchCorrectionQuality.Medium
                 );
 
-                sound.setOnPlaybackStatusUpdate(
-                    (status) => {
+                sound.setOnPlaybackStatusUpdate((status) => {
+                    if (!status.isLoaded) return;
+                    setPositionMillis(status.positionMillis);
+                    setDurationMs(status.durationMillis || 0);
 
-                        if (!status.isLoaded) {
-                            return;
-                        }
-
-                        setPositionMillis(
-                            status.positionMillis
-                        );
-
-                        setDurationMs(
-                            status.durationMillis || 0
-                        );
-
-                        if (
-                            status.didJustFinish
-                        ) {
-                            setIsPlaying(false);
-                            setPositionMillis(0);
-                        }
+                    if (status.didJustFinish) {
+                        setIsPlaying(false);
+                        setPositionMillis(0);
                     }
-                );
+                });
 
                 soundRef.current = sound;
-
                 await sound.playAsync();
-
                 setIsPlaying(true);
             }
-
         } catch (err) {
-
-            console.error(
-                'playAudio error:',
-                err
-            );
-
+            console.error('playAudio error:', err);
             setIsPlaying(false);
         }
     };
 
     const pauseAudio = async () => {
-
         try {
-
-            if (!soundRef.current) {
-                return;
-            }
-
+            if (!soundRef.current) return;
             if (Platform.OS === 'web') {
-
                 soundRef.current.pause();
-
             } else {
-
                 await soundRef.current.pauseAsync();
             }
-
             setIsPlaying(false);
-
         } catch (err) {
-
-            console.error(
-                'pauseAudio error:',
-                err
-            );
+            console.error('pauseAudio error:', err);
         }
     };
 
     const skipForward = async () => {
-
-        if (!soundRef.current) {
-            return;
-        }
-
-        const newPosition =
-            Math.min(
-                positionMillis + 2000,
-                durationMs
-            );
-
+        if (!soundRef.current) return;
+        const newPosition = Math.min(positionMillis + 2000, durationMs);
         if (Platform.OS === 'web') {
-
-            soundRef.current.currentTime =
-                newPosition / 1000;
-
+            soundRef.current.currentTime = newPosition / 1000;
         } else {
-
-            await soundRef.current
-                .setPositionAsync(
-                    newPosition
-                );
+            await soundRef.current.setPositionAsync(newPosition);
         }
-
-        setPositionMillis(
-            newPosition
-        );
+        setPositionMillis(newPosition);
     };
 
     const skipBackward = async () => {
-
-        if (!soundRef.current) {
-            return;
-        }
-
-        const newPosition =
-            Math.max(
-                positionMillis - 2000,
-                0
-            );
-
+        if (!soundRef.current) return;
+        const newPosition = Math.max(positionMillis - 2000, 0);
         if (Platform.OS === 'web') {
-
-            soundRef.current.currentTime =
-                newPosition / 1000;
-
+            soundRef.current.currentTime = newPosition / 1000;
         } else {
-
-            await soundRef.current
-                .setPositionAsync(
-                    newPosition
-                );
+            await soundRef.current.setPositionAsync(newPosition);
         }
-
-        setPositionMillis(
-            newPosition
-        );
+        setPositionMillis(newPosition);
     };
 
 
+    // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <View>
             <View style={styles.controls}>
@@ -507,8 +450,6 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
             </View>
 
             <View style={styles.wrapper}>
-                {/* Header label */}
-
                 <View style={styles.headerRow}>
                     <Text style={styles.headerLabel}>Audio Waveform</Text>
                     <View style={styles.timeBadge}>
@@ -516,7 +457,6 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
                     </View>
                 </View>
 
-                {/* Scrollable waveform area */}
                 <View style={styles.scrollContainer}>
                     <ScrollView
                         ref={scrollRef}
@@ -524,16 +464,13 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
                         showsHorizontalScrollIndicator={false}
                         scrollEventThrottle={16}
                         onScroll={handleScroll}
-                        // Disable scroll while dragging cursor so only the cursor moves
                         scrollEnabled={!isDragging}
                         style={styles.scroll}
                     >
-                        {/* Waveform + tap target */}
                         <View
                             style={[styles.waveformCanvas, { width: totalWidth }]}
                             {...freshPan.panHandlers}
                         >
-                            {/* Bars */}
                             {waveformData.map((amplitude, i) => {
                                 const barH = Math.max(4, amplitude * (WAVEFORM_HEIGHT - 10));
                                 const isActive = i * BAR_UNIT <= cursorX;
@@ -558,37 +495,32 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
                         </View>
                     </ScrollView>
 
-                    {/* Cursor — rendered as an overlay OUTSIDE the ScrollView */}
+                    {/* Cursor overlay — outside the ScrollView so it stays fixed on screen */}
                     <View
                         pointerEvents="none"
                         style={[
                             styles.cursor,
                             {
                                 left: cursorScreenX - CURSOR_WIDTH / 2,
-                                // hide cursor when scrolled off screen
                                 opacity:
                                     cursorScreenX >= 0 && cursorScreenX <= screenWidth ? 1 : 0,
                             },
                         ]}
                     >
-                        {/* Top diamond handle */}
                         <View style={styles.cursorHandle} />
-                        {/* Vertical line */}
                         <View style={styles.cursorLine} />
                     </View>
                 </View>
 
-                {/* Time ruler ticks */}
                 <TimeRuler
                     totalWidth={totalWidth}
                     totalDurationSec={totalDurationSec}
                     scrollOffsetX={scrollOffsetX}
                     screenWidth={screenWidth}
                 />
-
             </View>
-            <View style={styles.bottomSection}>
 
+            <View style={styles.bottomSection}>
                 <View style={styles.controls}>
                     <AntDesign
                         name="fast-backward"
@@ -596,7 +528,6 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
                         color="white"
                         onPress={skipBackward}
                     />
-
                     {isPlaying ? (
                         <FontAwesome
                             name="pause"
@@ -612,7 +543,6 @@ export default function AudioWaveVisualizer({ lessonId, volume = 50, playbackRat
                             onPress={playAudio}
                         />
                     )}
-
                     <AntDesign
                         name="fast-forward"
                         size={24}
@@ -631,7 +561,7 @@ function TimeRuler({ totalWidth, totalDurationSec, scrollOffsetX, screenWidth })
     const ticks = [];
 
     for (let t = 0; t <= totalDurationSec; t += tickInterval) {
-        const x = t * PIXELS_PER_SECOND - scrollOffsetX;
+        const x = (t / totalDurationSec) * totalWidth - scrollOffsetX;
         if (x < -20 || x > screenWidth + 20) continue;
         ticks.push(
             <View key={t} style={[styles.tickContainer, { left: x }]}>
@@ -683,8 +613,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
     },
-
-    // Scroll + waveform
     scrollContainer: {
         height: WAVEFORM_HEIGHT,
         position: 'relative',
@@ -701,13 +629,11 @@ const styles = StyleSheet.create({
     bar: {
         alignSelf: 'center',
     },
-
-    // Cursor
     cursor: {
         position: 'absolute',
         top: 0,
         bottom: 0,
-        width: CURSOR_WIDTH + 12, // extra width for touch / handle
+        width: CURSOR_WIDTH + 12,
         alignItems: 'center',
         justifyContent: 'flex-start',
     },
@@ -735,8 +661,6 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 4,
     },
-
-    // Ruler
     ruler: {
         height: 22,
         position: 'relative',

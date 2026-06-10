@@ -33,6 +33,8 @@ import uuid
 import json
 import shutil
 from django.db import transaction
+from pydub import AudioSegment
+import numpy as np
 
 lesson_import_progress = {} 
 
@@ -242,6 +244,44 @@ def download_youtube_image(url, lesson):
     print("ALL THUMBNAIL ATTEMPTS FAILED")
     return False
 
+def generate_waveform(audio_path, samples=2000):
+
+    audio = AudioSegment.from_file(audio_path)
+
+    raw = np.array(
+        audio.get_array_of_samples()
+    )
+
+    if audio.channels == 2:
+        raw = raw.reshape((-1, 2))
+        raw = raw.mean(axis=1)
+
+    chunk_size = max(
+        1,
+        len(raw) // samples
+    )
+
+    waveform = []
+
+    for i in range(samples):
+        start = i * chunk_size
+        end = start + chunk_size
+
+        chunk = raw[start:end]
+
+        if len(chunk):
+            amp = np.max(np.abs(chunk))
+            waveform.append(float(amp))
+
+    max_amp = max(waveform)
+
+    waveform = [
+        x / max_amp
+        for x in waveform
+    ]
+
+    return waveform
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -438,140 +478,6 @@ def import_lesson(request):
         }, status=500)
 
 
-# @csrf_exempt
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# @parser_classes([MultiPartParser, FormParser])
-# def import_lesson(request):
-#     print("=== RAW DATA ===")
-#     print(request.data)
-#     print("=== FILES ===")
-#     print(request.FILES)
-
-#     url = request.data.get('url')
-#     title = request.data.get('title')
-#     nativeLangName = request.data.get('nativeLanguage')
-#     targetLangName = request.data.get('targetLanguage')
-#     audioUploaded = request.data.get('audioUploaded')
-#     lessonPrivate = request.data.get('lessonPrivate', 'false').lower() in ['true', '1', 'yes']
-#     fileUploaded = request.data.get('fileUploaded', 'false').lower() in ['true', '1', 'yes']
-#     urlReference = request.data.get('urlReference', 'false').lower() in ['true', '1', 'yes']
-#     imageReference = request.data.get('imageReference', 'false').lower() in ['true', '1', 'yes']
-
-#     lesson_file = request.FILES.get('file')
-#     audio_file = request.FILES.get('audio')
-#     image_file = request.FILES.get('image')
-
-#     print(f"Uploaded image: {image_file}")
-#     print(f"Image type: {type(image_file)}")
-
-#     nativeLang = get_object_or_404(Language, lang_name=nativeLangName)
-#     targetLang = get_object_or_404(Language, lang_name=targetLangName)
-
-#     user_id = request.user.id
-#     lesson_import_progress[user_id] = 0
-
-
-
-#     # Create and save Lesson object
-#     lesson = Lesson(
-#         user=request.user,
-#         url=url,
-#         native_language=nativeLang,
-#         target_language=targetLang,
-#         lesson_private=lessonPrivate,
-#         urlReference = urlReference,
-#         title = title
-#     )
-    
-#     print((f"Processing lesson image with urlReference: {urlReference}, imageReference: {imageReference}"))
-#     print(f"Lesson URL: {url}")
-    
-#     if url:
-#         print("URL RECEIVED:", url)
-
-#     if "youtube" in (url or "").lower() and not image_file:
-#         print("YOUTUBE URL DETECTED")
-#         success = download_youtube_image(url, lesson)
-#         print("DOWNLOAD RESULT:", success)
-
-#     # ✅ If an image file was uploaded by the user, use that instead
-#     if image_file:
-#         lesson.image = image_file
-
-#     lesson.save()
-    
-        
-#     if urlReference:
-#         print(f"Processing the video url: {url}")
-
-#     lesson.save()
-    
-    
-
-#     UserLessonsProgress.objects.get_or_create(
-#         user=request.user,
-#         lesson=lesson,
-#         defaults={
-#             'current_lesson_index': 0,
-#             'last_viewed': timezone.now()
-#         }
-#     )
-    
-#     lesson_import_progress[user_id] = 5
-
-#     if urlReference:
-#         save_lesson_media = URL_VTT(lesson.url, lesson.id, lesson.target_language.id, lesson.native_language.id, lesson_import_progress, user_id)
-#         save_lesson_media.process_lesson()
-
-#         lesson.audio_folder = save_lesson_media.AUDIO_DIR
-#         lesson.save()
-        
-#     if fileUploaded and audioUploaded:
-
-#         # SAVE FILE REFERENCES FIRST
-#         if lesson_file:
-#             lesson.doc_file = lesson_file
-
-#         if audio_file:
-#             lesson.audio_file = audio_file
-
-#         lesson.save()
-
-#         save_lesson_media = VTT(
-#             lesson_file,
-#             audio_file,
-#             lesson.id,
-#             targetLang,
-#             nativeLang
-#         )
-
-#         csv_path = save_lesson_media.save_csv(lesson_file)
-
-#         save_lesson_media.save_audio_as_m4a(audio_file)
-
-#         save_lesson_media.split_audio_by_csv_ms(
-#             csv_path=csv_path
-#         )
-
-#         lesson.audio_folder = save_lesson_media.AUDIO_DIR
-
-#         if imageReference and image_file:
-#             lesson.image = image_file
-
-#         lesson.save()
-#     lesson_import_progress[user_id] = 100
-
-
-#     return Response({
-#         'message': 'Lesson uploaded successfully.',
-#         'lessonId': lesson.id,
-#         'url': lesson.url,
-#         'nativeLang': lesson.native_language.id,
-#         'targetLang': lesson.target_language.id,
-#         'hasDoc': bool(lesson.doc_file),
-#         'hasAudio': bool(lesson.audio_file)
-#     })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1181,4 +1087,31 @@ def update_word_translation(request):
         'message': 'Definition updated successfully',
         'translation_id': translation.id,
         'definition': translation.definition
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def get_waveform(request):
+
+    lesson_id = request.data.get(
+        'lesson_id'
+    )
+
+    lesson = Lesson.objects.get(
+        id=lesson_id
+    )
+
+    audio_path = os.path.join(
+        os.path.dirname(
+            lesson.audio_folder
+        ),
+        "audio.mp3"
+    )
+
+    waveform = generate_waveform(
+        audio_path
+    )
+
+    return Response({
+        "waveform": waveform
     })
