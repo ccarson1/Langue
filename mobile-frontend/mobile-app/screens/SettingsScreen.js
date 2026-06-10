@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
@@ -13,6 +14,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SettingsStyles';
 import { getServerIP } from '../utils/config';
+
 
 export default function SettingsScreen({ navigation }) {
   const [nativeLanguage, setNativeLanguage] = useState('');
@@ -70,12 +72,12 @@ export default function SettingsScreen({ navigation }) {
   };
 
   useEffect(() => {
-        const loadIP = async () => {
-            const ip = await getServerIP();
-            setServerIP(ip);
-        };
-        loadIP();
-    }, []);
+    const loadIP = async () => {
+      const ip = await getServerIP();
+      setServerIP(ip);
+    };
+    loadIP();
+  }, []);
 
   useEffect(() => {
     if (!serverIP) return;
@@ -204,11 +206,7 @@ export default function SettingsScreen({ navigation }) {
             ))}
           </Picker>
 
-          {Platform.OS === 'web' && (
-            <View style={styles.arrowWrapper}>
-              <AntDesign name="down" size={16} color="#eeeeee" />
-            </View>
-          )}
+
         </View>
 
 
@@ -227,11 +225,7 @@ export default function SettingsScreen({ navigation }) {
 
 
 
-          {Platform.OS === 'web' && (
-            <View style={styles.arrowWrapper}>
-              <AntDesign name="down" size={16} color="#eeeeee" />
-            </View>
-          )}
+
         </View>
 
         <Text style={styles.label}>
@@ -271,6 +265,8 @@ export default function SettingsScreen({ navigation }) {
           />
           <Text style={styles.checkboxLabel}>Enable Notifications</Text>
         </View>
+
+        
 
         <TouchableOpacity style={styles.button} onPress={handleSave}>
           <Text style={styles.buttonText}>Save Settings</Text>

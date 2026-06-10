@@ -32,5 +32,7 @@ urlpatterns = [
     path('waveform/', views.get_waveform, name='waveform'),
     path('change-lesson/', views.change_lesson, name='change-lesson'),
     path('lesson-import-progress/', views.lesson_import_progress_view, name='lesson_import_progress'),
+    path('record/start/', views.start_record, name='start_record'),
+    path('record/stop/', views.stop_record, name='stop_record'),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

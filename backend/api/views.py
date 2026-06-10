@@ -1,5 +1,7 @@
 # backend/api/views.py
 
+import subprocess
+
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -35,8 +37,10 @@ import shutil
 from django.db import transaction
 from pydub import AudioSegment
 import numpy as np
+import signal
 
 lesson_import_progress = {} 
+RECORDINGS = {}
 
 
 @api_view(['POST'])
@@ -1114,4 +1118,81 @@ def get_waveform(request):
 
     return Response({
         "waveform": waveform
+    })
+
+@api_view(["POST"])
+def start_record(request):
+
+    print("Current directory:", os.getcwd())
+    print("Records exists:", os.path.exists("records"))
+
+    record_dir = os.path.join(settings.MEDIA_ROOT, "records")
+    os.makedirs(record_dir, exist_ok=True)
+
+    print(record_dir)
+
+    url = request.data["url"]
+    channel_id = request.data["channel_id"]
+
+    recording_id = str(uuid.uuid4())
+
+    output_file = os.path.join(
+            record_dir,
+            f"{recording_id}.mp4"
+        )
+
+    print("OUTPUT FILE:", output_file)
+
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-i", url,
+
+        "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
+        "-analyzeduration", "10M",
+        "-probesize", "10M",
+
+        "-t", "999999",
+
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "23",
+
+        "-c:a", "aac",
+
+        "-movflags", "+faststart",
+
+        output_file
+    ]
+
+    process = subprocess.Popen(
+        ffmpeg_cmd,
+        stdin=subprocess.PIPE
+    )
+
+    RECORDINGS[recording_id] = process
+
+    return Response({
+        "recording_id": recording_id
+    })
+
+@api_view(["POST"])
+def stop_record(request):
+    recording_id = request.data["recording_id"]
+
+    process = RECORDINGS.get(recording_id)
+
+    if process:
+        try:
+            process.stdin.write(b"q")
+            process.stdin.flush()
+            process.wait(timeout=15)
+        except Exception:
+            process.terminate()
+
+        del RECORDINGS[recording_id]
+
+    file_url = f"https://localhost/media/records/{recording_id}.mp4"
+
+    return Response({
+        "file_url": file_url
     })

@@ -1,32 +1,84 @@
-import React, { useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
   Pressable,
   FlatList,
   StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+  Platform,
+  ScrollView,
+  TextInput,
+  Animated
 } from 'react-native';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { jwtDecode } from 'jwt-decode';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvent } from 'expo';
+import AntDesign from '@expo/vector-icons/AntDesign';
+import { getServerIP } from '../utils/config';
+
+const { width } = Dimensions.get('window');
 
 const CHANNELS = [
   {
     id: '1',
-    name: 'radijas',
+    name: 'Radijas',
     url: 'https://stream-live.lrt.lt/radijas/stream03/streamPlaylist.m3u8',
   },
   {
     id: '2',
-    name: 'opus',
+    name: 'Opus',
     url: 'https://stream-live.lrt.lt/opus/stream03/streamPlaylist.m3u8',
   },
   {
     id: '3',
-    name: 'klasika',
+    name: 'Klasika',
     url: 'https://stream-live.lrt.lt/klasika/stream03/streamPlaylist.m3u8',
   },
+  {
+    id: '4',
+    name: 'TV3 Ⓢ',
+    url: 'https://live.lietuvosryto.tv/live/hls/eteris.m3u8',
+  },
+  {
+    id: '5',
+    name: 'foxkidstv',
+    url: 'https://foxkidstv.be:3369/stream/play.m3u8',
+  },
 ];
+
+async function getM3U8Metadata(url) {
+  const res = await fetch(url);
+  const text = await res.text();
+
+  const lines = text.split('\n');
+
+  const metadata = {
+    variants: [],
+    segments: [],
+    tags: [],
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('#EXT-X-STREAM-INF')) {
+      metadata.variants.push(line);
+    }
+
+    if (line.startsWith('#EXTINF')) {
+      metadata.segments.push(line);
+    }
+
+    if (line.startsWith('#EXT-X-')) {
+      metadata.tags.push(line);
+    }
+  }
+
+  return metadata;
+}
+
+
 
 function Player({ source }) {
   const player = useVideoPlayer(source, (player) => {
@@ -38,10 +90,6 @@ function Player({ source }) {
     currentTime: 0,
   });
 
-  const { status } = useEvent(player, 'statusChange', {
-    status: player.status,
-  });
-
   const formatTime = (seconds = 0) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -49,137 +97,452 @@ function Player({ source }) {
   };
 
   return (
-    <View>
-      <VideoView
-        player={player}
-        style={styles.video}
-        nativeControls
-        allowsPictureInPicture
-      />
+    <View style={styles.playerWrapper}>
+      <VideoView style={styles.video} player={player} />
 
-      <View style={styles.controls}>
+      <View style={styles.overlay}>
         <Pressable
-          style={styles.button}
+          style={styles.playButton}
           onPress={() => {
-            if (player.playing) {
-              player.pause();
-            } else {
-              player.play();
-            }
+            player.playing ? player.pause() : player.play();
           }}
         >
-          <Text style={styles.buttonText}>
+          <Text style={styles.playText}>
             {player.playing ? 'Pause' : 'Play'}
           </Text>
         </Pressable>
 
-        <Text style={styles.time}>
-          {formatTime(currentTime)}
-        </Text>
+        <Text style={styles.time}>{formatTime(currentTime)}</Text>
       </View>
     </View>
   );
 }
 
-export default function LiveTVPlayer() {
+export default function LiveTVPlayer({ navigation }) {
   const [selectedChannel, setSelectedChannel] = useState(CHANNELS[0]);
+  const [token, setToken] = useState(null);
+  const [serverIP, setServerIP] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [recordingId, setRecordingId] = useState(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [user, setUser] = useState(null);
+  const [metadata, setMetadata] = useState(null);
+
+  const decodeToken = (token) => {
+    try {
+      return jwtDecode(token);
+    } catch (err) {
+      console.error('Token decode failed:', err);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+
+        const ip = await getServerIP();
+        setServerIP(ip);
+
+        const storedToken = await AsyncStorage.getItem('accessToken');
+        if (storedToken) {
+          setToken(storedToken);
+          const decoded = decodeToken(storedToken);
+          if (decoded) setUser(decoded);
+        }
+      } catch (err) {
+        console.error('Initialization error:', err);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        const data = await getM3U8Metadata(selectedChannel.url);
+        setMetadata(data);
+      } catch (err) {
+        console.error('Metadata fetch failed:', err);
+      }
+    };
+
+    loadMetadata();
+  }, [selectedChannel]);
+
+  useEffect(() => {
+    let loop;
+
+    if (recording) {
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+
+      loop.start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+
+    return () => loop && loop.stop();
+  }, [recording]);
+
+  const API_BASE = `http://${serverIP}:8000`;
+
+  const getAuthHeaders = () => ({
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  });
+
+  const startRecording = async () => {
+    try {
+      setRecording(true);
+
+      const res = await fetch(`${API_BASE}/api/record/start/`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          url: selectedChannel.url,
+          channel_id: selectedChannel.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      setRecordingId(data.recording_id);
+
+    } catch (err) {
+      console.error("Start recording failed:", err);
+      setRecording(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      if (!recordingId) return;
+
+      const res = await fetch(`${API_BASE}/api/record/stop/`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          recording_id: recordingId,
+        }),
+      });
+
+      const data = await res.json();
+
+      console.log("Saved video URL:", data.file_url);
+
+      setRecording(false);
+      setRecordingId(null);
+
+    } catch (err) {
+      console.error("Stop recording failed:", err);
+    }
+  };
 
   return (
-    <FlatList
-      data={CHANNELS}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.container}
-      ListHeaderComponent={
-        <>
-          <Text style={styles.heading}>Live TV Demo</Text>
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
 
-          <Player
-            key={selectedChannel.url}
-            source={selectedChannel.url}
+        {/* HERO SECTION (Netflix featured style) */}
+        <Text style={styles.logo}>LIVE TV</Text>
+        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+          <AntDesign name="left" size={22} color="white" />
+        </TouchableOpacity>
+        <Player key={selectedChannel.url} source={selectedChannel.url} />
+
+        <TouchableOpacity
+          onPress={recording ? stopRecording : startRecording}
+          style={[
+            styles.recordButton,
+            recording && styles.recordingActive,
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.recordDot,
+              recording && { transform: [{ scale: pulseAnim }] },
+            ]}
           />
 
-          <Text style={styles.channelTitle}>Channels</Text>
-        </>
-      }
-      renderItem={({ item }) => (
-        <Pressable
-          style={[
-            styles.channelButton,
-            selectedChannel.id === item.id && styles.selectedChannel,
-          ]}
-          onPress={() => setSelectedChannel(item)}
-        >
-          <Text style={styles.channelText}>{item.name}</Text>
-        </Pressable>
-      )}
-    />
+          <Text style={styles.recordText}>
+            {recording ? "STOP" : "REC"}
+          </Text>
+        </TouchableOpacity>
+
+        {metadata && (
+          <View style={{ padding: 10 }}>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>
+              Stream Info
+            </Text>
+
+            <Text style={{ color: '#ccc' }}>
+              Segments: {metadata.segments.length}
+            </Text>
+
+            <Text style={{ color: '#ccc' }}>
+              Tags: {metadata.tags.slice(0, 5).join('\n')}
+            </Text>
+          </View>
+        )}
+
+        <View>
+          <Text style={styles.sectionTitle}>
+            Add Channel
+          </Text>
+          <View style={styles.row}>
+            <TextInput style={styles.TvInput} />
+
+            <TouchableOpacity style={styles.button}>
+              <Text style={styles.buttonText}>Add Channel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Favorites</Text>
+
+        {/* Horizontal Netflix-style row */}
+        <FlatList
+          data={CHANNELS}
+          horizontal
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.row}
+          renderItem={({ item }) => {
+            const active = selectedChannel.id === item.id;
+
+            return (
+              <Pressable
+                onPress={() => setSelectedChannel(item)}
+                style={[
+                  styles.card,
+                  active && styles.cardActive,
+                ]}
+              >
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <View style={styles.cardGlow} />
+              </Pressable>
+            );
+          }}
+        />
+
+        <Text style={styles.sectionTitle}>Channels</Text>
+
+        {/* Horizontal Netflix-style row */}
+        <FlatList
+          data={CHANNELS}
+          horizontal
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.row}
+          renderItem={({ item }) => {
+            const active = selectedChannel.id === item.id;
+
+            return (
+              <Pressable
+                onPress={() => setSelectedChannel(item)}
+                style={[
+                  styles.card,
+                  active && styles.cardActive,
+                ]}
+              >
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <View style={styles.cardGlow} />
+              </Pressable>
+            );
+          }}
+        />
+
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 15,
-    backgroundColor: '#111',
+    flex: 1,
+    backgroundColor: '#222831',
+    paddingTop: 30,
   },
 
-  heading: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  // Header (matches topSection feel)
+  logo: {
     color: 'white',
-    marginBottom: 15,
+    fontSize: 22,
+    fontWeight: 'bold',
+    fontFamily: 'PlaywriteHU-Regular',
+    paddingHorizontal: 15,
+    marginBottom: 10,
+  },
+
+
+  // Player wrapper (panel style like your homepage blocks)
+  playerWrapper: {
+    width: '100%',
+    height: Platform.OS === 'web' ? 520 : 220,
+    backgroundColor: '#30475e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#00adb5',
   },
 
   video: {
     width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: 'black',
-    borderRadius: 8,
+    height: '100%',
   },
 
-  controls: {
+  // Overlay controls (clean glass panel feel)
+  overlay: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
-  button: {
-    backgroundColor: '#1976d2',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  playButton: {
+    backgroundColor: '#00adb5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 6,
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
-  buttonText: {
-    color: 'white',
+  playText: {
+    color: '#222831',
     fontWeight: 'bold',
   },
 
   time: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
   },
 
-  channelTitle: {
+  sectionTitle: {
     color: 'white',
-    fontSize: 20,
-    marginTop: 25,
+    fontSize: 18,
+    fontWeight: 'bold',
+    paddingHorizontal: 15,
+    marginTop: 20,
     marginBottom: 10,
   },
 
-  channelButton: {
-    padding: 12,
-    backgroundColor: '#222',
-    marginBottom: 8,
-    borderRadius: 6,
+  // Channel row container
+  row: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    gap: 12,
   },
 
-  selectedChannel: {
-    backgroundColor: '#1976d2',
+  // Channel cards (matches sideMenu + panels)
+  card: {
+    width: 140,
+    height: 90,
+    backgroundColor: '#393e46',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
 
-  channelText: {
+  cardActive: {
+    backgroundColor: '#30475e',
+    borderColor: '#00adb5',
+    transform: [{ scale: 1.05 }],
+  },
+
+  cardTitle: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  cardGlow: {
+    position: 'absolute',
+    bottom: 0,
+    height: 25,
+    width: '100%',
+    backgroundColor: 'rgba(0, 173, 181, 0.15)',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
+  backLink: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+    zIndex: 20,
+  },
+  TvInput: {
+    flex: 1,                // takes remaining space
+    backgroundColor: '#393e46',
+    color: 'white',
+    padding: 10,
+    borderRadius: 6,
+    marginRight: 10,        // spacing between input and button
+  },
+
+  button: {
+    backgroundColor: '#00adb5',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  buttonText: {
+    color: '#222831',
+    fontWeight: 'bold',
+  },
+  recordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#393e46',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    gap: 8,
+  },
+
+  recordingActive: {
+    backgroundColor: '#5a1a1a',
+    borderWidth: 1,
+    borderColor: '#ff3b3b',
+  },
+
+  recordDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff3b3b',
+  },
+
+  recordText: {
+    color: 'white',
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
