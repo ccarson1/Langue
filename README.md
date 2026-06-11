@@ -56,3 +56,10 @@ docker-compose up -d
 # Run this using docker to receive test emails
 docker run -p 8025:8025 -p 1025:1025 mailhog/mailhog
 
+# Local Build on windows
+
+cd android
+npx expo prebuild --clean
+npx expo run:android
+
+app/build/outputs/apk/release/app-release.apk

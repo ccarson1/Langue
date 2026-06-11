@@ -47,6 +47,11 @@ const CHANNELS = [
     name: 'foxkidstv',
     url: 'https://foxkidstv.be:3369/stream/play.m3u8',
   },
+  {
+    id: '6',
+    name: 'mcdn',
+    url: 'https://daserste-live.ard-mcdn.de/daserste/live/hls/de/master.m3u8',
+  },
 ];
 
 async function getM3U8Metadata(url) {

@@ -39,6 +39,7 @@ from pydub import AudioSegment
 import numpy as np
 import signal
 import re
+from datetime import timedelta
 
 lesson_import_progress = {} 
 RECORDINGS = {}
@@ -613,7 +614,7 @@ def save_word(request):
 
     word, created = Word.objects.get_or_create(word=word_text, language=tar_lang)
 
-    user_word, created_user_word = UserWord.objects.get_or_create( user=user, word=word, defaults={ "frequency": 0.0 } )
+    user_word, created_user_word = UserWord.objects.get_or_create( user=user, word=word, defaults={ "frequency": BASE_NEW_WORD_FREQUENCY } )
 
     # 🔍 Check for existing translation
     existing = WordTranslation.objects.filter(
@@ -1268,17 +1269,40 @@ def sentence_word_frequency(request):
                 if user_word:
                     is_saved = True
 
-                    frequency += (
-                        float(user_word.frequency)
-                        * WORD_INCREASE_FREQUENCY
+                    # 1. Increase frequency (cap at 100)
+                    new_frequency = min(
+                        100.0,
+                        float(user_word.frequency) + WORD_INCREASE_FREQUENCY
                     )
+
+                    user_word.frequency = new_frequency
+                    interval_days = int(2 ** (new_frequency / 20))
+
+                    # 2. Update review date (spaced repetition logic)
+                    # Higher frequency = longer interval
+                    if new_frequency < 20:
+                        interval_days = 1
+                    elif new_frequency < 50:
+                        interval_days = 3
+                    elif new_frequency < 80:
+                        interval_days = 7
+                    else:
+                        interval_days = 14
+
+                    user_word.review_date = timezone.now().date() + timedelta(days=interval_days)
+
+                    user_word.save()
+
+                    # # for UI scoring (optional)
+                    # frequency += new_frequency * WORD_INCREASE_FREQUENCY
+                    frequency = new_frequency
 
                 else:
                     # CREATE UserWord if it doesn't exist
                     user_word = UserWord.objects.create(
                         user=request.user,
                         word=word_obj,
-                        frequency=0.0
+                        frequency=BASE_NEW_WORD_FREQUENCY
                     )
 
                     is_saved = True  # now it exists, so mark as saved

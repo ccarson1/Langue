@@ -1,5 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
-import { HoverEffect } from 'react-native-gesture-handler';
+
 
 // Alternative approach using flex properties for stable layout
 export default StyleSheet.create({

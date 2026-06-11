@@ -70,11 +70,14 @@ class UserWord(models.Model):
     word = models.ForeignKey(Word, db_column='word_id', on_delete=models.CASCADE)
     frequency = models.DecimalField(max_digits=6, decimal_places=3, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)], default=0.000)
     creation_date = models.DateField(default=timezone.now)
-    review_date = models.DateField(blank=True, null=True)
+    review_date = models.DateField(default=timezone.now)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
 
     class Meta:
         db_table = 'User_Words'
+
+    def __str__(self):
+        return self.word.word + " : " + str(self.frequency)
 
 
 class Report(models.Model):
