@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
@@ -38,9 +38,13 @@ from django.db import transaction
 from pydub import AudioSegment
 import numpy as np
 import signal
+import re
 
 lesson_import_progress = {} 
 RECORDINGS = {}
+
+BASE_NEW_WORD_FREQUENCY = 5.0
+WORD_INCREASE_FREQUENCY = 0.5
 
 
 @api_view(['POST'])
@@ -608,6 +612,8 @@ def save_word(request):
         return Response({'error': 'User or language not found'}, status=status.HTTP_404_NOT_FOUND)
 
     word, created = Word.objects.get_or_create(word=word_text, language=tar_lang)
+
+    user_word, created_user_word = UserWord.objects.get_or_create( user=user, word=word, defaults={ "frequency": 0.0 } )
 
     # 🔍 Check for existing translation
     existing = WordTranslation.objects.filter(
@@ -1196,3 +1202,93 @@ def stop_record(request):
     return Response({
         "file_url": file_url
     })
+
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def sentence_word_frequency(request):
+    sentence_id = request.data.get("sentence_id")
+
+    if not sentence_id:
+        return Response(
+            {"error": "sentence_id required"},
+            status=400
+        )
+
+    try:
+        sentence = Sentence.objects.select_related(
+            "lesson_language",
+            "translate_language"
+        ).get(id=sentence_id)
+
+    except Sentence.DoesNotExist:
+        return Response(
+            {"error": "Sentence not found"},
+            status=404
+        )
+
+    # split sentence into words
+    words = re.findall(
+        r"\b[\w']+\b",
+        sentence.sentence.lower()
+    )
+
+    result = []
+
+    for word_text in words:
+
+        frequency = 0.0
+        has_translation = False
+        is_saved = False
+
+        word_obj = Word.objects.filter(
+            word__iexact=word_text,
+            language=sentence.lesson_language
+        ).first()
+
+        if word_obj:
+
+            has_translation = WordTranslation.objects.filter(
+                word=word_obj,
+                native_language=sentence.translate_language,
+                target_language=sentence.lesson_language
+            ).exists()
+
+            if has_translation:
+
+                frequency = BASE_NEW_WORD_FREQUENCY
+
+                user_word = UserWord.objects.filter(
+                    user=request.user,
+                    word=word_obj
+                ).first()
+
+                if user_word:
+                    is_saved = True
+
+                    frequency += (
+                        float(user_word.frequency)
+                        * WORD_INCREASE_FREQUENCY
+                    )
+
+                else:
+                    # CREATE UserWord if it doesn't exist
+                    user_word = UserWord.objects.create(
+                        user=request.user,
+                        word=word_obj,
+                        frequency=0.0
+                    )
+
+                    is_saved = True  # now it exists, so mark as saved
+
+        result.append({
+            "word": word_text,
+            "frequency": round(frequency, 2),
+            "has_translation": has_translation,
+            "is_saved": is_saved,
+        })
+    print("Semtence Data:", result)
+
+    return Response(result)

@@ -42,7 +42,6 @@ export default function HomeScreen({ navigation }) {
     const [rows, setRows] = useState([]);
     const [index, setIndex] = useState(0);
     const [currentLesson, setCurrentLesson] = useState(null);
-    const [currentAudio, setCurrentAudio] = useState(null);
     const [startMs, setStartMs] = useState(0);
     const [endMs, setEndMs] = useState(0);
     const [selectedText, setSelectedText] = useState('');
@@ -62,10 +61,41 @@ export default function HomeScreen({ navigation }) {
     const soundRef = useRef(null);
     const [volume, setVolume] = useState(1.0);
     const [playbackRate, setPlaybackRate] = useState(1.0);
+    const [wordFrequencies, setWordFrequencies] = useState([]);
+    const [selectedFrequency, setSelectedFrequency] = useState(0);
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
     const showError = (message) => setPopup({ visible: true, message, type: 'error' });
+
+    const fetchWordFrequencies = async (sentenceId) => {
+        try {
+            const response = await fetch(
+                `http://${serverIP}:8000/api/sentence-word-frequency/`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        sentence_id: sentenceId,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+            console.log("Sentence data:", data);
+
+            if (response.ok) {
+                setWordFrequencies(data);
+            } else {
+                console.error(data);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const handleAddDefinition = (newDefinition) => {
         // Ensure translatedText is an array
@@ -191,6 +221,8 @@ export default function HomeScreen({ navigation }) {
     const displaySelectedText = async (word) => {
         const cleanedWord = cleanText(word);
         setSelectedText(cleanedWord);
+        const match = wordFrequencies.find( w => w.word.toLowerCase() === cleanedWord.toLowerCase() );
+        setSelectedFrequency(match?.frequency ?? 0);
         const translation = await translateWord(cleanedWord);
         setTranslatedText(translation);
     };
@@ -234,7 +266,6 @@ export default function HomeScreen({ navigation }) {
     const next = () => {
         if (index < rows.length - 1) {
             setIndex(index + 1);
-            setCurrentAudio(rows[index + 1]?.[0] || '');
             setDescription('');
             updateLessonProgress(index + 1);
         }
@@ -242,7 +273,6 @@ export default function HomeScreen({ navigation }) {
     const back = () => {
         if (index > 0) {
             setIndex(index - 1);
-            setCurrentAudio(rows[index - 1]?.[0] || '');
             setDescription('');
             updateLessonProgress(index - 1);
         }
@@ -447,11 +477,10 @@ export default function HomeScreen({ navigation }) {
                 const lessonRes = await fetch(`http://${serverIP}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
                 if (lessonRes.ok) {
                     const lessonData = await lessonRes.json();
-                    const parsed = (lessonData.sentences || []).map(s => [s.audio_file, s.sentence, s.translated_sentence, s.start_ms, s.end_ms]);
+                    const parsed = (lessonData.sentences || []).map(s => [s.id, s.sentence, s.translated_sentence, s.start_ms, s.end_ms]);
                     console.log("Fetched lesson data:", parsed);
                     console.log("Current Lesson:", lessonData);
                     setRows(parsed);
-                    setCurrentAudio(parsed[0]?.[0] || '');
                 }
             } catch (err) {
                 console.error(err);
@@ -490,6 +519,17 @@ export default function HomeScreen({ navigation }) {
 
         updateAudioSettings();
     }, [volume, playbackRate]);
+
+    useEffect(() => {
+        if (!rows.length || !token) return;
+
+        const sentenceId = rows[index]?.[0];
+
+        if (sentenceId) {
+            fetchWordFrequencies(sentenceId);
+        }
+
+    }, [index, rows, token]);
 
     // --- Save settings ---
     useEffect(() => {
@@ -559,6 +599,7 @@ export default function HomeScreen({ navigation }) {
                                 onPress={() => {
                                     // handle word click here
                                     displaySelectedText(word)
+
                                     // or call a function: onWordPress(word)
                                 }}
                             >
@@ -591,7 +632,7 @@ export default function HomeScreen({ navigation }) {
 
 
 
-                    <StatusIndicator />
+                    <StatusIndicator frequency={selectedFrequency} />
                     <Text style={styles.partOfSpeech}>adjective</Text>
 
 

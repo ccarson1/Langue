@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { HoverEffect } from 'react-native-gesture-handler';
 
 // Alternative approach using flex properties for stable layout
@@ -53,11 +53,11 @@ export default StyleSheet.create({
 
     // Middle section - main content with fixed space
     middleSection: {
-        flex: .5,
+        flex: .7,
         width: '80%',
         justifyContent: 'center',
         alignItems: 'center',
-
+        
 
     },
 
@@ -81,9 +81,9 @@ export default StyleSheet.create({
         minHeight: 100,
         justifyContent: 'center',
         alignItems: 'center',
-        width: '100%',
+        width: Platform.OS === 'web' ? '75%' : "100%",
         height: 120,
-        marginBottom: 20,
+        marginBottom: 0,
         paddingHorizontal: 20,
         overflow: 'scroll',
         scrollbarWidth: 'thin',
@@ -125,7 +125,7 @@ export default StyleSheet.create({
 
     separatorSolid: {
         height: 1,
-        backgroundColor: "#ccc",
+        backgroundColor: "57, 62, 70",
         marginVertical: 8,
     },
     separatorDotted: {
@@ -136,16 +136,16 @@ export default StyleSheet.create({
     },
 
     defContainer: {
-        backgroundColor: 'white',
+        backgroundColor: 'rgb(57, 62, 70)',
         borderRadius: 5,
-        padding: 20,
-        width: '120%',
-        height: '80%',
+        padding: 15,
+        width: Platform.OS === 'web' ? '75%' : "120%",
+        height: '100%',
         minHeight: 250, // Fixed minimum height
         position: 'relative',
         overflowY: 'scroll',
         paddingBottom: 0,
-
+        scrollbarColor: '#888 #444444',
     },
 
     saveBtn: {
@@ -197,13 +197,13 @@ export default StyleSheet.create({
 
     leftText: {
         fontWeight: 'bold',
-        color: '#444444',
+        color: 'white',
         flex: 0.4,
 
     },
 
     rightText: {
-        color: '#444444',
+        color: 'white',
         flex: 0.6,
         textAlign: 'left',
         fontSize: 20
@@ -212,8 +212,10 @@ export default StyleSheet.create({
     controls: {
         flexDirection: 'row',
         justifyContent: 'space-around',
+
         width: 400,
         alignItems: 'center',
+
     },
 
     hamburgerIcon: {
@@ -265,7 +267,7 @@ export default StyleSheet.create({
     defDescription: {
         fontSize: 16,
         lineHeight: 22,
-        color: '#333',
+        color: 'white',
         flexWrap: 'wrap',
         width: '100%',
         paddingTop: 10,

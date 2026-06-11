@@ -1,9 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
 
-export default function StatusIndicator() {
+export default function StatusIndicator({ frequency = 0 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  const getColor = () => {
+    if (frequency <= 0) return '#9E9E9E'; // gray
+    if (frequency < 10) return '#FF9800'; // orange (optional middle state)
+    return '#4CAF50'; // green
+  };
+  const color = getColor();
 
   useEffect(() => {
     Animated.loop(
@@ -46,6 +53,8 @@ export default function StatusIndicator() {
         {
           transform: [{ scale: scaleAnim }],
           opacity: opacityAnim,
+          backgroundColor: color,
+          shadowColor: color,
         },
       ]}
     />

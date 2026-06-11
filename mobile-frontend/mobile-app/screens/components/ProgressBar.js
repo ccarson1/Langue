@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
+import { View, Animated, StyleSheet, Platform } from 'react-native';
 
 const ProgressBar = ({ progress }) => {
     const animatedWidth = useRef(new Animated.Value(0)).current;
@@ -27,8 +27,8 @@ const ProgressBar = ({ progress }) => {
 const styles = StyleSheet.create({
     container: {
         height: 10,
-        width: '100%',
-        backgroundColor: '#e0e0e0',
+        width: Platform.OS === 'web' ? '75%' : "100%",
+        backgroundColor: '#888',
         borderRadius: 5,
         overflow: 'hidden',
         marginVertical: 10,

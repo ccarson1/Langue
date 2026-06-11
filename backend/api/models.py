@@ -3,6 +3,7 @@ from django.db.models import JSONField # Use if on PostgreSQL; else see notes be
 from django.utils import timezone
 from django.contrib.auth.models import User
 import uuid
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 def lesson_file_upload_path(instance, filename):
@@ -41,6 +42,7 @@ class Word(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     word = models.CharField(max_length=30)
     language = models.ForeignKey(Language, db_column='lang_id', on_delete=models.CASCADE)
+    frequency = models.DecimalField(max_digits=6, decimal_places=3, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)], default=0.000)
 
     class Meta:
         db_table = 'Words'
@@ -66,7 +68,7 @@ class WordTranslation(models.Model):
 class UserWord(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     word = models.ForeignKey(Word, db_column='word_id', on_delete=models.CASCADE)
-    frequency = models.DecimalField(max_digits=5, decimal_places=3, default=0.000)
+    frequency = models.DecimalField(max_digits=6, decimal_places=3, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)], default=0.000)
     creation_date = models.DateField(default=timezone.now)
     review_date = models.DateField(blank=True, null=True)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)

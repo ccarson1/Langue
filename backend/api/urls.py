@@ -12,6 +12,7 @@ urlpatterns = [
     path('signup/', views.api_signup, name='api_signup'),
     path('translate/', views.translate, name='translate'),
     path('save_word/', views.save_word, name='save_word'),
+    path('sentence-word-frequency/', views.sentence_word_frequency, name="sentence_word_frequency"),
     path( 'update-word-translation/', views.update_word_translation, name='update_word_translation' ),
     path('import-lesson/', views.import_lesson, name='import_lesson'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
