@@ -21,7 +21,7 @@ import LiveTVScreen from './screens/LiveTVScreen';
 
 import LessonEditScreen from './screens/LessonEditScreen';
 
-SplashScreen.preventAutoHideAsync();
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {

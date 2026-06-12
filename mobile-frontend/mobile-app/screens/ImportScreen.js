@@ -24,7 +24,7 @@ import LoadingOverlay from './components/LoadingOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getServerIP } from '../utils/config';
 
-export default function ImportLessonScreen({ navigation }) {
+export default function ImportScreen({ navigation }) {
   const [url, setUrl] = useState('');
   const [lessonFile, setLessonFile] = useState(null);
   const [audioFile, setAudioFile] = useState(null);

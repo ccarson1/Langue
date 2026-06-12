@@ -57,6 +57,9 @@ docker-compose up -d
 docker run -p 8025:8025 -p 1025:1025 mailhog/mailhog
 
 # Local Build on windows
+cd android
+./gradlew clean
+./gradlew assembleDebug
 
 cd android
 npx expo prebuild --clean
