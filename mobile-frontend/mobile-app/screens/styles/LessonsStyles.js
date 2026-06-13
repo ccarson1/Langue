@@ -1,10 +1,13 @@
 import { StyleSheet } from 'react-native';
 
-export default StyleSheet.create({
+export const createStyles = (insets) =>
+    StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#222831',
         paddingTop: 40,
+        marginBottom: insets.bottom,
+        marginTop: insets.top,
     },
 
     gridWrapper: {

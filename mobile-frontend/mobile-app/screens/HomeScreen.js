@@ -21,11 +21,11 @@ import CustomPopup from './components/CustomPopup';
 import DefinitionList from './components/DefinitionList';
 
 
-import styles from './styles/HomeStyles';
-//import config from '../utils/config';
+//import styles from './styles/HomeStyles';
 import { getServerIP } from '../utils/config';
 import BottomAudioMenu from "./components/BottomAudioMenu";
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createStyles } from './styles/HomeStyles';
 //SplashScreen.preventAutoHideAsync();
 
 export default function HomeScreen({ navigation }) {
@@ -67,6 +67,9 @@ export default function HomeScreen({ navigation }) {
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
     const showError = (message) => setPopup({ visible: true, message, type: 'error' });
+
+    const insets = useSafeAreaInsets();
+    const styles = createStyles(insets);
 
     const fetchWordFrequencies = async (sentenceId) => {
         try {
@@ -221,7 +224,7 @@ export default function HomeScreen({ navigation }) {
     const displaySelectedText = async (word) => {
         const cleanedWord = cleanText(word);
         setSelectedText(cleanedWord);
-        const match = wordFrequencies.find( w => w.word.toLowerCase() === cleanedWord.toLowerCase() );
+        const match = wordFrequencies.find(w => w.word.toLowerCase() === cleanedWord.toLowerCase());
         setSelectedFrequency(match?.frequency ?? 0);
         const translation = await translateWord(cleanedWord);
         setTranslatedText(translation);

@@ -5,6 +5,8 @@ import styles from "./styles/LessonsStyles"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { getServerIP } from '../utils/config';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createStyles } from './styles/LessonsStyles';
 
 
 
@@ -17,6 +19,8 @@ export default function LessonsScreen({ navigation }) {
     const [lessons, setLessons] = useState([]);
     const [serverIP, setServerIP] = useState('');
     const mediaUrl = `http://${serverIP}/media/`;
+    const insets = useSafeAreaInsets();
+    const styles = createStyles(insets);
 
     const fetchLessons = async () => {
         try {

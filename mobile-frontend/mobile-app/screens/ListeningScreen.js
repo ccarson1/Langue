@@ -3,7 +3,7 @@ import { Audio } from 'expo-av';
 import { FontAwesome } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, ScrollView, Alert, useWindowDimensions, Platform } from 'react-native';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import styles from "./styles/ListeningStyles"
+//import styles from "./styles/ListeningStyles"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { getServerIP } from '../utils/config';
@@ -16,6 +16,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
 import LoadingOverlay from './components/LoadingOverlay';
 import BottomAudioMenu from './components/BottomAudioMenu';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createStyles } from './styles/ListeningStyles';
 
 
 
@@ -49,6 +51,8 @@ export default function LessonsScreen({ navigation }) {
     const lessonsRef = useRef([]);
     const [downloadedLessons, setDownloadedLessons] = useState({});
     const initializedRef = useRef(false);
+    const insets = useSafeAreaInsets();
+    const styles = createStyles(insets);
 
     const showSuccess = (message) => {
         setPopup({ visible: true, message: message, type: 'success' });
@@ -102,7 +106,7 @@ export default function LessonsScreen({ navigation }) {
         try {
 
             if (!token) return;
-            
+
 
             await fetch(`http://${serverIP}:8000/api/settings/`, {
                 method: 'PUT',
