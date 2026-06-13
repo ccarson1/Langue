@@ -56,10 +56,18 @@ docker-compose up -d
 # Run this using docker to receive test emails
 docker run -p 8025:8025 -p 1025:1025 mailhog/mailhog
 
+http://localhost:8025/
+
 # Local Build on windows
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Force package-lock.json
+npm install
+
 cd android
+
 ./gradlew clean
 ./gradlew assembleDebug
+./gradlew assembleRelease 
 
 cd android
 npx expo prebuild --clean

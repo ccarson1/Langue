@@ -8,7 +8,6 @@ from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
-    path('login/', views.api_login, name='api_login'),
     path('signup/', views.api_signup, name='api_signup'),
     path('translate/', views.translate, name='translate'),
     path('save_word/', views.save_word, name='save_word'),
