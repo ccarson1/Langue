@@ -151,22 +151,7 @@ export const createStyles = (insets) =>
             scrollbarColor: '#888 #444444',
         },
 
-        saveBtn: {
-            position: 'absolute',
-            // top: 10,
-            right: 100,
-            backgroundColor: '#00adb5',
-            padding: 10,
-            borderRadius: 5,
-            minWidth: 130,
-            shadowColor: '#30475e',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 6,
-
-            // Android shadow
-            elevation: 4,
-        },
+        
 
         buttonText: {
             color: 'black',

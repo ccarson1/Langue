@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Alert, Text, TouchableOpacity } from 'react-native';
+import { View, Alert, Text, TouchableOpacity,StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import styles from '../styles/HomeStyles';
 import { getServerIP } from '../../utils/config';
 import CustomPopup from './CustomPopup';
 
@@ -109,3 +108,27 @@ export default function SaveDefinitionButton({ payload, definitions, showSuccess
 
   );
 }
+const styles = StyleSheet.create({
+  saveBtn: {
+    position: 'absolute',
+    // top: 10,
+    right: 100,
+    backgroundColor: '#00adb5',
+    padding: 10,
+    borderRadius: 5,
+    minWidth: 130,
+    shadowColor: '#30475e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+
+    // Android shadow
+    elevation: 4,
+  },
+  buttonText: {
+            color: 'black',
+            fontWeight: 'bold',
+        },
+
+});
+

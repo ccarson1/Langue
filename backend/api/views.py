@@ -40,6 +40,7 @@ import numpy as np
 import signal
 import re
 from datetime import timedelta
+from .ocr import OCR
 
 lesson_import_progress = {} 
 RECORDINGS = {}
@@ -1296,3 +1297,19 @@ def sentence_word_frequency(request):
     print("Semtence Data:", result)
 
     return Response(result)
+
+@csrf_exempt
+def ocr_image(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=400)
+
+    image_file = request.FILES.get("image")
+
+    if not image_file:
+        return JsonResponse({"error": "No image supplied"}, status=400)
+
+    ocr = OCR(image_file)
+    text = ocr.pytesseract()
+    return JsonResponse({
+        "text": text
+    })

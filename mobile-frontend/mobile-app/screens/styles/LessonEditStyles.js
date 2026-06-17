@@ -17,7 +17,7 @@ export const createStyles = (insets) =>
             paddingTop: 80,
             paddingHorizontal: 10,
             paddingBottom: 120, // extra room so content clears the BottomAudioMenu
-            
+
         },
 
         header: {
@@ -108,6 +108,23 @@ export const createStyles = (insets) =>
         },
 
         saveButtonText: {
+            color: '#222831',
+            fontWeight: '700',
+            fontSize: 18,
+        },
+        addSentenceButton: {
+            backgroundColor: '#00adb5',
+            padding: 18,
+            borderRadius: 10,
+            alignItems: 'center',
+            marginTop: 30,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.4,
+            shadowRadius: 8,
+            elevation: 5,
+        },
+        addSentenceButtonText: {
             color: '#222831',
             fontWeight: '700',
             fontSize: 18,

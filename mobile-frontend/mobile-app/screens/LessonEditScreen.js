@@ -24,6 +24,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import BottomAudioMenu from './components/BottomAudioMenu';          // ← adjust path as needed
 import AudioWaveVisualizer from './components/AudioWaveVisualizer';  // ← adjust path as needed
 
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createStyles } from './styles/LessonEditStyles';
 
@@ -303,9 +304,22 @@ export default function LessonEditScreen({ route, navigation }) {
                                 </View>
                             </View>
                         ))}
+
                     </>
                 )}
-
+                <TouchableOpacity
+                    style={styles.addSentenceButton}
+                    onPress={() =>
+                        navigation.navigate('AddSentence', {
+                            onSave: (newSentence) => {
+                                setSentences((prev) => [...prev, newSentence]);
+                            },
+                        })
+                    }
+                >
+                    <AntDesign name="plus-circle" size={24} color="white" />
+                    <Text style={styles.addSentenceButtonText}>Add Sentence</Text>
+                </TouchableOpacity>
                 {/* Save */}
                 <TouchableOpacity style={styles.saveButton} onPress={saveLesson}>
                     <Text style={styles.saveButtonText}>Save Lesson</Text>
