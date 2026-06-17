@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
     View,
+    ScrollView,
     Text,
     TextInput,
     TouchableOpacity,
@@ -201,7 +202,7 @@ export default function AddSentenceScreen({ route, navigation }) {
     };
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
                 <AntDesign name="left" size={22} color="white" />
             </TouchableOpacity>
@@ -276,7 +277,7 @@ export default function AddSentenceScreen({ route, navigation }) {
             >
                 <Text style={styles.saveButtonText}>Add Sentence</Text>
             </TouchableOpacity>
-        </View>
+        </ScrollView>
     );
 }
 
