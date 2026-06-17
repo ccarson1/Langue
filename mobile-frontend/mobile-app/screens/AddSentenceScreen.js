@@ -29,6 +29,7 @@ export default function AddSentenceScreen({ route, navigation }) {
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
     const [translateText, setTranslateText] = useState('');
+    const [generateAudio, setGenerateAudio] = useState('');
 
 
     const decodeToken = (token) => {
@@ -123,6 +124,7 @@ export default function AddSentenceScreen({ route, navigation }) {
             const formData = new FormData();
             formData.append('image', blob, 'image.jpg');
             formData.append('translateText', translateText);
+            formData.append('generateAudio', generateAudio);
 
             const response = await fetch(
                 `http://${serverIP}:8000/api/ocr/`,
@@ -165,6 +167,7 @@ export default function AddSentenceScreen({ route, navigation }) {
                 type: 'image/jpeg',
             });
             formData.append('translateText', translateText);
+            formData.append('generateAudio', generateAudio);
 
             const response = await fetch(
                 `http://${serverIP}:8000/api/ocr/`,
@@ -234,6 +237,10 @@ export default function AddSentenceScreen({ route, navigation }) {
                 <View style={styles.switchRow}>
                     <Text style={styles.label}>Translate</Text>
                     <Switch value={translateText} onValueChange={setTranslateText} />
+                </View>
+                <View style={styles.switchRow}>
+                    <Text style={styles.label}>Generate Audio</Text>
+                    <Switch value={generateAudio} onValueChange={setGenerateAudio} />
                 </View>
                 <TouchableOpacity
                     style={styles.imageButton}

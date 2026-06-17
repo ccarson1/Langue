@@ -1306,7 +1306,9 @@ def ocr_image(request):
 
     image_file = request.FILES.get("image")
     translateText = request.POST.get("translateText")
+    generateAudio = request.POST.get("generateAudio")
     print("Translating Text:", translateText)
+    print("Generate Audio", generateAudio)
 
     if not image_file:
         return JsonResponse({"error": "No image supplied"}, status=400)
