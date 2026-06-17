@@ -1299,17 +1299,44 @@ def sentence_word_frequency(request):
     return Response(result)
 
 @csrf_exempt
+@permission_classes([IsAuthenticated])
 def ocr_image(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=400)
 
     image_file = request.FILES.get("image")
+    translateText = request.POST.get("translateText")
+    print("Translating Text:", translateText)
 
     if not image_file:
         return JsonResponse({"error": "No image supplied"}, status=400)
 
-    ocr = OCR(image_file)
+    # --- Get user from token ---
+    auth = JWTAuthentication()
+    try:
+        user_auth = auth.authenticate(request)
+        if user_auth is None:
+            return JsonResponse({"error": "Unauthorized"}, status=401)
+
+        user, token = user_auth
+    except Exception:
+        return JsonResponse({"error": "Invalid token"}, status=401)
+
+    # --- Get user's target language ---
+    try:
+        settings = UserSetting.objects.get(user=user)
+        lang_code = settings.target_language.tesseract_langcode
+        print("lang_code:", lang_code)
+    except UserSetting.DoesNotExist:
+        lang_code = "eng"  # fallback
+
+    # --- Run OCR ---
+    ocr = OCR(image_file, lang_code)
     text = ocr.pytesseract()
-    return JsonResponse({
-        "text": text
-    })
+
+    if translateText:
+        translated_text = translate_word(text, src_lang=settings.target_language.yt_dlp_lang, tgt_lang=settings.native_language.yt_dlp_lang)
+    else:
+        translated_text = ''
+
+    return JsonResponse({"text": text, "translation": translated_text})

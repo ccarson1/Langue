@@ -7,6 +7,7 @@ import {
     StyleSheet,
     Image,
     Platform,
+    Switch,
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +27,7 @@ export default function AddSentenceScreen({ route, navigation }) {
     const [serverIP, setServerIP] = useState('');
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
+    const [translateText, setTranslateText] = useState('');
 
 
     const decodeToken = (token) => {
@@ -119,11 +121,15 @@ export default function AddSentenceScreen({ route, navigation }) {
 
             const formData = new FormData();
             formData.append('image', blob, 'image.jpg');
+            formData.append('translateText', translateText);
 
             const response = await fetch(
                 `http://${serverIP}:8000/api/ocr/`,
                 {
                     method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: formData,
                 }
             );
@@ -132,6 +138,8 @@ export default function AddSentenceScreen({ route, navigation }) {
 
             if (response.ok) {
                 setSentence(data.text);
+                setTranslatedSentence(data.translation);
+                console.log(data.translation);
             } else {
                 alert(data.error || 'OCR failed');
             }
@@ -155,11 +163,15 @@ export default function AddSentenceScreen({ route, navigation }) {
                 name: 'image.jpg',
                 type: 'image/jpeg',
             });
+            formData.append('translateText', translateText);
 
             const response = await fetch(
                 `http://${serverIP}:8000/api/ocr/`,
                 {
                     method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: formData,
 
                 }
@@ -169,6 +181,8 @@ export default function AddSentenceScreen({ route, navigation }) {
 
             if (response.ok) {
                 setSentence(data.text);
+                setTranslatedSentence(data.translation);
+                console.log(data.translation);
             } else {
                 alert(data.error || 'OCR failed');
             }
@@ -214,6 +228,10 @@ export default function AddSentenceScreen({ route, navigation }) {
                     style={styles.previewImage}
                 />
             )}
+            <View style={styles.switchRow}>
+                <Text style={styles.label}>Translate</Text>
+                <Switch value={translateText} onValueChange={setTranslateText} />
+            </View>
             <TouchableOpacity
                 style={styles.imageButton}
                 onPress={runOCR}
@@ -309,5 +327,12 @@ const styles = StyleSheet.create({
         height: 200,
         borderRadius: 10,
         marginTop: 10,
+    },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 10,
     },
 });

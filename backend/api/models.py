@@ -19,6 +19,7 @@ class Language(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     lang_name = models.CharField(max_length=25, unique=True)
     yt_dlp_lang = models.CharField(max_length=25, default="")
+    tesseract_langcode = models.CharField(max_length=25, default="")
 
     class Meta:
         db_table = 'Languages'
