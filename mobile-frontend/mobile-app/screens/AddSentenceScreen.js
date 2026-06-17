@@ -202,90 +202,102 @@ export default function AddSentenceScreen({ route, navigation }) {
     };
 
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.screenWrapper}>
             <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-                <AntDesign name="left" size={22} color="white" />
-            </TouchableOpacity>
+                    <AntDesign name="left" size={22} color="white" />
+                </TouchableOpacity>
+            <ScrollView style={styles.container}>
+                
 
-            <Text style={styles.label}>Image</Text>
+                <Text style={styles.label}>Image</Text>
 
-            <TouchableOpacity
-                style={styles.imageButton}
-                onPress={takePhoto}
-            >
-                <Text style={styles.imageButtonText}>Take Picture</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.imageButton}
+                    onPress={takePhoto}
+                >
+                    <Text style={styles.imageButtonText}>Take Picture</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-                style={styles.imageButton}
-                onPress={pickImage}
-            >
-                <Text style={styles.imageButtonText}>Choose From Gallery</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.imageButton}
+                    onPress={pickImage}
+                >
+                    <Text style={styles.imageButtonText}>Choose From Gallery</Text>
+                </TouchableOpacity>
 
-            {imageUri && (
-                <Image
-                    source={{ uri: imageUri }}
-                    style={styles.previewImage}
+                {imageUri && (
+                    <Image
+                        source={{ uri: imageUri }}
+                        style={styles.previewImage}
+                    />
+                )}
+                <View style={styles.switchRow}>
+                    <Text style={styles.label}>Translate</Text>
+                    <Switch value={translateText} onValueChange={setTranslateText} />
+                </View>
+                <TouchableOpacity
+                    style={styles.imageButton}
+                    onPress={runOCR}
+                >
+                    <Text style={styles.imageButtonText}>Extract Text</Text>
+                </TouchableOpacity>
+                <Text style={styles.label}>Native Sentence</Text>
+                <TextInput
+                    style={styles.input}
+                    multiline
+                    value={sentence}
+                    onChangeText={setSentence}
                 />
-            )}
-            <View style={styles.switchRow}>
-                <Text style={styles.label}>Translate</Text>
-                <Switch value={translateText} onValueChange={setTranslateText} />
-            </View>
-            <TouchableOpacity
-                style={styles.imageButton}
-                onPress={runOCR}
-            >
-                <Text style={styles.imageButtonText}>Extract Text</Text>
-            </TouchableOpacity>
-            <Text style={styles.label}>Native Sentence</Text>
-            <TextInput
-                style={styles.input}
-                multiline
-                value={sentence}
-                onChangeText={setSentence}
-            />
 
-            <Text style={styles.label}>Translation</Text>
-            <TextInput
-                style={styles.input}
-                multiline
-                value={translatedSentence}
-                onChangeText={setTranslatedSentence}
-            />
+                <Text style={styles.label}>Translation</Text>
+                <TextInput
+                    style={styles.input}
+                    multiline
+                    value={translatedSentence}
+                    onChangeText={setTranslatedSentence}
+                />
 
-            <Text style={styles.label}>Start Time (ms)</Text>
-            <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={startMs}
-                onChangeText={setStartMs}
-            />
+                <Text style={styles.label}>Start Time (ms)</Text>
+                <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={startMs}
+                    onChangeText={setStartMs}
+                />
 
-            <Text style={styles.label}>End Time (ms)</Text>
-            <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={endMs}
-                onChangeText={setEndMs}
-            />
+                <Text style={styles.label}>End Time (ms)</Text>
+                <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={endMs}
+                    onChangeText={setEndMs}
+                />
 
-            <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSave}
-            >
-                <Text style={styles.saveButtonText}>Add Sentence</Text>
-            </TouchableOpacity>
-        </ScrollView>
+                <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={handleSave}
+                >
+                    <Text style={styles.saveButtonText}>Add Sentence</Text>
+                </TouchableOpacity>
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    screenWrapper: {
         flex: 1,
-        padding: 20,
-        backgroundColor: '#222',
+        backgroundColor: '#222831',
+        marginBottom: 0,
+        marginTop: 0,
+    },
+
+    container: {
+
+        backgroundColor: '#222831',
+        paddingTop: 40,
+        paddingHorizontal: 10,
+
     },
     label: {
         color: 'white',
@@ -302,6 +314,7 @@ const styles = StyleSheet.create({
     saveButton: {
         backgroundColor: '#00adb5',
         marginTop: 20,
+        marginBottom: 70,
         padding: 15,
         borderRadius: 8,
         alignItems: 'center',
@@ -335,5 +348,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 20,
         marginBottom: 10,
+    },
+    backLink: {
+        position: 'absolute',
+        top: 40,
+        right: 20,
+        zIndex: 20,
     },
 });

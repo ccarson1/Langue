@@ -16,7 +16,7 @@ export const createStyles = (insets) =>
             backgroundColor: '#222831',
             paddingTop: 80,
             paddingHorizontal: 10,
-            paddingBottom: 120, // extra room so content clears the BottomAudioMenu
+            paddingBottom: 120,
 
         },
 
