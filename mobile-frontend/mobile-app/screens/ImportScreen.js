@@ -32,6 +32,7 @@ export default function ImportScreen({ navigation }) {
   const [lessonPrivate, setLessonPrivate] = useState(false);
   const [audioUploaded, setAudioUploaded] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
+  const [lessonEmpty, setLessonEmpty] = useState(false);
   const [urlReference, setURLReference] = useState(false);
   const [imageReference, setImageReference] = useState(false);
   const [title, setTitle] = useState('');
@@ -274,7 +275,7 @@ async function appendFileToFormData(formData, fieldName, file) {
 }
 
   const handleImport = async () => {
-    if (!url && !lessonFile) {
+    if (!url && !lessonFile && !lessonEmpty) {
       showError(`Missing input: Please provide a URL or upload a file.`);
       Alert.alert('Missing input', 'Please provide a URL or upload a file.');
       return;
@@ -310,6 +311,7 @@ async function appendFileToFormData(formData, fieldName, file) {
       formData.append('urlReference', urlReference);
       formData.append('imageReference', imageReference);
       formData.append('title', title);
+      formData.append('lessonEmpty', lessonEmpty);
 
       // Start polling progress
       const pollingInterval = setInterval(async () => {
@@ -474,6 +476,16 @@ async function appendFileToFormData(formData, fieldName, file) {
               </TouchableOpacity>
             </View>
           )}
+
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={lessonEmpty}
+              onValueChange={setLessonEmpty}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Emtpy Lesson</Text>
+          </View>
 
           <Text style={styles.label}>Native Language</Text>
           <View style={styles.pickerWrapper}>

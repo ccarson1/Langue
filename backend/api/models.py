@@ -152,7 +152,7 @@ class UserSetting(models.Model):
     
 class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
-    audio_file = models.CharField(max_length=50)
+    audio_file = models.CharField(max_length=50, blank=True, null=True)
     sentence = models.CharField(max_length=250)
     start_ms = models.PositiveIntegerField(default=0)
     end_ms = models.PositiveIntegerField(default=0)

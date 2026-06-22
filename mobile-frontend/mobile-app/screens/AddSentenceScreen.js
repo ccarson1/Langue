@@ -248,6 +248,11 @@ export default function AddSentenceScreen({ route, navigation }) {
                 >
                     <Text style={styles.imageButtonText}>Extract Text</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.imageButton}
+                >
+                    <Text style={styles.imageButtonText}>Retranslate</Text>
+                </TouchableOpacity>
                 <Text style={styles.label}>Native Sentence</Text>
                 <TextInput
                     style={styles.input}

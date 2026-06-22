@@ -13,6 +13,9 @@ class OCR():
         pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
         text = pytesseract.image_to_string(self.image, lang=self.lang_code)
 
+        # Remove newlines and normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+
         # 1) normalize to lowercase
         text = text.lower()
 

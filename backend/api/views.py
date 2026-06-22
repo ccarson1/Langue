@@ -312,6 +312,8 @@ def import_lesson(request):
             user_id = request.user.id
             lesson_import_progress[user_id] = 0
 
+            lessonEmpty = request.data.get('lessonEmpty')
+
             # CREATE LESSON
             lesson = Lesson.objects.create(
                 user=request.user,
@@ -543,7 +545,7 @@ def edit_lesson(request, lesson_id):
         if 'audio_file' in request.FILES:
             lesson.audio_file = request.FILES.get('audio_file')
 
-        lesson.save()
+        
 
         incoming_sentences = request.data.get( 'sentences', [] )
 
@@ -562,7 +564,17 @@ def edit_lesson(request, lesson_id):
                 sentence_obj.save()
 
             except Sentence.DoesNotExist:
-                continue
+                Sentence.objects.create(
+                    lesson=lesson,
+                    sentence=s.get('sentence', ''),
+                    start_ms=s.get('start_ms', 0),
+                    end_ms=s.get('end_ms', 0),
+                    translated_sentence=s.get('translated_sentence', ''),
+                    lesson_language_id=lesson.native_language_id,
+                    translate_language_id=lesson.target_language_id,
+                )
+
+        lesson.save()
 
         return Response({
             'message': 'Lesson updated successfully'
