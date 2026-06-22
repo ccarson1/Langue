@@ -753,6 +753,17 @@ export default function HomeScreen({ navigation }) {
                         </TouchableOpacity>
                     )}
 
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Alphabet');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>Alphabet</Text>
+                        </TouchableOpacity>
+                    )}
+
                     {user ? (
                         <TouchableOpacity
                             onPress={() => {

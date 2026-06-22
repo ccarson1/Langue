@@ -1,0 +1,225 @@
+{
+  "alphabet": [
+    {
+      "letter": "A a",
+      "name": "a",
+      "pronunciation": "[e/a:]",
+      "audio": "A_a"
+    },
+    {
+      "letter": "Ą ą",
+      "name": "a nosinė",
+      "pronunciation": "[a:]",
+      "audio": "A_a_2"
+    },
+    {
+      "letter": "B b",
+      "name": "bė",
+      "pronunciation": "[b/bi]",
+      "audio": "B_b"
+    },
+    {
+      "letter": "C c",
+      "name": "cė",
+      "pronunciation": "[ts/ts]",
+      "audio": "C_c"
+    },
+    {
+      "letter": "Č č",
+      "name": "čė",
+      "pronunciation": "[tʃ/tɕ]",
+      "audio": "C_c_2"
+    },
+    {
+      "letter": "D d",
+      "name": "dė",
+      "pronunciation": "[d/dʲ]",
+      "audio": "D_d"
+    },
+    {
+      "letter": "E e",
+      "name": "e",
+      "pronunciation": "[e/æ:]",
+      "audio": "E_e"
+    },
+    {
+      "letter": "Ę ę",
+      "name": "e nosinė",
+      "pronunciation": "[æ:]",
+      "audio": "E_e_2"
+    },
+    {
+      "letter": "Ė ė",
+      "name": "ė",
+      "pronunciation": "[e:]",
+      "audio": "E_e_3"
+    },
+    {
+      "letter": "F f",
+      "name": "ef",
+      "pronunciation": "[f/fʲ]",
+      "audio": "F_f"
+    },
+    {
+      "letter": "G g",
+      "name": "gė",
+      "pronunciation": "[g/gʲ]",
+      "audio": "G_g"
+    },
+    {
+      "letter": "H h",
+      "name": "ha",
+      "pronunciation": "[h/hʲ]",
+      "audio": "H_h"
+    },
+    {
+      "letter": "I i",
+      "name": "i trumpoji",
+      "pronunciation": "[i]",
+      "audio": "I_i"
+    },
+    {
+      "letter": "Į į",
+      "name": "i nosinė",
+      "pronunciation": "[i:]",
+      "audio": "I_i_2"
+    },
+    {
+      "letter": "Y y",
+      "name": "i ilgoji",
+      "pronunciation": "[i:]",
+      "audio": "Y_y"
+    },
+    {
+      "letter": "J j",
+      "name": "jot",
+      "pronunciation": "[j]",
+      "audio": "J_j"
+    },
+    {
+      "letter": "K k",
+      "name": "ka",
+      "pronunciation": "[k/kʲ]",
+      "audio": "K_k"
+    },
+    {
+      "letter": "L l",
+      "name": "el",
+      "pronunciation": "[l/lʲ]",
+      "audio": "L_l"
+    },
+    {
+      "letter": "M m",
+      "name": "em",
+      "pronunciation": "[m/mʲ]",
+      "audio": "M_m"
+    },
+    {
+      "letter": "N n",
+      "name": "en",
+      "pronunciation": "[n/nʲ]",
+      "audio": "N_n"
+    },
+    {
+      "letter": "O o",
+      "name": "o",
+      "pronunciation": "[o/o:]",
+      "audio": "O_o"
+    },
+    {
+      "letter": "P p",
+      "name": "pė",
+      "pronunciation": "[p/pʲ]",
+      "audio": "P_p"
+    },
+    {
+      "letter": "R r",
+      "name": "er",
+      "pronunciation": "[r/rʲ]",
+      "audio": "R_r"
+    },
+    {
+      "letter": "S s",
+      "name": "es",
+      "pronunciation": "[s/sʲ]",
+      "audio": "S_s"
+    },
+    {
+      "letter": "Š š",
+      "name": "eš",
+      "pronunciation": "[ʃ/ɕ]",
+      "audio": "S_s_2"
+    },
+    {
+      "letter": "T t",
+      "name": "tė",
+      "pronunciation": "[t/tʲ]",
+      "audio": "T_t"
+    },
+    {
+      "letter": "U u",
+      "name": "u trumpoji",
+      "pronunciation": "[u]",
+      "audio": "U_u"
+    },
+    {
+      "letter": "Ų ų",
+      "name": "u nosinė",
+      "pronunciation": "[u:]",
+      "audio": "U_u_2"
+    },
+    {
+      "letter": "Ū ū",
+      "name": "u ilgoji",
+      "pronunciation": "[u:]",
+      "audio": "U_u_3"
+    },
+    {
+      "letter": "V v",
+      "name": "vė",
+      "pronunciation": "[v/vʲ]",
+      "audio": "V_v"
+    },
+    {
+      "letter": "Z z",
+      "name": "zė",
+      "pronunciation": "[z/zʲ]",
+      "audio": "Z_z"
+    },
+    {
+      "letter": "Ž ž",
+      "name": "žė",
+      "pronunciation": "[ʒ/ʑ]",
+      "audio": "Z_z_2"
+    }
+  ],
+  "other_letters": [
+    {
+      "letter": "ch",
+      "pronunciation": "[x/xʲ]"
+    },
+    {
+      "letter": "ie",
+      "pronunciation": "[i̯e/e]"
+    },
+    {
+      "letter": "dz",
+      "pronunciation": "[dz/dzʲ]"
+    },
+    {
+      "letter": "dž",
+      "pronunciation": "[dʒ/dʒʲ]"
+    }
+  ],
+  "diphthongs": [
+    "ai",
+    "ei",
+    "au",
+    "eu",
+    "iau",
+    "oi",
+    "ou",
+    "ui",
+    "uo"
+  ]
+}

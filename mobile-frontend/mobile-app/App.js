@@ -19,6 +19,7 @@ import LessonEditScreen from './screens/LessonEditScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import ResetPasswordConfirmScreen from './screens/ResetPasswordConfirmScreen';
 import AddSentenceScreen from './screens/AddSentenceScreen';
+import AlphabetScreen from './screens/AlphabetScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +62,7 @@ export default function App() {
           <Stack.Screen name="Import" component={ImportScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />
+          <Stack.Screen name="Alphabet" component={AlphabetScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen
             name="ResetPasswordConfirm"

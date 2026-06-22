@@ -1,5 +1,6 @@
 # backend/api/views.py
 
+from pathlib import Path
 import subprocess
 
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
@@ -16,7 +17,7 @@ from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, L
 from django.views.generic import TemplateView
 from .w_translate import translate_word
 
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -1354,3 +1355,78 @@ def ocr_image(request):
         translated_text = ''
 
     return JsonResponse({"text": text, "translation": translated_text})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def alphabet(request):
+
+    user_settings = UserSetting.objects.select_related(
+        'target_language'
+    ).get(user=request.user)
+
+    lang_code = user_settings.target_language.yt_dlp_lang
+
+    alphabet_dir = (
+        Path(settings.BASE_DIR)
+        / 'api'
+        / 'alphabets'
+        / f'{lang_code}_alphabet'
+    )
+
+    json_file = alphabet_dir / f'{lang_code}_alphabet.json'
+
+    print("BASE_DIR:", settings.BASE_DIR)
+    print("alphabet_dir:", alphabet_dir)
+    print("json_file:", json_file)
+    print("exists:", json_file.exists())
+
+    if not json_file.exists():
+        return JsonResponse(
+            {
+                'error': f'Alphabet not found for language {lang_code}'
+            },
+            status=404
+        )
+
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    audio_base_url = request.build_absolute_uri(
+        '/api/alphabets/audio/'
+    )
+
+    for item in data.get('alphabet', []):
+        filename = item['audio']
+
+        # ensure extension only added once
+        if not filename.endswith('.mp3'):
+            filename = f"{filename}.mp3"
+
+        item['audio'] = request.build_absolute_uri(
+            f"/api/alphabets/audio/{lang_code}/{filename}"
+        )
+
+    return JsonResponse(data)
+
+
+def alphabet_audio(request, lang_code, filename):
+    audio_file = (
+        Path(settings.BASE_DIR)
+        / 'api'
+        / 'alphabets'
+        / f'{lang_code}_alphabet'
+        / filename
+    )
+
+    print(audio_file)
+
+    if not audio_file.exists():
+        raise Http404("Audio file not found")
+
+    response = FileResponse(open(audio_file, 'rb'), content_type='audio/mpeg')
+
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Accept-Ranges"] = "bytes"
+
+    return response
