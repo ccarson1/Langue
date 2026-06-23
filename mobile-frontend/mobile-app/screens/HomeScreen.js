@@ -57,6 +57,7 @@ export default function HomeScreen({ navigation }) {
     const [showExitModal, setShowExitModal] = useState(false);
     const [description, setDescription] = useState('');
     const [lessonAudio, setLessonAudio] = useState(null);
+    const [hasAudio, setHasAudio] = useState(true);
 
     const soundRef = useRef(null);
     const [volume, setVolume] = useState(1.0);
@@ -225,9 +226,13 @@ export default function HomeScreen({ navigation }) {
         const cleanedWord = cleanText(word);
         setSelectedText(cleanedWord);
         const match = wordFrequencies.find(w => w.word.toLowerCase() === cleanedWord.toLowerCase());
-        setSelectedFrequency(match?.frequency ?? 0);
+        setSelectedFrequency(() => match?.frequency ?? 0);
         const translation = await translateWord(cleanedWord);
         setTranslatedText(translation);
+
+        console.log("Clicked word:", cleanedWord);
+        console.log("Matches:", wordFrequencies);
+        console.log("Found:", match);
     };
 
     const translateWord = async (word) => {
@@ -336,58 +341,7 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    useEffect(() => {
-        if (!token || !currentLesson || !serverIP) return;
 
-        const fetchAudio = async () => {
-            try {
-                const response = await fetch(
-                    `http://${serverIP}:8000/api/audio/`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                            lesson_id: currentLesson,
-                            current_lesson_index: index,
-                            full_audio: true,
-                        }),
-                    }
-                );
-
-                const blob = await response.blob();
-
-                if (Platform.OS === 'web') {
-                    const url = URL.createObjectURL(blob);
-                    setLessonAudio(url);
-                } else {
-                    const reader = new FileReader();
-
-                    reader.onloadend = async () => {
-                        const base64Data = reader.result.split(',')[1];
-
-                        const path =
-                            FileSystem.cacheDirectory +
-                            `lesson-audio-${currentLesson}.mp3`;
-
-                        await FileSystem.writeAsStringAsync(path, base64Data, {
-                            encoding: FileSystem.EncodingType.Base64,
-                        });
-
-                        setLessonAudio(path);
-                    };
-
-                    reader.readAsDataURL(blob);
-                }
-            } catch (e) {
-                console.error('Audio fetch failed:', e);
-            }
-        };
-
-        fetchAudio();
-    }, [token, currentLesson, serverIP]);
 
     useEffect(() => {
         if (!token || !serverIP) return;
@@ -475,6 +429,7 @@ export default function HomeScreen({ navigation }) {
                     setNativeLanguage(progressData.native_lang);
                     setTargetLanguage(progressData.target_lang);
                     setIndex(progressData.current_lesson_index || 0);
+
                 }
 
                 const lessonRes = await fetch(`http://${serverIP}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
@@ -484,6 +439,8 @@ export default function HomeScreen({ navigation }) {
                     console.log("Fetched lesson data:", parsed);
                     console.log("Current Lesson:", lessonData);
                     setRows(parsed);
+                    setHasAudio(lessonData.audioUploaded);
+                    console.log(lessonData.audioUploaded);
                 }
             } catch (err) {
                 console.error(err);
@@ -491,6 +448,71 @@ export default function HomeScreen({ navigation }) {
         };
         fetchLessonData();
     }, [token, currentLesson]);
+
+    useEffect(() => {
+        if (!token || !currentLesson || !serverIP) return;
+        //if (hasAudio === false) return;
+
+        const fetchAudio = async () => {
+            if (hasAudio === false) return;
+            try {
+                const response = await fetch(
+                    `http://${serverIP}:8000/api/audio/`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                            lesson_id: currentLesson,
+                            current_lesson_index: index,
+                            full_audio: true,
+                        }),
+                    }
+                );
+
+                if (response.status === 404) {
+                    console.log("No audio for this lesson");
+                    setLessonAudio(null);
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const blob = await response.blob();
+
+                if (Platform.OS === 'web') {
+                    const url = URL.createObjectURL(blob);
+                    setLessonAudio(url);
+                } else {
+                    const reader = new FileReader();
+
+                    reader.onloadend = async () => {
+                        const base64Data = reader.result.split(',')[1];
+
+                        const path =
+                            FileSystem.cacheDirectory +
+                            `lesson-audio-${currentLesson}.mp3`;
+
+                        await FileSystem.writeAsStringAsync(path, base64Data, {
+                            encoding: FileSystem.EncodingType.Base64,
+                        });
+
+                        setLessonAudio(path);
+                    };
+
+                    reader.readAsDataURL(blob);
+                }
+            } catch (e) {
+                console.error('Audio fetch failed:', e);
+            }
+        };
+
+        fetchAudio();
+    }, [token, currentLesson, serverIP]);
 
     useEffect(() => {
         const updateAudioSettings = async () => {

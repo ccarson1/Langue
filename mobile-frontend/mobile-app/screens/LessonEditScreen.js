@@ -14,6 +14,7 @@ import {
     Switch,
     Share,
     Platform,
+    Image,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,6 +36,11 @@ export default function LessonEditScreen({ route, navigation }) {
     const [url, setUrl] = useState('');
     const [lessonPrivate, setLessonPrivate] = useState(false);
     const [audioFile, setAudioFile] = useState(null);
+    const [audioName, setAudioName] = useState('');
+    const [imageFile, setImageFile] = useState(null);
+    const [lessonImage, setLessonImage] = useState(null);
+    const [imageName, setImageName] = useState('');
+    const [creationDate, setcreationDate] = useState(null);
     const [sentences, setSentences] = useState([]);
     const [sentencesExpanded, setSentencesExpanded] = useState(false);
     const [serverIP, setServerIP] = useState('');
@@ -84,6 +90,10 @@ export default function LessonEditScreen({ route, navigation }) {
             setUrl(data.url || '');
             setLessonPrivate(data.lesson_private || false);
             setSentences(data.sentences || []);
+            setLessonImage(data.image_data);
+            setImageName(data.image_name)
+            setAudioName(data.audio_name)
+            setcreationDate(data.created_at);
 
             // If your API returns audio duration, set it here:
             // if (data.audio_duration_ms) setAudioDurationMs(data.audio_duration_ms);
@@ -111,6 +121,21 @@ export default function LessonEditScreen({ route, navigation }) {
             formData.append('url', url);
             formData.append('lesson_private', lessonPrivate);
             formData.append('sentences', JSON.stringify(sentences));
+
+            if (imageFile) {
+                if (Platform.OS === 'web') {
+                    formData.append('image', imageFile.file);
+                } else {
+                    formData.append('image', {
+                        uri:
+                            Platform.OS === 'ios'
+                                ? imageFile.uri.replace('file://', '')
+                                : imageFile.uri,
+                        name: imageFile.name || 'image.jpg',
+                        type: imageFile.mimeType || 'image/jpeg',
+                    });
+                }
+            }
 
             if (audioFile) {
                 if (Platform.OS === 'web') {
@@ -198,6 +223,39 @@ export default function LessonEditScreen({ route, navigation }) {
                 <Text style={styles.label}>Lesson URL</Text>
                 <TextInput style={styles.input} value={url} onChangeText={setUrl} />
 
+
+                <Text style={styles.label}>Image Name</Text>
+                <TextInput style={styles.input} value={imageName} onChangeText={setImageName} />
+                <Image
+                    source={{
+                        uri: `data:image/jpeg;base64,${lessonImage}`
+                    }}
+                    style={{ width: 200, height: 200 }}
+                />
+                <TouchableOpacity
+                    style={styles.downloadButton}
+                    onPress={async () => {
+                        const result = await DocumentPicker.getDocumentAsync({
+                            type: 'image/*',
+                            copyToCacheDirectory: true,
+                        });
+
+                        if (result.assets && result.assets.length > 0) {
+                            setImageFile(result.assets[0]);
+                            setImageName(result.assets[0].name);
+                        }
+                    }}
+                >
+                    <Text style={styles.downloadButtonText}>
+                        {imageFile ? 'Image Selected' : 'Upload Image'}
+                    </Text>
+                </TouchableOpacity>
+
+
+
+
+
+
                 {/* Private */}
                 <View style={styles.switchRow}>
                     <Text style={styles.label}>Private Lesson</Text>
@@ -212,6 +270,7 @@ export default function LessonEditScreen({ route, navigation }) {
                 </View>
 
                 {/* Upload Audio */}
+                <Text style={styles.label}>{audioName}</Text>
                 <View style={styles.downloadRow}>
                     <TouchableOpacity
                         style={styles.downloadButton}
@@ -229,6 +288,7 @@ export default function LessonEditScreen({ route, navigation }) {
                             {audioFile ? 'Audio Selected' : 'Upload Audio'}
                         </Text>
                     </TouchableOpacity>
+
                 </View>
 
 

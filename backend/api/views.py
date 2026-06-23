@@ -42,6 +42,7 @@ import signal
 import re
 from datetime import timedelta
 from .ocr import OCR
+import base64
 
 lesson_import_progress = {} 
 RECORDINGS = {}
@@ -514,11 +515,21 @@ def edit_lesson(request, lesson_id):
 
         sentences = Sentence.objects.filter(lesson=lesson)
 
+        if lesson.image:
+            with lesson.image.open('rb') as f:
+                image_data = base64.b64encode(f.read()).decode('utf-8')
+
         data = {
             'id': lesson.id,
             'title': lesson.title,
             'url': lesson.url,
             'lesson_private': lesson.lesson_private,
+            'native_language': lesson.native_language.id,
+            'target_language': lesson.target_language.id,
+            'created_at' : lesson.created_at,
+            'image_data': image_data,
+            'image_name': os.path.basename(lesson.image.name) if lesson.image else None,
+            'audio_name': os.path.basename(lesson.audio_file.name) if lesson.audio_file else None,
 
             'sentences': [
                 {
@@ -543,8 +554,11 @@ def edit_lesson(request, lesson_id):
         lesson.url = request.data.get( 'url', lesson.url )
         lesson.lesson_private = str_to_bool(request.data.get('lesson_private'))
 
+        if 'image' in request.FILES:
+            lesson.image = request.FILES['image']
+
         if 'audio_file' in request.FILES:
-            lesson.audio_file = request.FILES.get('audio_file')
+            lesson.audio_file = request.FILES['audio_file']
 
         
 
@@ -571,11 +585,13 @@ def edit_lesson(request, lesson_id):
                     start_ms=s.get('start_ms', 0),
                     end_ms=s.get('end_ms', 0),
                     translated_sentence=s.get('translated_sentence', ''),
-                    lesson_language_id=lesson.native_language_id,
-                    translate_language_id=lesson.target_language_id,
+                    lesson_language_id=lesson.target_language_id,
+                    translate_language_id=lesson.native_language_id,
                 )
 
-        lesson.save()
+        #lesson.save()
+        print("Native Language:", lesson.native_language)
+        print("Target Language:", lesson.target_language )
 
         return Response({
             'message': 'Lesson updated successfully'
@@ -926,6 +942,7 @@ def lesson_detail_with_sentences(request, lesson_id):
             "audio_file": lesson.audio_file.url if lesson.audio_file else None,
             "native_language": native_language_id,
             "target_language": target_language_id,
+            'audioUploaded': lesson.audioUploaded,
             "sentences": [
                 {
                     "id": s.id,
@@ -961,11 +978,13 @@ def get_audio(request):
         try:
             lesson = Lesson.objects.get(id=lesson_id)
 
-            print(f"A single audio file has been requested for {lesson_id}")
+            if not lesson.audio_folder:
+                return Response(
+                    {'error': 'Lesson has no audio'},
+                    status=404
+                )
 
             audio_folder = lesson.audio_folder
-
-            print("Audio folder:", audio_folder)
 
             audio_path = os.path.join(
                 os.path.dirname(audio_folder),
@@ -973,20 +992,24 @@ def get_audio(request):
             )
 
             print("FULL AUDIO PATH:", audio_path)
-            print("FILE EXISTS:", os.path.exists(audio_path))
 
-            response = FileResponse(open(audio_path, 'rb'), content_type='audio/mp4')
+            if not os.path.exists(audio_path):
+                return Response(
+                    {'error': 'Lesson audio file not found'},
+                    status=404
+                )
+
+            response = FileResponse(
+                open(audio_path, 'rb'),
+                content_type='audio/mpeg'
+            )
             response["Content-Length"] = os.path.getsize(audio_path)
             response["Accept-Ranges"] = "bytes"
+
             return response
 
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=404)
-        except ValueError:
-            return Response({'error': 'Invalid index format'}, status=400)
-        except Exception as e:
-            print("Audio error:", str(e))
-            return Response({'error': 'Server error while fetching audio'}, status=500)
 
     else:
 
@@ -1230,9 +1253,14 @@ def sentence_word_frequency(request):
         sentence.sentence.lower()
     )
 
+    print("Words: ", words)
+
     result = []
 
     for word_text in words:
+
+        print("WORD:", word_text)
+        print("LESSON LANGUAGE:", sentence.lesson_language)
 
         frequency = 0.0
         has_translation = False
@@ -1243,6 +1271,8 @@ def sentence_word_frequency(request):
             language=sentence.lesson_language
         ).first()
 
+        print("WORD OBJ:", word_obj)
+
         if word_obj:
 
             has_translation = WordTranslation.objects.filter(
@@ -1250,6 +1280,8 @@ def sentence_word_frequency(request):
                 native_language=sentence.translate_language,
                 target_language=sentence.lesson_language
             ).exists()
+
+            print("HAS TRANSLATION:", has_translation)
 
             if has_translation:
 
