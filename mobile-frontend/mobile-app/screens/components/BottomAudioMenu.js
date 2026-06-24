@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -6,13 +6,13 @@ import {
     Animated,
     Switch,
     StyleSheet,
+    ScrollView,
 } from 'react-native';
 
 import Slider from '@react-native-community/slider';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AudioWaveVisualizer from './AudioWaveVisualizer';
-import AntDesign from '@expo/vector-icons/AntDesign';
-import { FontAwesome } from '@expo/vector-icons';
+import PronunciationComponent from './PronunciationComponent';
 
 export default function BottomAudioMenu({
     volume,
@@ -29,19 +29,28 @@ export default function BottomAudioMenu({
     showAudioVisualizer = false,
     lessonId = null,
     audioDurationMs = null,
+    targetText = '',
 }) {
 
     const [expanded, setExpanded] = useState(false);
+    const [isPhraseMode, setIsPhraseMode] = useState(true);
 
-    const containerHeight = showAudioVisualizer ? 460 : 260;
+    // Dynamic height
+    const containerHeight = useMemo(() => {
+        let height = 260;
+
+        if (showAudioVisualizer) height += 160;
+        if (targetText) height += 240;
+
+        return Math.min(height, 620); // Cap max height
+    }, [showAudioVisualizer, targetText]);
 
     const slideAnim = useRef(new Animated.Value(35)).current;
 
     const toggleMenu = () => {
-
         Animated.timing(slideAnim, {
             toValue: expanded ? 35 : containerHeight,
-            duration: 250,
+            duration: 300,
             useNativeDriver: false,
         }).start();
 
@@ -49,19 +58,8 @@ export default function BottomAudioMenu({
     };
 
     return (
-        <Animated.View
-            style={[
-                styles.container,
-                {
-                    height: slideAnim,
-                },
-            ]}
-        >
-
-            <TouchableOpacity
-                style={styles.handle}
-                onPress={toggleMenu}
-            >
+        <Animated.View style={[styles.container, { height: slideAnim }]}>
+            <TouchableOpacity style={styles.handle} onPress={toggleMenu}>
                 <MaterialIcons
                     name={expanded ? "keyboard-arrow-down" : "keyboard-arrow-up"}
                     size={30}
@@ -70,84 +68,87 @@ export default function BottomAudioMenu({
             </TouchableOpacity>
 
             {expanded && (
-                <View style={[styles.content, !showToggles && styles.contentNoToggles]} >
+                <ScrollView 
+                    style={styles.scrollContent}
+                    contentContainerStyle={styles.contentContainer}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.mainRow}>
 
-                    {/* LEFT SIDE - SLIDERS */}
-                    <View style={[styles.leftColumn, !showToggles && styles.fullWidthColumn]} >
+                        {/* LEFT: Sliders */}
+                        <View style={styles.leftColumn}>
+                            <View style={styles.sliderCard}>
+                                <Text style={styles.label}>Volume</Text>
+                                <Text style={styles.value}>{Math.round(volume * 100)}%</Text>
+                                <Slider
+                                    style={styles.slider}
+                                    minimumValue={0}
+                                    maximumValue={1}
+                                    value={volume}
+                                    onValueChange={setVolume}
+                                />
+                            </View>
 
-                        {/* Volume */}
-                        <View style={styles.sliderCard}>
-                            <Text style={styles.label}>
-                                Volume
-                            </Text>
-
-                            <Text style={styles.value}>
-                                {Math.round(volume * 100)}%
-                            </Text>
-
-                            <Slider
-                                style={styles.slider}
-                                minimumValue={0}
-                                maximumValue={1}
-                                value={volume}
-                                onValueChange={setVolume}
-                            />
+                            <View style={styles.sliderCard}>
+                                <Text style={styles.label}>Speed</Text>
+                                <Text style={styles.value}>{playbackRate.toFixed(1)}x</Text>
+                                <Slider
+                                    style={styles.slider}
+                                    minimumValue={0.5}
+                                    maximumValue={2}
+                                    step={0.1}
+                                    value={playbackRate}
+                                    onValueChange={setPlaybackRate}
+                                />
+                            </View>
                         </View>
 
-                        {/* Playback Speed */}
-                        <View style={styles.sliderCard}>
-                            <Text style={styles.label}>
-                                Speed
-                            </Text>
+                        {/* RIGHT: Toggles + Pronunciation */}
+                        <View style={styles.rightColumn}>
+                            {showToggles && (
+                                <>
+                                    <View style={styles.toggleCard}>
+                                        <Text style={styles.label}>Repeat</Text>
+                                        <Switch value={repeat} onValueChange={setRepeat} />
+                                    </View>
+                                    <View style={styles.toggleCard}>
+                                        <Text style={styles.label}>Repeat All</Text>
+                                        <Switch value={repeatAll} onValueChange={setRepeatAll} />
+                                    </View>
+                                    <View style={styles.toggleCard}>
+                                        <Text style={styles.label}>Shuffle</Text>
+                                        <Switch value={shuffle} onValueChange={setShuffle} />
+                                    </View>
+                                </>
+                            )}
 
-                            <Text style={styles.value}>
-                                {playbackRate.toFixed(1)}x
-                            </Text>
+                            {targetText && (
+                                <View style={styles.pronunciationSection}>
+                                    <Text style={styles.sectionTitle}>Pronunciation Practice</Text>
 
-                            <Slider
-                                style={styles.slider}
-                                minimumValue={0.5}
-                                maximumValue={2}
-                                step={0.1}
-                                value={playbackRate}
-                                onValueChange={setPlaybackRate}
-                            />
+                                    <View style={styles.modeToggleContainer}>
+                                        <Text style={styles.toggleLabel}>Word</Text>
+                                        <Switch
+                                            trackColor={{ false: '#555', true: '#00adb5' }}
+                                            thumbColor={isPhraseMode ? '#eeeeee' : '#222831'}
+                                            onValueChange={setIsPhraseMode}
+                                            value={isPhraseMode}
+                                        />
+                                        <Text style={styles.toggleLabel}>Phrase</Text>
+                                    </View>
+
+                                    <PronunciationComponent
+                                        targetText={targetText}
+                                        isPhraseMode={isPhraseMode}
+                                    />
+                                </View>
+                            )}
                         </View>
-
                     </View>
 
-                    {/* RIGHT SIDE - TOGGLES */}
-                    {showToggles && (
-                        <View style={styles.rightColumn}>
-
-                            <View style={styles.toggleCard}>
-                                <Text style={styles.label}>Repeat</Text>
-                                <Switch
-                                    value={repeat}
-                                    onValueChange={setRepeat}
-                                />
-                            </View>
-
-                            <View style={styles.toggleCard}>
-                                <Text style={styles.label}>Repeat All</Text>
-                                <Switch
-                                    value={repeatAll}
-                                    onValueChange={setRepeatAll}
-                                />
-                            </View>
-
-                            <View style={styles.toggleCard}>
-                                <Text style={styles.label}>Shuffle</Text>
-                                <Switch
-                                    value={shuffle}
-                                    onValueChange={setShuffle}
-                                />
-                            </View>
-
-                        </View>
-                    )}
+                    {/* FULL WIDTH AUDIO VISUALIZER */}
                     {showAudioVisualizer && (
-                        <View>
+                        <View style={styles.visualizerContainer}>
                             <Text style={styles.label}>Audio Visualizer</Text>
                             <AudioWaveVisualizer
                                 lessonId={lessonId}
@@ -155,96 +156,113 @@ export default function BottomAudioMenu({
                                 volume={volume}
                                 playbackRate={playbackRate}
                             />
-
                         </View>
-
                     )}
-
-                </View>
+                </ScrollView>
             )}
         </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
-
     container: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
         backgroundColor: 'rgb(48, 71, 94)',
-        //backgroundColor: 'rgb(57, 62, 70)',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         overflow: 'hidden',
         zIndex: 999,
     },
-
     handle: {
         height: 40,
         justifyContent: 'center',
         alignItems: 'center',
     },
-
-    content: {
+    scrollContent: {
         flex: 1,
+    },
+    contentContainer: {
+        paddingHorizontal: 12,
+        paddingBottom: 20,
+        gap: 12,
+    },
+    mainRow: {
         flexDirection: 'row',
-        paddingHorizontal: 10,
-        paddingBottom: 14,
-        gap: 10,
+        gap: 12,
     },
-
     leftColumn: {
-        flex: 1.9,
+        flex: 1.35,
     },
-
     rightColumn: {
         flex: 1,
-        justifyContent: 'space-between',
+        gap: 10,
     },
-
-    sliderCard: {
-        // backgroundColor: '#1c1c1c',
-        // borderRadius: 16,
-        padding: 10,
-        marginBottom: 10,
+    sliderCard: { 
+        padding: 8, 
+        marginBottom: 8 
     },
-
     toggleCard: {
-        // backgroundColor: '#1c1c1c',
-        // borderRadius: 16,
-        // padding: 5,
-        paddingHorizontal: 5,
+        paddingHorizontal: 8,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-
-        minHeight: 20,
+        minHeight: 36,
     },
-
     label: {
         color: 'white',
-        fontSize: 12,
-        marginBottom: 3,
+        fontSize: 13,
+        marginBottom: 4,
     },
-
     value: {
         color: '#aaa',
-        marginBottom: 3,
-        fontSize: 12,
+        marginBottom: 4,
+        fontSize: 13,
+    },
+    slider: { 
+        width: '100%', 
+        height: 14 
     },
 
-    slider: {
+    /* Pronunciation */
+    pronunciationSection: {
+        marginTop: 8,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#55677f',
+    },
+    sectionTitle: {
+        color: '#eeeeee',
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    modeToggleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        marginBottom: 12,
+        backgroundColor: '#2c3a4a',
+        paddingVertical: 6,
+        paddingHorizontal: 16,
+        borderRadius: 30,
+    },
+    toggleLabel: {
+        color: '#eeeeee',
+        fontSize: 15,
+        fontWeight: '500',
+    },
+
+    /* Visualizer */
+    visualizerContainer: {
         width: '100%',
-        height: 12,
+        marginTop: 8,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#55677f',
     },
-    contentNoToggles: {
-        flexDirection: 'column',
-    },
-
-    fullWidthColumn: {
-        flex: 1,
-    },
-
 });

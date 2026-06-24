@@ -43,6 +43,8 @@ import re
 from datetime import timedelta
 from .ocr import OCR
 import base64
+import random
+from .utils.pronunciation_evaluator import evaluate_pronunciation
 
 lesson_import_progress = {} 
 RECORDINGS = {}
@@ -1462,3 +1464,81 @@ def alphabet_audio(request, lang_code, filename):
     response["Accept-Ranges"] = "bytes"
 
     return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_practice_item(request):
+    """GET /api/practice/?mode=word or ?mode=phrase"""
+    mode = request.query_params.get('mode', 'phrase').lower()
+    user = request.user
+
+    try:
+        user_setting = UserSetting.objects.filter(user=user).first()
+        if not user_setting:
+            return Response({"error": "User settings not found. Please set your languages."}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+
+        target_lang = user_setting.target_language
+
+        if mode == 'word':
+            user_words = UserWord.objects.filter(
+                user=user,
+                word__language=target_lang
+            ).select_related('word')
+
+            if not user_words.exists():
+                return Response({"error": "No words available for practice"}, 
+                              status=status.HTTP_404_NOT_FOUND)
+
+            user_word = random.choice(list(user_words))
+            text = user_word.word.word
+
+        elif mode == 'phrase':
+            sentences = Sentence.objects.filter(
+                lesson_language=target_lang
+            )
+
+            if not sentences.exists():
+                return Response({"error": "No sentences available for practice"}, 
+                              status=status.HTTP_404_NOT_FOUND)
+
+            sentence = random.choice(list(sentences))
+            text = sentence.sentence
+
+        else:
+            return Response({"error": "Invalid mode"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            "text": text,
+            "type": mode,
+        })
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def evaluate_pronunciation_view(request):
+    """POST /api/practice/evaluate/"""
+    try:
+        text = request.data.get('text')
+        mode = request.data.get('mode', 'phrase')
+        audio_file = request.FILES.get('audio')
+
+        if not text or not audio_file:
+            return Response({"error": "Text and audio file are required"}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+
+        result = evaluate_pronunciation(audio_file, text, mode, request.user)
+
+        return Response({
+            "correct": result["correct"],
+            "message": result["feedback"],
+            "score": result["score"],
+            "recognized": result.get("recognized", ""),
+        })
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

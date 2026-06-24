@@ -1,26 +1,42 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { StyleSheet, Animated, Easing } from 'react-native';
 
 export default function StatusIndicator({ frequency = 0 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
+  const animationRef = useRef(null);
+
   const normalized = Math.max(0, Math.min(frequency, 100)) / 100;
 
-const interpolateColor = (value) => {
-  const r1 = 244, g1 = 67,  b1 = 54;
-  const r2 = 76, g2 = 175, b2 = 80;
+  const interpolateColor = (value) => {
+    const r1 = 244, g1 = 67,  b1 = 54;
+    const r2 = 76,  g2 = 175, b2 = 80;
 
-  const r = Math.round(r1 + (r2 - r1) * value);
-  const g = Math.round(g1 + (g2 - g1) * value);
-  const b = Math.round(b1 + (b2 - b1) * value);
+    const r = Math.round(r1 + (r2 - r1) * value);
+    const g = Math.round(g1 + (g2 - g1) * value);
+    const b = Math.round(b1 + (b2 - b1) * value);
 
-  return `rgb(${r}, ${g}, ${b})`;
-};
+    return `rgb(${r}, ${g}, ${b})`;
+  };
 
-  const color = frequency <= 0 ? '#9E9E9E' : interpolateColor(normalized);
+  const color = frequency <= 0
+    ? '#9E9E9E'
+    : interpolateColor(normalized);
 
   useEffect(() => {
-    Animated.loop(
+    if (frequency <= 0) {
+      // Stop animation
+      animationRef.current?.stop();
+
+      // Reset to normal size and opacity
+      scaleAnim.setValue(1);
+      opacityAnim.setValue(1);
+
+      return;
+    }
+
+    // Start animation
+    animationRef.current = Animated.loop(
       Animated.sequence([
         Animated.parallel([
           Animated.timing(scaleAnim, {
@@ -49,8 +65,14 @@ const interpolateColor = (value) => {
           }),
         ]),
       ])
-    ).start();
-  }, []);
+    );
+
+    animationRef.current.start();
+
+    return () => {
+      animationRef.current?.stop();
+    };
+  }, [frequency]);
 
   return (
     <Animated.View
@@ -75,12 +97,10 @@ const styles = StyleSheet.create({
     right: 12,
     width: 14,
     height: 14,
-    backgroundColor: '#4CAF50', // status-active
     borderRadius: 7,
-    shadowColor: '#4CAF50',     // status-active-shadow-1
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 5,
-    elevation: 6, // Android shadow
+    elevation: 6,
   },
 });

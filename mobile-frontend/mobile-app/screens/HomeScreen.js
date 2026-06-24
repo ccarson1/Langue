@@ -617,6 +617,7 @@ export default function HomeScreen({ navigation }) {
                         contentContainerStyle={styles.wordWrap}
                         showsVerticalScrollIndicator={true}
                     >
+                        {console.log(rows[index]?.[1])}
                         {rows[index]?.[1].split(' ').map((word, i) => (
                             <Text
                                 key={i}
@@ -764,6 +765,7 @@ export default function HomeScreen({ navigation }) {
                         </TouchableOpacity>
                     )}
 
+
                     {user && (
                         <TouchableOpacity
                             onPress={() => {
@@ -875,6 +877,7 @@ export default function HomeScreen({ navigation }) {
                 playbackRate={playbackRate}
                 setPlaybackRate={setPlaybackRate}
                 showToggles={false}
+                targetText={rows[index]?.[1]}
             />
 
             <LoadingOverlay visible={loading} />

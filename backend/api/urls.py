@@ -37,5 +37,7 @@ urlpatterns = [
     path('record/stop/', views.stop_record, name='stop_record'),
     path( 'alphabet/', views.alphabet, name='alphabet' ),
     path( 'alphabets/audio/<str:lang_code>/<str:filename>', views.alphabet_audio, name='alphabet_audio' ),
+    path('practice/', views.get_practice_item, name='get_practice'),
+    path('practice/evaluate/', views.evaluate_pronunciation_view, name='evaluate_pronunciation'),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
