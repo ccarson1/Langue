@@ -70,6 +70,7 @@ class UserWord(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     word = models.ForeignKey(Word, db_column='word_id', on_delete=models.CASCADE)
     frequency = models.DecimalField(max_digits=6, decimal_places=3, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)], default=0.000)
+    clicks = models.PositiveIntegerField(default=0)
     creation_date = models.DateField(default=timezone.now)
     review_date = models.DateField(default=timezone.now)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
@@ -191,7 +192,7 @@ class Profile(models.Model):
     logged_hours = models.IntegerField(default=0)
     graph_type = models.CharField(max_length=20, blank=True, null=True)
     native_language = models.ForeignKey(Language, db_column='native_id', on_delete=models.SET_NULL, null=True, related_name='users_native')
-    current_lesson = models.ForeignKey(UserLessonsProgress, db_column='lesson_progress', on_delete=models.SET_NULL, null=True)
+    current_lesson = models.ForeignKey(UserLessonsProgress, db_column='lesson_progress', on_delete=models.SET_NULL, blank=True, null=True)
 
     # For languages field:
     # If you use PostgreSQL, you can use JSONField as below.
@@ -201,3 +202,36 @@ class Profile(models.Model):
     class Meta:
         db_table = 'Profile'
 
+
+
+class Channel(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    user = models.ForeignKey( User, db_column='user_id', on_delete=models.CASCADE, related_name='channels' )
+    channel_img = models.CharField(max_length=255, blank=True, null=True)
+    channel_name = models.CharField(max_length=30)
+    channel_url = models.URLField(max_length=1000, blank=True, null=True)
+    native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='channel_native')
+    channel_private = models.BooleanField(default=False)
+    is_favorite = models.BooleanField(default=False, db_column='is_favorite')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ChannelVote(models.Model):
+    LIKE = 1
+    DISLIKE = -1
+    VOTE_CHOICES = ( (LIKE, 'Like'), (DISLIKE, 'Dislike'), )
+    channel = models.ForeignKey( Channel, on_delete=models.CASCADE, related_name='votes' )
+    user = models.ForeignKey( User, on_delete=models.CASCADE )
+    vote = models.SmallIntegerField( choices=VOTE_CHOICES )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('channel', 'user')
+
+    @property
+    def likes_count(self):
+        return self.votes.filter(vote=1).count()
+
+    @property
+    def dislikes_count(self):
+        return self.votes.filter(vote=-1).count()

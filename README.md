@@ -13,6 +13,15 @@ cd dist
 python -m http.server 8080
 
 
+# Create django superuser
+python manage.py migrate
+python manage.py createsuperuser
+
+
+# Populate database
+Add Languages
+
+# Manually create profile for superuser
 
 # Run Django
 # Needs to be run with 0.0.0.0:8000 to be accessible to other devices on the network
@@ -74,3 +83,42 @@ npx expo prebuild --clean
 npx expo run:android
 
 app/build/outputs/apk/release/app-release.apk
+
+
+
+
+
+# TV Channels
+
+// const CHANNELS = [
+//   {
+//     id: '1',
+//     name: 'Radijas',
+//     url: 'https://stream-live.lrt.lt/radijas/stream03/streamPlaylist.m3u8',
+//   },
+//   {
+//     id: '2',
+//     name: 'Opus',
+//     url: 'https://stream-live.lrt.lt/opus/stream03/streamPlaylist.m3u8',
+//   },
+//   {
+//     id: '3',
+//     name: 'Klasika',
+//     url: 'https://stream-live.lrt.lt/klasika/stream03/streamPlaylist.m3u8',
+//   },
+//   {
+//     id: '4',
+//     name: 'TV3 Ⓢ',
+//     url: 'https://live.lietuvosryto.tv/live/hls/eteris.m3u8',
+//   },
+//   {
+//     id: '5',
+//     name: 'foxkidstv',
+//     url: 'https://foxkidstv.be:3369/stream/play.m3u8',
+//   },
+//   {
+//     id: '6',
+//     name: 'mcdn',
+//     url: 'https://daserste-live.ard-mcdn.de/daserste/live/hls/de/master.m3u8',
+//   },
+// ];

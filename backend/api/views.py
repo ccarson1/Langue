@@ -12,7 +12,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel
+from django.db.models import Q
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
@@ -1542,3 +1543,44 @@ def evaluate_pronunciation_view(request):
 
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def channels(request):
+
+    settings = UserSetting.objects.get(user=request.user)
+
+    print("User:", request.user)
+    print("Settings:", settings)
+    print("Native:", settings.target_language_id)
+
+    channels = Channel.objects.filter(
+        native_language_id=settings.target_language_id,
+        channel_private=False
+    ) & Channel.objects.filter(
+        user=request.user
+    )
+    for c in channels:
+        print(c.native_language)
+        print(c.id, c.native_language_id)
+
+    channels = channels.distinct()
+
+    print("Found Channels:", list(channels))
+
+    data = [
+        {
+            "id": c.id,
+            "name": c.channel_name,
+            "url": c.channel_url,
+            "owner": c.user.username,
+            "private": c.channel_private,
+            "is_favorite": c.is_favorite
+        }
+        for c in channels
+    ]
+
+    print("Found Channels:", channels)
+
+    return Response(data)

@@ -21,38 +21,7 @@ import { getServerIP } from '../utils/config';
 
 const { width } = Dimensions.get('window');
 
-const CHANNELS = [
-  {
-    id: '1',
-    name: 'Radijas',
-    url: 'https://stream-live.lrt.lt/radijas/stream03/streamPlaylist.m3u8',
-  },
-  {
-    id: '2',
-    name: 'Opus',
-    url: 'https://stream-live.lrt.lt/opus/stream03/streamPlaylist.m3u8',
-  },
-  {
-    id: '3',
-    name: 'Klasika',
-    url: 'https://stream-live.lrt.lt/klasika/stream03/streamPlaylist.m3u8',
-  },
-  {
-    id: '4',
-    name: 'TV3 Ⓢ',
-    url: 'https://live.lietuvosryto.tv/live/hls/eteris.m3u8',
-  },
-  {
-    id: '5',
-    name: 'foxkidstv',
-    url: 'https://foxkidstv.be:3369/stream/play.m3u8',
-  },
-  {
-    id: '6',
-    name: 'mcdn',
-    url: 'https://daserste-live.ard-mcdn.de/daserste/live/hls/de/master.m3u8',
-  },
-];
+
 
 async function getM3U8Metadata(url) {
   const res = await fetch(url);
@@ -124,7 +93,6 @@ function Player({ source }) {
 }
 
 export default function LiveTVPlayer({ navigation }) {
-  const [selectedChannel, setSelectedChannel] = useState(CHANNELS[0]);
   const [token, setToken] = useState(null);
   const [serverIP, setServerIP] = useState('');
   const [recording, setRecording] = useState(false);
@@ -132,6 +100,14 @@ export default function LiveTVPlayer({ navigation }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [user, setUser] = useState(null);
   const [metadata, setMetadata] = useState(null);
+  const [channels, setChannels] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const favoriteChannels = React.useMemo(
+    () => channels.filter(c => c.is_favorite),
+    [channels]
+  );
 
   const decodeToken = (token) => {
     try {
@@ -163,6 +139,44 @@ export default function LiveTVPlayer({ navigation }) {
   }, []);
 
   useEffect(() => {
+    const loadChannels = async () => {
+      try {
+        setLoading(true);
+
+        const ip = await getServerIP();
+        setServerIP(ip);
+
+        const storedToken = await AsyncStorage.getItem('accessToken');
+
+        const res = await fetch(`http://${ip}:8000/api/channels/`, {
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+
+        const data = await res.json();
+
+        setChannels(data);
+        console.log("FIRST CHANNEL:", channels[0]);
+
+        // IMPORTANT: set default selected channel safely
+        if (data.length > 0) {
+          setSelectedChannel(data[0]);
+        }
+
+      } catch (err) {
+        console.error("Failed to load channels:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChannels();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChannel?.url) return;
+
     const loadMetadata = async () => {
       try {
         const data = await getM3U8Metadata(selectedChannel.url);
@@ -174,6 +188,8 @@ export default function LiveTVPlayer({ navigation }) {
 
     loadMetadata();
   }, [selectedChannel]);
+
+
 
   useEffect(() => {
     let loop;
@@ -256,7 +272,18 @@ export default function LiveTVPlayer({ navigation }) {
     }
   };
 
+
+
+  if (loading || !selectedChannel) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#222831', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: 'white' }}>Loading channels...</Text>
+      </View>
+    );
+  }
+
   return (
+
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -322,7 +349,7 @@ export default function LiveTVPlayer({ navigation }) {
 
         {/* Horizontal Netflix-style row */}
         <FlatList
-          data={CHANNELS}
+          data={favoriteChannels}
           horizontal
           keyExtractor={(item) => item.id}
           showsHorizontalScrollIndicator={false}
@@ -349,7 +376,61 @@ export default function LiveTVPlayer({ navigation }) {
 
         {/* Horizontal Netflix-style row */}
         <FlatList
-          data={CHANNELS}
+          data={channels}
+          horizontal
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.row}
+          renderItem={({ item }) => {
+            const active = selectedChannel.id === item.id;
+
+            return (
+              <Pressable
+                onPress={() => setSelectedChannel(item)}
+                style={[
+                  styles.card,
+                  active && styles.cardActive,
+                ]}
+              >
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <View style={styles.cardGlow} />
+              </Pressable>
+            );
+          }}
+        />
+
+        <Text style={styles.sectionTitle}>Most Liked</Text>
+
+        {/* Horizontal Netflix-style row */}
+        <FlatList
+          data={[]}
+          horizontal
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.row}
+          renderItem={({ item }) => {
+            const active = selectedChannel.id === item.id;
+
+            return (
+              <Pressable
+                onPress={() => setSelectedChannel(item)}
+                style={[
+                  styles.card,
+                  active && styles.cardActive,
+                ]}
+              >
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <View style={styles.cardGlow} />
+              </Pressable>
+            );
+          }}
+        />
+
+        <Text style={styles.sectionTitle}>Newest</Text>
+
+        {/* Horizontal Netflix-style row */}
+        <FlatList
+          data={[]}
           horizontal
           keyExtractor={(item) => item.id}
           showsHorizontalScrollIndicator={false}
