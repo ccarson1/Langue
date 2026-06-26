@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence
+from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone 
 
@@ -132,4 +132,25 @@ class LessonSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.image and request:
             return request.build_absolute_uri(obj.image.url)
+        return None
+    
+class RecordingSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Recording
+        fields = [
+            "id",
+            "record_name",
+            "record_img",
+            "record_file",
+            "url",
+            "created_at",
+            "is_favorite",
+        ]
+
+    def get_url(self, obj):
+        request = self.context.get("request")
+        if obj.record_file:
+            return request.build_absolute_uri(obj.record_file.url)
         return None

@@ -103,6 +103,9 @@ export default function LiveTVPlayer({ navigation }) {
   const [channels, setChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recordings, setRecordings] = useState([]);
+  const [nativeLanguage, setNativeLanguage] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('');
 
   const favoriteChannels = React.useMemo(
     () => channels.filter(c => c.is_favorite),
@@ -138,6 +141,8 @@ export default function LiveTVPlayer({ navigation }) {
     init();
   }, []);
 
+
+
   useEffect(() => {
     const loadChannels = async () => {
       try {
@@ -157,6 +162,7 @@ export default function LiveTVPlayer({ navigation }) {
         const data = await res.json();
 
         setChannels(data);
+
         console.log("FIRST CHANNEL:", channels[0]);
 
         // IMPORTANT: set default selected channel safely
@@ -189,7 +195,50 @@ export default function LiveTVPlayer({ navigation }) {
     loadMetadata();
   }, [selectedChannel]);
 
+  const loadRecordings = async () => {
+    try {
+      const ip = await getServerIP();
+      const storedToken = await AsyncStorage.getItem("accessToken");
 
+      const res = await fetch(`http://${ip}:8000/api/recordings/`, {
+        headers: {
+          Authorization: `Bearer ${storedToken}`,
+        },
+      });
+
+      const data = await res.json();
+      console.log("Recordings:", data)
+
+      setRecordings(data);
+
+    } catch (err) {
+      console.error("Failed to load recordings:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadRecordings();
+  }, []);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const ip = await getServerIP();
+      const storedToken = await AsyncStorage.getItem("accessToken");
+
+      const res = await fetch(`http://${ip}:8000/api/settings/`, {
+        headers: {
+          Authorization: `Bearer ${storedToken}`,
+        },
+      });
+
+      const settings = await res.json();
+
+      setNativeLanguage(settings.native_language);
+      setTargetLanguage(settings.target_language);
+    };
+
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     let loop;
@@ -235,6 +284,7 @@ export default function LiveTVPlayer({ navigation }) {
         body: JSON.stringify({
           url: selectedChannel.url,
           channel_id: selectedChannel.id,
+          language_id: targetLanguage
         }),
       });
 
@@ -252,13 +302,19 @@ export default function LiveTVPlayer({ navigation }) {
     try {
       if (!recordingId) return;
 
+      console.log("language_ID:", targetLanguage)
+
       const res = await fetch(`${API_BASE}/api/record/stop/`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
           recording_id: recordingId,
+          channel_id: selectedChannel.id,
+          language_id: targetLanguage,
         }),
       });
+
+      console.log("language_ID:", targetLanguage)
 
       const data = await res.json();
 
@@ -386,7 +442,10 @@ export default function LiveTVPlayer({ navigation }) {
 
             return (
               <Pressable
-                onPress={() => setSelectedChannel(item)}
+                onPress={() => {
+                  console.log(item);
+                  setSelectedChannel(item);
+                }}
                 style={[
                   styles.card,
                   active && styles.cardActive,
@@ -451,6 +510,43 @@ export default function LiveTVPlayer({ navigation }) {
               </Pressable>
             );
           }}
+        />
+
+        <Text style={styles.sectionTitle}>Recordings</Text>
+
+        {/* Horizontal Netflix-style row */}
+        <FlatList
+          data={recordings}
+          horizontal
+          keyExtractor={(item) => item.id.toString()}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.row}
+          renderItem={({ item }) => (
+
+            <Pressable
+              style={styles.card}
+              onPress={() => {
+                setSelectedChannel(item)
+                console.log(item);
+              }}
+            >
+              <Text style={styles.cardTitle}>
+                {item.record_name}
+              </Text>
+
+              <Text
+                style={{
+                  color: "#ccc",
+                  fontSize: 12,
+                  marginTop: 5,
+                }}
+              >
+                {new Date(item.created_at).toLocaleDateString()}
+              </Text>
+
+            </Pressable>
+
+          )}
         />
 
       </ScrollView>

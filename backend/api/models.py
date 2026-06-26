@@ -12,6 +12,9 @@ def lesson_file_upload_path(instance, filename):
 def audio_file_upload_path(instance, filename):
     return f'lessons/{instance.uuid}/audio/{filename}'
 
+def record_file_upload_path(instance, filename):
+    return f'record/{filename}'
+
 def image_file_upload_path(instance, filename):
     return f'images/{filename}'
 
@@ -234,3 +237,18 @@ class ChannelVote(models.Model):
     @property
     def dislikes_count(self):
         return self.votes.filter(vote=-1).count()
+
+
+class Recording(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    user = models.ForeignKey( User, db_column='user_id', on_delete=models.CASCADE, related_name='recordings' )
+    record_img = models.CharField(max_length=255, blank=True, null=True)
+    record_name = models.CharField(max_length=30)
+    record_file = models.FileField(upload_to=record_file_upload_path, null=True, blank=True)
+    record_folder = models.CharField(max_length=500, blank=True, null=True)
+    record_channel = models.ForeignKey( Channel, on_delete=models.CASCADE, related_name='record_channel' )
+    native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='record_native')
+    record_private = models.BooleanField(default=False)
+    is_favorite = models.BooleanField(default=False, db_column='record_is_favorite')
+    record_lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)

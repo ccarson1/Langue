@@ -35,6 +35,7 @@ urlpatterns = [
     path('lesson-import-progress/', views.lesson_import_progress_view, name='lesson_import_progress'),
     path('record/start/', views.start_record, name='start_record'),
     path('record/stop/', views.stop_record, name='stop_record'),
+    path("recordings/", views.recordings, name='recordings'),
     path('channels/', views.channels, name='channels'),
     path('alphabet/', views.alphabet, name='alphabet'),
     path('alphabets/audio/<str:lang_code>/<str:filename>', views.alphabet_audio, name='alphabet_audio'),

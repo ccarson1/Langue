@@ -12,9 +12,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording
 from django.db.models import Q
-from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer
+from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
 
@@ -1204,8 +1204,12 @@ def start_record(request):
     })
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def stop_record(request):
     recording_id = request.data["recording_id"]
+    language_name = request.data["language_id"]
+
+    print("Langauge_id:", language_name)
 
     process = RECORDINGS.get(recording_id)
 
@@ -1219,12 +1223,42 @@ def stop_record(request):
 
         del RECORDINGS[recording_id]
 
-    file_url = f"https://localhost/media/records/{recording_id}.mp4"
+    # Path relative to MEDIA_ROOT
+    relative_path = f"records/{recording_id}.mp4"
+
+    recording = Recording.objects.create(
+        user=request.user,
+        record_name=recording_id,
+        record_file=relative_path,
+        record_folder="records",
+        record_channel=Channel.objects.get(pk=request.data["channel_id"]),
+        native_language = Language.objects.get(lang_name=language_name),
+        record_private=False,
+    )
+
+    file_url = request.build_absolute_uri(recording.record_file.url)
 
     return Response({
-        "file_url": file_url
+        "id": recording.id,
+        "file_url": file_url,
     })
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def recordings(request):
+    recordings = (
+        Recording.objects
+        .filter(user=request.user)
+        .order_by("-created_at")
+    )
+
+    serializer = RecordingSerializer(
+        recordings,
+        many=True,
+        context={"request": request}
+    )
+
+    return Response(serializer.data)
 
 
 
@@ -1577,7 +1611,9 @@ def channels(request):
             "url": c.channel_url,
             "owner": c.user.username,
             "private": c.channel_private,
-            "is_favorite": c.is_favorite
+            "is_favorite": c.is_favorite,
+            "target_language": settings.target_language_id,
+            "native_language": settings.target_language_id
         }
         for c in channels
     ]
@@ -1585,3 +1621,4 @@ def channels(request):
     print("Found Channels:", channels)
 
     return Response(data)
+
