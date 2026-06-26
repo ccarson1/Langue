@@ -101,7 +101,7 @@ class LanguageSerializer(serializers.ModelSerializer):
 class SentenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sentence
-        fields = ['id', 'audio_file', 'sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms']
+        fields = ['id','sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms']
 
 class LessonSerializer(serializers.ModelSerializer):
     sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)

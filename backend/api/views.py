@@ -318,6 +318,7 @@ def import_lesson(request):
             lesson_import_progress[user_id] = 0
 
             lessonEmpty = request.data.get('lessonEmpty')
+            alwaysGenerateCaptions = request.data.get('alwaysGenerateCaptions')
 
             # CREATE LESSON
             lesson = Lesson.objects.create(
@@ -365,7 +366,8 @@ def import_lesson(request):
                     lesson.target_language.id,
                     lesson.native_language.id,
                     lesson_import_progress,
-                    user_id
+                    user_id,
+                    alwaysGenerateCaptions
                 )
 
                 success = save_lesson_media.process_lesson()
@@ -949,7 +951,6 @@ def lesson_detail_with_sentences(request, lesson_id):
             "sentences": [
                 {
                     "id": s.id,
-                    "audio_file": s.audio_file,
                     "sentence": s.sentence,
                     "translated_sentence": s.translated_sentence,
                     "start_ms": s.start_ms,

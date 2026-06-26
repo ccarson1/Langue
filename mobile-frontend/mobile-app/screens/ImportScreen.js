@@ -35,6 +35,7 @@ export default function ImportScreen({ navigation }) {
   const [lessonEmpty, setLessonEmpty] = useState(false);
   const [urlReference, setURLReference] = useState(false);
   const [imageReference, setImageReference] = useState(false);
+  const [alwaysGenerateCaptions, setAlwaysGenerateCaptions] = useState(false);
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
@@ -247,32 +248,32 @@ export default function ImportScreen({ navigation }) {
     }
   }
 
-async function appendFileToFormData(formData, fieldName, file) {
-  if (!file) return;
+  async function appendFileToFormData(formData, fieldName, file) {
+    if (!file) return;
 
-  // WEB
-  if (Platform.OS === 'web') {
-    // Expo DocumentPicker on web usually provides a browser File object
-    if (file.file instanceof File) {
-      formData.append(fieldName, file.file);
+    // WEB
+    if (Platform.OS === 'web') {
+      // Expo DocumentPicker on web usually provides a browser File object
+      if (file.file instanceof File) {
+        formData.append(fieldName, file.file);
+        return;
+      }
+
+      // Fallback: convert blob URI to Blob
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+
+      formData.append(fieldName, blob, file.name);
       return;
     }
 
-    // Fallback: convert blob URI to Blob
-    const response = await fetch(file.uri);
-    const blob = await response.blob();
-
-    formData.append(fieldName, blob, file.name);
-    return;
+    // IOS / ANDROID
+    formData.append(fieldName, {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || 'application/octet-stream',
+    });
   }
-
-  // IOS / ANDROID
-  formData.append(fieldName, {
-    uri: file.uri,
-    name: file.name,
-    type: file.mimeType || 'application/octet-stream',
-  });
-}
 
   const handleImport = async () => {
     if (!url && !lessonFile && !lessonEmpty) {
@@ -312,6 +313,7 @@ async function appendFileToFormData(formData, fieldName, file) {
       formData.append('imageReference', imageReference);
       formData.append('title', title);
       formData.append('lessonEmpty', lessonEmpty);
+      formData.append('alwaysGenerateCaptions', alwaysGenerateCaptions);
 
       // Start polling progress
       const pollingInterval = setInterval(async () => {
@@ -416,7 +418,7 @@ async function appendFileToFormData(formData, fieldName, file) {
               value={imageReference}
               onValueChange={setImageReference}
               trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
             <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
           </View>
@@ -437,7 +439,7 @@ async function appendFileToFormData(formData, fieldName, file) {
               value={urlReference}
               onValueChange={setURLReference}
               trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
             <Text style={styles.checkboxLabel}>Upload Lesson URL</Text>
           </View>
@@ -461,7 +463,7 @@ async function appendFileToFormData(formData, fieldName, file) {
               value={fileUploaded}
               onValueChange={setFileUploaded}
               trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
             <Text style={styles.checkboxLabel}>Upload Lesson File</Text>
           </View>
@@ -482,7 +484,7 @@ async function appendFileToFormData(formData, fieldName, file) {
               value={lessonEmpty}
               onValueChange={setLessonEmpty}
               trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
             <Text style={styles.checkboxLabel}>Emtpy Lesson</Text>
           </View>
@@ -528,6 +530,15 @@ async function appendFileToFormData(formData, fieldName, file) {
             )}
           </View>
 
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={alwaysGenerateCaptions}
+              onValueChange={setAlwaysGenerateCaptions}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+            />
+            <Text style={styles.checkboxLabel}>Always Generate (captions)</Text>
+          </View>
 
 
           <View style={styles.checkboxRow}>
@@ -535,7 +546,7 @@ async function appendFileToFormData(formData, fieldName, file) {
               value={lessonPrivate}
               onValueChange={setLessonPrivate}
               trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
             <Text style={styles.checkboxLabel}>Make Lesson Private</Text>
           </View>
@@ -545,7 +556,7 @@ async function appendFileToFormData(formData, fieldName, file) {
               value={audioUploaded}
               onValueChange={setAudioUploaded}
               trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
             <Text style={styles.checkboxLabel}>Provide Audio</Text>
           </View>

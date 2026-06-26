@@ -12,7 +12,7 @@ import uuid
 
 class URL_VTT():
     
-    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id):
+    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions):
         
         def normalize_youtube_url(url):
             if "youtube.com/shorts/" in url:
@@ -26,16 +26,16 @@ class URL_VTT():
         self.YOUTUBE_URL = normalize_youtube_url(YOUTUBE_URL)
 
         self.OUTPUT_DIR = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid)
-        self.AUDIO_DIR = os.path.join(self.OUTPUT_DIR, "audio")
         #self.METADATA_PATH = os.path.join(self.OUTPUT_DIR, "metadata.csv")
         self.CAPTIONS_FILE = os.path.join(self.OUTPUT_DIR, "captions.vtt")
         self.lesson_language = lesson_language_id
         self.translate_language = translate_language_id
         self.lesson_id = lesson_id
+        self.alwaysGenerateCaptions = alwaysGenerateCaptions
 
         #self.lesson_json ={'title': '', 'audio_files': []}
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
-        os.makedirs(self.AUDIO_DIR, exist_ok=True)
+
 
         self.lesson = Lesson.objects.get(id=self.lesson_id)
         self.native_id = Language.objects.get(id=self.lesson_language)
@@ -82,14 +82,16 @@ class URL_VTT():
 
         # move subtitle file safely
         subtitle_found = False
-        for file in os.listdir(self.OUTPUT_DIR):
-            if file.endswith(".vtt"):
-                os.rename(
-                    os.path.join(self.OUTPUT_DIR, file),
-                    subtitle_path
-                )
-                subtitle_found = True
-                break
+
+        if not self.alwaysGenerateCaptions:
+            for file in os.listdir(self.OUTPUT_DIR):
+                if file.endswith(".vtt"):
+                    os.rename(
+                        os.path.join(self.OUTPUT_DIR, file),
+                        subtitle_path
+                    )
+                    subtitle_found = True
+                    break
 
         return {
             "success": True,
@@ -111,43 +113,22 @@ class URL_VTT():
         s, ms = map(float, s.split('.'))
         return int(h) * 3600 + int(m) * 60 + s + ms / 1000
 
-    def split_audio_segments(self, audio_path, segments):
-        audio = AudioSegment.from_file(audio_path)
-        metadata = []
-        
-        
+    def split_segments(self, segments):
 
         
         for idx, seg in enumerate(segments):
             start_ms = int(seg["start"] * 1000)
             end_ms = int(seg["end"] * 1000)
             text = seg["text"]
-
-            # Optional padding
-            pad_before = 200
-            pad_after = 300
-            s = max(0, start_ms - pad_before)
-            e = min(len(audio), end_ms + pad_after)
-
-            chunk = audio[s:e]
-            filename = f"{idx+1:03d}.wav"
-            print(filename)
-            #self.lesson_json["audio_files"].append(filename)
-            filepath = os.path.join(self.AUDIO_DIR, filename)
-            chunk.export(filepath, format="wav")
-            
             translated_text = translate_word(text, self.yt_dlp_lang, self.yt_dlp_tar_lang)
 
             self.lesson_import_progress[self.user_id] += 70 / len(segments)
             print(f"Progress: {self.lesson_import_progress[self.user_id]}%")
-
             print(f"Here is the lesson_language: {self.lesson_language}")
             print(f"Here is the translate_language: {self.translate_language}")
 
-            relative_path = f"lessons/{self.uuid}/audio/{filename}"
-            
+
             sentence = Sentence.objects.create(
-                audio_file=relative_path,
                 sentence=text,
                 start_ms=start_ms,
                 end_ms=end_ms,
@@ -188,8 +169,8 @@ class URL_VTT():
             segments = [{"start": seg["start"], "end": seg["end"], "text": seg["text"]} for seg in result["segments"]]
             print(f"Generated {len(segments)} segments using Whisper.")
 
-        print("Splitting audio...")
-        self.split_audio_segments(self.AUDIO_FILE, segments)
+        print("Splitting segments...")
+        self.split_segments(segments)
         self.lesson.audio_file.name = f"lessons/{self.uuid}/audio.mp3"
         self.lesson.audio_folder = f"media/lessons/{self.uuid}/audio"
         self.lesson.save()
