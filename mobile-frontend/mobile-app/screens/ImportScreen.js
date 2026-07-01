@@ -21,16 +21,18 @@ import { jwtDecode } from 'jwt-decode';
 import styles from './styles/ImportStyles';
 import CustomPopup from './components/CustomPopup';
 import LoadingOverlay from './components/LoadingOverlay';
+import ButtonGroup from './components/ButtonGroup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getServerIP } from '../utils/config';
 
 export default function ImportScreen({ navigation }) {
   const [url, setUrl] = useState('');
   const [lessonFile, setLessonFile] = useState(null);
-  const [audioFile, setAudioFile] = useState(null);
+  const [mediaFile, setMediaFile] = useState(null);
   const [imageFile, setImageFile] = useState(null)
   const [lessonPrivate, setLessonPrivate] = useState(false);
   const [audioUploaded, setAudioUploaded] = useState(false);
+  const [mediaUploaded, setMediaUploaded] = useState(false);
   const [videoFormat, setVideoFormat] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [lessonEmpty, setLessonEmpty] = useState(false);
@@ -47,6 +49,11 @@ export default function ImportScreen({ navigation }) {
   const [progress, setProgress] = useState(0);
   const [serverIP, setServerIP] = useState('');
   const progressUrl = `http://${serverIP}:8000/api/lesson-import-progress/`;
+  const uploadOptions = [{ label: 'Video', value: 'video' }, { label: 'Audio', value: 'audio' }, { label: 'Empty', value: 'empty' }]
+  const [uploadType, setUploadType] = useState('empty');
+  const sourceOptions = [{ label: 'Manual', value: 'manual' }, { label: 'URL', value: 'url' }]
+  const [uploadSource, setUploadSource] = useState('manual');
+  const [translateTarget, setTranslateTarget] = useState(false);
 
 
   const fetchLanguages = async () => {
@@ -131,6 +138,26 @@ export default function ImportScreen({ navigation }) {
     loadTokenAndSettings(); // <--- fetch user settings
   }, [serverIP]);
 
+  useEffect(() => {
+    if (uploadType === 'video') {
+      setVideoFormat(true);
+    } else {
+      setVideoFormat(false);
+    }
+
+    if (uploadType === 'audio') {
+      setAudioUploaded(true);
+    } else {
+      setAudioUploaded(false);
+    }
+
+    if (uploadType === 'empty') {
+      setLessonEmpty(true);
+    } else {
+      setLessonEmpty(false);
+    }
+  }, [uploadType]);
+
   const showSuccess = (message) => {
     setPopup({ visible: true, message: message, type: 'success' });
   };
@@ -190,17 +217,17 @@ export default function ImportScreen({ navigation }) {
       });
 
       if (result && result.assets && result.assets.length > 0) {
-        const audioFile = result.assets[0];
-        console.log("Selected audio file:", audioFile);
+        const mediaFile = result.assets[0];
+        console.log("Selected Media file:", mediaFile);
 
-        setAudioFile(audioFile);
+        setMediaFile(mediaFile);
         // if (audioUploaded) {
         //   showSuccess("Audio uploaded successfully");
         // }
       }
     } catch (error) {
-      showError(`Audio pick error: ${error}`);
-      console.error('Audio pick error:', error);
+      showError(`Media pick error: ${error}`);
+      console.error('Media pick error:', error);
     }
     setLoading(false);
   };
@@ -296,12 +323,12 @@ export default function ImportScreen({ navigation }) {
       setProgress(0);
 
       console.log(lessonFile);
-      console.log(audioFile);
+      console.log(mediaFile);
       console.log(imageFile);
 
       const formData = new FormData();
       await appendFileToFormData(formData, 'file', lessonFile);
-      await appendFileToFormData(formData, 'audio', audioFile);
+      await appendFileToFormData(formData, 'media', mediaFile);
       await appendFileToFormData(formData, 'image', imageFile);
 
       formData.append('url', url || '');
@@ -316,6 +343,7 @@ export default function ImportScreen({ navigation }) {
       formData.append('lessonEmpty', lessonEmpty);
       formData.append('videoFormat', videoFormat);
       formData.append('alwaysGenerateCaptions', alwaysGenerateCaptions);
+      formData.append('translateTarget', translateTarget);
 
       // Start polling progress
       const pollingInterval = setInterval(async () => {
@@ -415,97 +443,97 @@ export default function ImportScreen({ navigation }) {
             />
           </View>
 
-          <Text style={styles.label}>Image Upload</Text>
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={imageReference}
-              onValueChange={setImageReference}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
-          </View>
+          <ButtonGroup options={uploadOptions} selectedValue={uploadType} onValueChange={setUploadType} />
+          <ButtonGroup options={sourceOptions} selectedValue={uploadSource} onValueChange={setUploadSource} />
 
 
-          {imageReference && (
+
+
+
+
+          <Text style={styles.label}>Upload Options</Text>
+
+          {/* ====================== URL SECTION ====================== */}
+          {uploadSource === 'url' && uploadType !== 'empty' && (
             <View>
-              <Text style={styles.label}>Lesson Image</Text>
-              <TouchableOpacity style={styles.button} onPress={handleImagePick}>
-                <Text style={styles.buttonText}>
-                  {imageFile ? `Selected: ${imageFile.name}` : 'Choose File'}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.checkboxRow}>
+                <Switch
+                  value={urlReference}
+                  onValueChange={setURLReference}
+                  trackColor={{ false: '#777', true: '#00adb5' }}
+                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                />
+                <Text style={styles.checkboxLabel}>Upload Lesson URL</Text>
+              </View>
+
+              {urlReference && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.label}>Lesson URL (optional)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Paste YouTube URL here"
+                    placeholderTextColor="#aaa"
+                    value={url}
+                    onChangeText={setUrl}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              )}
             </View>
           )}
 
-          <View style={styles.checkboxRow}></View>
-          <Text style={styles.label}>Upload Type</Text>
-
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={videoFormat}
-              onValueChange={setVideoFormat}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Video Lesson</Text>
-          </View>
-
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={urlReference}
-              onValueChange={setURLReference}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Upload Lesson URL</Text>
-          </View>
-          {urlReference && (
+          {/* ====================== MANUAL FILE SECTION ====================== */}
+          {uploadSource === 'manual' && uploadType !== 'empty' && (
             <View>
+              <View style={styles.checkboxRow}>
+                <Switch
+                  value={fileUploaded}
+                  onValueChange={setFileUploaded}
+                  trackColor={{ false: '#777', true: '#00adb5' }}
+                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                />
+                <Text style={styles.checkboxLabel}>Upload Lesson File</Text>
+              </View>
 
-              <Text style={styles.label}>Lesson URL (optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Paste URL here"
-                placeholderTextColor="#aaa"
-                value={url}
-                onChangeText={setUrl}
-                autoCapitalize="none"
-              />
+              {fileUploaded && (
+                <View>
+                  <Text style={styles.label}>Lesson File</Text>
+                  <TouchableOpacity style={styles.button} onPress={handleFilePick}>
+                    <Text style={styles.buttonText}>
+                      {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <View style={styles.checkboxRow}>
+                <Switch
+                  value={mediaUploaded}
+                  onValueChange={setMediaUploaded}
+                  trackColor={{ false: '#777', true: '#00adb5' }}
+                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                />
+                <Text style={styles.checkboxLabel}>Provide Media</Text>
+              </View>
+              {mediaUploaded && (
+                <View>
+                  <Text style={styles.label}>Media Upload</Text>
+                  <TouchableOpacity style={styles.button} onPress={handleAudioPick}>
+                    <Text style={styles.buttonText}>
+                      {mediaFile ? `Selected: ${mediaFile.name}` : 'Choose Media'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
             </View>
+
+
           )}
 
 
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={fileUploaded}
-              onValueChange={setFileUploaded}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Upload Lesson File</Text>
-          </View>
 
-          {fileUploaded && (
-            <View>
-              <Text style={styles.label}>Lesson File</Text>
-              <TouchableOpacity style={styles.button} onPress={handleFilePick}>
-                <Text style={styles.buttonText}>
-                  {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={lessonEmpty}
-              onValueChange={setLessonEmpty}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Emtpy Lesson</Text>
-          </View>
 
 
 
@@ -550,6 +578,28 @@ export default function ImportScreen({ navigation }) {
             )}
           </View>
 
+          <Text style={styles.label}>Image Upload</Text>
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={imageReference}
+              onValueChange={setImageReference}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+            />
+            <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
+          </View>
+
+          {imageReference && (
+            <View>
+              <Text style={styles.label}>Lesson Image</Text>
+              <TouchableOpacity style={styles.button} onPress={handleImagePick}>
+                <Text style={styles.buttonText}>
+                  {imageFile ? `Selected: ${imageFile.name}` : 'Choose File'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.checkboxRow}>
             <Switch
               value={alwaysGenerateCaptions}
@@ -557,7 +607,17 @@ export default function ImportScreen({ navigation }) {
               trackColor={{ false: '#777', true: '#00adb5' }}
               thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
-            <Text style={styles.checkboxLabel}>Always Generate (captions)</Text>
+            <Text style={styles.checkboxLabel}>Always Generate (captions from audio)</Text>
+          </View>
+
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={translateTarget}
+              onValueChange={setTranslateTarget}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+            />
+            <Text style={styles.checkboxLabel}>Translate (target Language)</Text>
           </View>
 
 
@@ -571,25 +631,7 @@ export default function ImportScreen({ navigation }) {
             <Text style={styles.checkboxLabel}>Make Lesson Private</Text>
           </View>
 
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={audioUploaded}
-              onValueChange={setAudioUploaded}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Provide Audio</Text>
-          </View>
-          {audioUploaded && (
-            <View>
-              <Text style={styles.label}>Audio Upload</Text>
-              <TouchableOpacity style={styles.button} onPress={handleAudioPick}>
-                <Text style={styles.buttonText}>
-                  {audioFile ? `Selected: ${audioFile.name}` : 'Choose Audio'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+
 
 
           <TouchableOpacity style={styles.button} onPress={handleImport}>

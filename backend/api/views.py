@@ -309,10 +309,13 @@ def import_lesson(request):
 
             urlReference = request.data.get( 'urlReference', 'false' ).lower() in ['true', '1', 'yes']
             imageReference = request.data.get( 'imageReference', 'false' ).lower() in ['true', '1', 'yes']
+            translateTarget = request.data.get( 'translateTarget', 'false' ).lower() in ['true', '1', 'yes']
 
             lesson_file = request.FILES.get('file')
-            audio_file = request.FILES.get('audio')
+            media_file = request.FILES.get('media')
             image_file = request.FILES.get('image')
+
+            print(lesson_file)
 
             nativeLang = get_object_or_404( Language, lang_name=nativeLangName )
             targetLang = get_object_or_404( Language, lang_name=targetLangName )
@@ -375,6 +378,7 @@ def import_lesson(request):
                     user_id,
                     alwaysGenerateCaptions,
                     videoFormat,
+                    translateTarget
                 )
 
                 success = save_lesson_media.process_lesson()
@@ -390,36 +394,56 @@ def import_lesson(request):
                 lesson.save()
 
             # FILE IMPORT
-            if fileUploaded and audioUploaded:
+            if fileUploaded and (audioUploaded or videoFormat):
 
                 if lesson_file:
                     lesson.doc_file = lesson_file
 
-                if audio_file:
-                    lesson.audio_file = audio_file
+                if media_file:
+                    lesson.audio_file = media_file
 
                 lesson.save()
-                save_lesson_media = VTT( lesson_file, audio_file, lesson.id, targetLang, nativeLang )
-                csv_path = save_lesson_media.save_csv( lesson_file )
+                save_lesson_media = VTT( 
+                    lesson_file, lesson.id, 
+                    lesson.target_language.id, 
+                    lesson.native_language.id, 
+                    lesson_import_progress, 
+                    user_id, 
+                    alwaysGenerateCaptions, 
+                    videoFormat, 
+                    media_file,
+                    translateTarget
+                )
+                #csv_path = save_lesson_media.save_csv( lesson_file )
 
-                if not csv_path:
-                    raise Exception(
-                        "CSV generation failed"
-                    )
+                # if not csv_path:
+                #     raise Exception(
+                #         "CSV generation failed"
+                #     )
 
-                audio_success = ( save_lesson_media.save_audio_as_mp3( audio_file ) )
+                # audio_success = ( save_lesson_media.save_audio_as_mp3( audio_file ) )
 
-                if not audio_success:
-                    raise Exception(
-                        "Audio conversion failed"
-                    )
+                # if not audio_success:
+                #     raise Exception(
+                #         "Audio conversion failed"
+                #     )
 
-                split_success = ( save_lesson_media.split_audio_by_csv_ms( csv_path=csv_path ) )
+                # split_success = ( save_lesson_media.split_media_by_csv_ms( csv_path=csv_path ) )
 
                 # if not split_success:
                 #     raise Exception(
                 #         "Audio splitting failed"
                 #     )
+
+                success = save_lesson_media.process_lesson()
+                if not success:
+                    raise Exception(
+                        "YouTube processing failed"
+                    )
+
+                lesson.audio_folder = (
+                    save_lesson_media.AUDIO_DIR
+                )
 
                 lesson.audio_folder = ( save_lesson_media.AUDIO_DIR )
                 lesson.save()

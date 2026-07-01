@@ -12,7 +12,7 @@ import uuid
 
 class URL_VTT():
     
-    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat):
+    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, translateTarget):
         
         def normalize_youtube_url(url):
             if "youtube.com/shorts/" in url:
@@ -35,6 +35,7 @@ class URL_VTT():
         self.lesson_id = lesson_id
         self.alwaysGenerateCaptions = alwaysGenerateCaptions
         self.videoFormat = videoFormat
+        self.translateTarget = translateTarget
 
         #self.lesson_json ={'title': '', 'audio_files': []}
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
