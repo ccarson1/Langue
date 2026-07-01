@@ -111,6 +111,7 @@ class Lesson(models.Model):
     audioUploaded = models.BooleanField(default=False)
     fileUploaded = models.BooleanField(default=False)
     urlReference = models.BooleanField(default=False)
+    videoFormat = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
 

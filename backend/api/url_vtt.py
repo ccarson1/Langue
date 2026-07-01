@@ -12,7 +12,7 @@ import uuid
 
 class URL_VTT():
     
-    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions):
+    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat):
         
         def normalize_youtube_url(url):
             if "youtube.com/shorts/" in url:
@@ -23,15 +23,18 @@ class URL_VTT():
 
         self.uuid = str(uuid.uuid4())
         self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.mp3")
+        self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "video.mp4")
         self.YOUTUBE_URL = normalize_youtube_url(YOUTUBE_URL)
 
         self.OUTPUT_DIR = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid)
+        self.AUDIO_DIR = self.OUTPUT_DIR 
         #self.METADATA_PATH = os.path.join(self.OUTPUT_DIR, "metadata.csv")
         self.CAPTIONS_FILE = os.path.join(self.OUTPUT_DIR, "captions.vtt")
         self.lesson_language = lesson_language_id
         self.translate_language = translate_language_id
         self.lesson_id = lesson_id
         self.alwaysGenerateCaptions = alwaysGenerateCaptions
+        self.videoFormat = videoFormat
 
         #self.lesson_json ={'title': '', 'audio_files': []}
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
@@ -51,19 +54,33 @@ class URL_VTT():
         print(f"Translate language: {self.yt_dlp_tar_lang}")
 
 
-    def download_audio_and_captions(self, url, audio_path, subtitle_path):
+    def download_media_and_captions(self, url, audio_path, subtitle_path, videoFormat):
 
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "outtmpl": audio_path,
-            "quiet": True,
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "subtitleslangs": [self.yt_dlp_lang],
-            "subtitlesformat": "vtt",
-            "skip_download": False,
-            "paths": {"subtitle": self.OUTPUT_DIR},
-        }
+        if videoFormat:
+            ydl_opts = {
+                "format": "bv*+ba/b",          # best video + best audio
+                "merge_output_format": "mp4",  # merge into mp4
+                "outtmpl": self.VIDEO_FILE,
+                "quiet": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": [self.yt_dlp_lang],
+                "subtitlesformat": "vtt",
+                "skip_download": False,
+                "paths": {"subtitle": self.OUTPUT_DIR},
+            }
+        else:
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "outtmpl": self.AUDIO_FILE,
+                "quiet": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": [self.yt_dlp_lang],
+                "subtitlesformat": "vtt",
+                "skip_download": False,
+                "paths": {"subtitle": self.OUTPUT_DIR},
+            }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -80,7 +97,6 @@ class URL_VTT():
 
         self.lesson_import_progress[self.user_id] = 15
 
-        # move subtitle file safely
         subtitle_found = False
 
         if not self.alwaysGenerateCaptions:
@@ -150,11 +166,19 @@ class URL_VTT():
 
     def process_lesson(self):
         print("Downloading audio and captions...")
-        self.download_audio_and_captions(self.YOUTUBE_URL, self.AUDIO_FILE, self.CAPTIONS_FILE)
+        self.download_media_and_captions(self.YOUTUBE_URL, self.AUDIO_FILE, self.CAPTIONS_FILE, self.videoFormat)
 
-        if not os.path.exists(self.AUDIO_FILE):
-            print("ERROR: Audio file missing.")
-            raise Exception("Audio file missing after download")
+        if self.videoFormat:
+            if not os.path.exists(self.VIDEO_FILE):
+                print("ERROR: Video file missing.")
+                raise Exception("Video file missing after download")
+            # Extract audio from the downloaded video for transcription/storage
+            os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
+            AudioSegment.from_file(self.VIDEO_FILE).export(self.AUDIO_FILE, format="mp3")
+        else:
+            if not os.path.exists(self.AUDIO_FILE):
+                print("ERROR: Audio file missing.")
+                raise Exception("Audio file missing after download")
             
 
         if os.path.exists(self.CAPTIONS_FILE):
@@ -171,8 +195,9 @@ class URL_VTT():
 
         print("Splitting segments...")
         self.split_segments(segments)
-        self.lesson.audio_file.name = f"lessons/{self.uuid}/audio.mp3"
-        self.lesson.audio_folder = f"media/lessons/{self.uuid}/audio"
+        uuid_folder = self.uuid
+        self.lesson.audio_file.name = f"lessons/{uuid_folder}/audio.mp3"
+        self.lesson.audio_folder = f"lessons/{uuid_folder}"  # ← remove the trailing /audio
         self.lesson.save()
         print("Done!")
         print("PROCESS COMPLETED SUCCESSFULLY")

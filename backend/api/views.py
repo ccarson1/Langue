@@ -299,7 +299,10 @@ def import_lesson(request):
             nativeLangName = request.data.get('nativeLanguage')
             targetLangName = request.data.get('targetLanguage')
 
-            audioUploaded = request.data.get('audioUploaded')
+            videoFormat = request.data.get('videoFormat', 'false' ).lower() in ['true', '1', 'yes']
+            print("videoFormat: ",request.data.get("videoFormat"))
+            
+            audioUploaded = request.data.get('audioUploaded', 'false' ).lower() in ['true', '1', 'yes']
             lessonPrivate = request.data.get( 'lessonPrivate', 'false' ).lower() in ['true', '1', 'yes']
 
             fileUploaded = request.data.get( 'fileUploaded', 'false' ).lower() in ['true', '1', 'yes']
@@ -328,7 +331,10 @@ def import_lesson(request):
                 target_language=targetLang,
                 lesson_private=lessonPrivate,
                 urlReference=urlReference,
-                title=title
+                title=title,
+                fileUploaded=fileUploaded,
+                audioUploaded=audioUploaded,
+                videoFormat=videoFormat
             )
 
             # SAVE IMAGE
@@ -367,7 +373,8 @@ def import_lesson(request):
                     lesson.native_language.id,
                     lesson_import_progress,
                     user_id,
-                    alwaysGenerateCaptions
+                    alwaysGenerateCaptions,
+                    videoFormat,
                 )
 
                 success = save_lesson_media.process_lesson()
@@ -982,22 +989,35 @@ def get_audio(request):
         try:
             lesson = Lesson.objects.get(id=lesson_id)
 
-            if not lesson.audio_folder:
-                return Response(
-                    {'error': 'Lesson has no audio'},
-                    status=404
-                )
+            if not lesson.audio_folder and not getattr(lesson, 'audio_file', None):
+                return Response({'error': 'Lesson has no audio'}, status=404)
 
-            audio_folder = lesson.audio_folder
+            # === PREFERRED: Use Django FileField if available ===
+            if hasattr(lesson, 'audio_file') and lesson.audio_file:
+                audio_path = lesson.audio_file.path
+                print("FULL AUDIO PATH (from FileField):", audio_path)
 
-            audio_path = os.path.join(
-                os.path.dirname(audio_folder),
-                "audio.mp3"
-            )
+            # === FALLBACK: Build from audio_folder ===
+            else:
+                audio_folder = lesson.audio_folder
 
-            print("FULL AUDIO PATH:", audio_path)
+                print("Audio Folder:", audio_folder)
+
+                # Clean and normalize the folder path
+                if audio_folder:
+                    # Remove trailing /audio if present
+                    if audio_folder.endswith(('/audio', '\\audio')):
+                        audio_folder = audio_folder[:-6]
+
+                    # If it's a relative path, make it absolute
+                    if not os.path.isabs(audio_folder):
+                        audio_folder = os.path.join(settings.MEDIA_ROOT, audio_folder)
+
+                audio_path = os.path.join(audio_folder, "audio.mp3")
+                print("FULL AUDIO PATH (built):", audio_path)
 
             if not os.path.exists(audio_path):
+                print(f"❌ Audio file not found at: {audio_path}")
                 return Response(
                     {'error': 'Lesson audio file not found'},
                     status=404
@@ -1014,6 +1034,9 @@ def get_audio(request):
 
         except Lesson.DoesNotExist:
             return Response({'error': 'Lesson not found'}, status=404)
+        except Exception as e:
+            print("Audio error:", str(e))
+            return Response({'error': str(e)}, status=500)
 
     else:
 
@@ -1226,10 +1249,28 @@ def stop_record(request):
     # Path relative to MEDIA_ROOT
     relative_path = f"records/{recording_id}.mp4"
 
+    thumbnail_dir = os.path.join(settings.MEDIA_ROOT, "images/record_thumbnails")
+    os.makedirs(thumbnail_dir, exist_ok=True)
+
+    thumbnail_path = os.path.join(
+        thumbnail_dir,
+        f"{recording_id}.jpg"
+    )
+
+    subprocess.run([
+        "ffmpeg",
+        "-y",
+        "-i", os.path.join(settings.MEDIA_ROOT, relative_path),
+        "-vf", "thumbnail,scale=320:-1",
+        "-frames:v", "1",
+        thumbnail_path,
+    ], check=True)
+
     recording = Recording.objects.create(
         user=request.user,
         record_name=recording_id,
         record_file=relative_path,
+        record_img=f"images/record_thumbnails/{recording_id}.jpg",
         record_folder="records",
         record_channel=Channel.objects.get(pk=request.data["channel_id"]),
         native_language = Language.objects.get(lang_name=language_name),

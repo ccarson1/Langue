@@ -31,6 +31,7 @@ export default function ImportScreen({ navigation }) {
   const [imageFile, setImageFile] = useState(null)
   const [lessonPrivate, setLessonPrivate] = useState(false);
   const [audioUploaded, setAudioUploaded] = useState(false);
+  const [videoFormat, setVideoFormat] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [lessonEmpty, setLessonEmpty] = useState(false);
   const [urlReference, setURLReference] = useState(false);
@@ -306,13 +307,14 @@ export default function ImportScreen({ navigation }) {
       formData.append('url', url || '');
       formData.append('nativeLanguage', nativeLanguage);
       formData.append('targetLanguage', targetLanguage);
-      formData.append('lessonPrivate', lessonPrivate.toString());
+      formData.append('lessonPrivate', lessonPrivate);
       formData.append('audioUploaded', audioUploaded);
       formData.append('fileUploaded', fileUploaded);
       formData.append('urlReference', urlReference);
       formData.append('imageReference', imageReference);
       formData.append('title', title);
       formData.append('lessonEmpty', lessonEmpty);
+      formData.append('videoFormat', videoFormat);
       formData.append('alwaysGenerateCaptions', alwaysGenerateCaptions);
 
       // Start polling progress
@@ -413,6 +415,7 @@ export default function ImportScreen({ navigation }) {
             />
           </View>
 
+          <Text style={styles.label}>Image Upload</Text>
           <View style={styles.checkboxRow}>
             <Switch
               value={imageReference}
@@ -422,6 +425,7 @@ export default function ImportScreen({ navigation }) {
             />
             <Text style={styles.checkboxLabel}>Upload Lesson Image</Text>
           </View>
+
 
           {imageReference && (
             <View>
@@ -434,6 +438,19 @@ export default function ImportScreen({ navigation }) {
             </View>
           )}
 
+          <View style={styles.checkboxRow}></View>
+          <Text style={styles.label}>Upload Type</Text>
+
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={videoFormat}
+              onValueChange={setVideoFormat}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+            />
+            <Text style={styles.checkboxLabel}>Video Lesson</Text>
+          </View>
+
           <View style={styles.checkboxRow}>
             <Switch
               value={urlReference}
@@ -445,6 +462,7 @@ export default function ImportScreen({ navigation }) {
           </View>
           {urlReference && (
             <View>
+
               <Text style={styles.label}>Lesson URL (optional)</Text>
               <TextInput
                 style={styles.input}
@@ -488,6 +506,8 @@ export default function ImportScreen({ navigation }) {
             />
             <Text style={styles.checkboxLabel}>Emtpy Lesson</Text>
           </View>
+
+
 
           <Text style={styles.label}>Native Language</Text>
           <View style={styles.pickerWrapper}>

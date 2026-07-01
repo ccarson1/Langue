@@ -10,14 +10,16 @@ import {
   Platform,
   ScrollView,
   TextInput,
-  Animated
+  Animated,
+  ImageBackground
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
-import { VideoView, useVideoPlayer } from 'expo-video';
+// import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvent } from 'expo';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
+import VideoReader from './components/VideoReader';
 
 const { width } = Dimensions.get('window');
 
@@ -54,43 +56,43 @@ async function getM3U8Metadata(url) {
 
 
 
-function Player({ source }) {
-  const player = useVideoPlayer(source, (player) => {
-    player.play();
-    player.timeUpdateEventInterval = 0.25;
-  });
+// function Player({ source }) {
+//   const player = useVideoPlayer(source, (player) => {
+//     player.play();
+//     player.timeUpdateEventInterval = 0.25;
+//   });
 
-  const { currentTime = 0 } = useEvent(player, 'timeUpdate', {
-    currentTime: 0,
-  });
+//   const { currentTime = 0 } = useEvent(player, 'timeUpdate', {
+//     currentTime: 0,
+//   });
 
-  const formatTime = (seconds = 0) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+//   const formatTime = (seconds = 0) => {
+//     const mins = Math.floor(seconds / 60);
+//     const secs = Math.floor(seconds % 60);
+//     return `${mins}:${secs.toString().padStart(2, '0')}`;
+//   };
 
-  return (
-    <View style={styles.playerWrapper}>
-      <VideoView style={styles.video} player={player} />
+//   return (
+//     <View style={styles.playerWrapper}>
+//       <VideoView style={styles.video} player={player} />
 
-      <View style={styles.overlay}>
-        <Pressable
-          style={styles.playButton}
-          onPress={() => {
-            player.playing ? player.pause() : player.play();
-          }}
-        >
-          <Text style={styles.playText}>
-            {player.playing ? 'Pause' : 'Play'}
-          </Text>
-        </Pressable>
+//       <View style={styles.overlay}>
+//         <Pressable
+//           style={styles.playButton}
+//           onPress={() => {
+//             player.playing ? player.pause() : player.play();
+//           }}
+//         >
+//           <Text style={styles.playText}>
+//             {player.playing ? 'Pause' : 'Play'}
+//           </Text>
+//         </Pressable>
 
-        <Text style={styles.time}>{formatTime(currentTime)}</Text>
-      </View>
-    </View>
-  );
-}
+//         <Text style={styles.time}>{formatTime(currentTime)}</Text>
+//       </View>
+//     </View>
+//   );
+// }
 
 export default function LiveTVPlayer({ navigation }) {
   const [token, setToken] = useState(null);
@@ -163,7 +165,7 @@ export default function LiveTVPlayer({ navigation }) {
 
         setChannels(data);
 
-        console.log("FIRST CHANNEL:", channels[0]);
+        console.log("FIRST CHANNEL:", data[0]);
 
         // IMPORTANT: set default selected channel safely
         if (data.length > 0) {
@@ -351,7 +353,9 @@ export default function LiveTVPlayer({ navigation }) {
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
           <AntDesign name="left" size={22} color="white" />
         </TouchableOpacity>
-        <Player key={selectedChannel.url} source={selectedChannel.url} />
+        {/* <Player key={selectedChannel.url} source={selectedChannel.url} /> */}
+        
+        <VideoReader selectedChannel={selectedChannel}></VideoReader>
 
         <TouchableOpacity
           onPress={recording ? stopRecording : startRecording}
@@ -530,15 +534,22 @@ export default function LiveTVPlayer({ navigation }) {
                 console.log(item);
               }}
             >
+              <ImageBackground
+                source={{
+                  uri: `http://${serverIP}:8000${item.record_img}`,
+                }}
+                style={styles.cardBackground}
+                imageStyle={styles.cardImage}
+              ></ImageBackground>
               <Text style={styles.cardTitle}>
-                {item.record_name}
+                {item.title}
               </Text>
 
               <Text
                 style={{
                   color: "#ccc",
                   fontSize: 12,
-                  marginTop: 5,
+                  margin: 5,
                 }}
               >
                 {new Date(item.created_at).toLocaleDateString()}
@@ -571,57 +582,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-
-  // Player wrapper (panel style like your homepage blocks)
-  playerWrapper: {
-    width: '100%',
-    height: Platform.OS === 'web' ? 520 : 220,
-    backgroundColor: '#30475e',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: '#00adb5',
-  },
-
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-
-  // Overlay controls (clean glass panel feel)
-  overlay: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  playButton: {
-    backgroundColor: '#00adb5',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 6,
-
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-
-  playText: {
-    color: '#222831',
-    fontWeight: 'bold',
-  },
-
-  time: {
-    color: 'white',
-    fontSize: 14,
-  },
-
+  
   sectionTitle: {
     color: 'white',
     fontSize: 18,
@@ -640,16 +601,22 @@ const styles = StyleSheet.create({
 
   // Channel cards (matches sideMenu + panels)
   card: {
-    width: 140,
-    height: 90,
-    backgroundColor: '#393e46',
+    width: 220,
+    height: 130,
+    marginRight: 15,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    overflow: "hidden",
+    backgroundColor: '#393e46',
   },
+  cardBackground: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 10,
+  },
+
+  // cardImage: {
+  //   borderRadius: 10,
+  // },
 
   cardActive: {
     backgroundColor: '#30475e',
@@ -658,9 +625,13 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 18,
+    textShadowColor: "#000",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+    margin: 5,
   },
 
   cardGlow: {
