@@ -394,7 +394,7 @@ def import_lesson(request):
                 lesson.save()
 
             # FILE IMPORT
-            if (fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat):
+            if (fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference == False:
 
                 if lesson_file:
                     lesson.doc_file = lesson_file
@@ -429,7 +429,7 @@ def import_lesson(request):
                 lesson.audio_folder = ( save_lesson_media.AUDIO_DIR )
                 lesson.save()
             else:
-                print("(fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) is false")
+                print("(fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference is false")
 
             lesson_import_progress[user_id] = 100
 
@@ -1192,7 +1192,7 @@ def start_record(request):
     url = request.data["url"]
     channel_id = request.data["channel_id"]
 
-    recording_id = str(uuid.uuid4())
+    recording_id = str(uuid.uuid4().hex[:16])
 
     output_file = os.path.join(
             record_dir,
@@ -1277,7 +1277,7 @@ def stop_record(request):
         user=request.user,
         record_name=recording_id,
         record_file=relative_path,
-        record_img=f"images/record_thumbnails/{recording_id}.jpg",
+        record_img=f"/media/images/record_thumbnails/{recording_id}.jpg",
         record_folder="records",
         record_channel=Channel.objects.get(pk=request.data["channel_id"]),
         native_language = Language.objects.get(lang_name=language_name),
@@ -1290,6 +1290,27 @@ def stop_record(request):
         "id": recording.id,
         "file_url": file_url,
     })
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_recording(request, recording_id):
+    try:
+        recording = Recording.objects.get(
+            id=recording_id,
+            user=request.user
+        )
+    except Recording.DoesNotExist:
+        return Response(
+            {"error": "Recording not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    recording.delete()
+
+    return Response(
+        {"success": True},
+        status=status.HTTP_200_OK
+    )
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -1307,6 +1328,28 @@ def recordings(request):
     )
 
     return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recording_detail(request, recording_id):   # ← changed from pk to recording_id
+    try:
+        recording = Recording.objects.get(id=recording_id, user=request.user)
+        
+        data = {
+            "id": recording.id,
+            "title": getattr(recording, 'record_name', None) or f"Recording {recording.id}",
+            "record_file": recording.record_file.url if getattr(recording, 'record_file', None) else None,
+            "record_img": getattr(recording, 'record_img', None),
+            "created_at": recording.created_at.isoformat() if hasattr(recording, 'created_at') else None,
+        }
+        
+        return Response(data)
+        
+    except Recording.DoesNotExist:
+        return Response({"error": "Recording not found"}, status=404)
+    except Exception as e:
+        print("Recording detail error:", str(e))
+        return Response({"error": str(e)}, status=500)
 
 
 

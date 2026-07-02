@@ -56,43 +56,6 @@ async function getM3U8Metadata(url) {
 
 
 
-// function Player({ source }) {
-//   const player = useVideoPlayer(source, (player) => {
-//     player.play();
-//     player.timeUpdateEventInterval = 0.25;
-//   });
-
-//   const { currentTime = 0 } = useEvent(player, 'timeUpdate', {
-//     currentTime: 0,
-//   });
-
-//   const formatTime = (seconds = 0) => {
-//     const mins = Math.floor(seconds / 60);
-//     const secs = Math.floor(seconds % 60);
-//     return `${mins}:${secs.toString().padStart(2, '0')}`;
-//   };
-
-//   return (
-//     <View style={styles.playerWrapper}>
-//       <VideoView style={styles.video} player={player} />
-
-//       <View style={styles.overlay}>
-//         <Pressable
-//           style={styles.playButton}
-//           onPress={() => {
-//             player.playing ? player.pause() : player.play();
-//           }}
-//         >
-//           <Text style={styles.playText}>
-//             {player.playing ? 'Pause' : 'Play'}
-//           </Text>
-//         </Pressable>
-
-//         <Text style={styles.time}>{formatTime(currentTime)}</Text>
-//       </View>
-//     </View>
-//   );
-// }
 
 export default function LiveTVPlayer({ navigation }) {
   const [token, setToken] = useState(null);
@@ -108,6 +71,7 @@ export default function LiveTVPlayer({ navigation }) {
   const [recordings, setRecordings] = useState([]);
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
+  const [recordingSelected, setRecordingSelected] = useState('');
 
   const favoriteChannels = React.useMemo(
     () => channels.filter(c => c.is_favorite),
@@ -210,7 +174,7 @@ export default function LiveTVPlayer({ navigation }) {
 
       const data = await res.json();
       console.log("Recordings:", data)
-
+      console.log("Favorite Channels: ", favoriteChannels)
       setRecordings(data);
 
     } catch (err) {
@@ -269,6 +233,15 @@ export default function LiveTVPlayer({ navigation }) {
     return () => loop && loop.stop();
   }, [recording]);
 
+  // useEffect(() => {
+  //   if (recordingSelected === true) {
+  //     setRecordingSelected(true);
+  //   } else {
+  //     setVideoFormat(false);
+  //   }
+
+  // }, [recordingSelected]);
+
   const API_BASE = `http://${serverIP}:8000`;
 
   const getAuthHeaders = () => ({
@@ -324,9 +297,39 @@ export default function LiveTVPlayer({ navigation }) {
 
       setRecording(false);
       setRecordingId(null);
+      await loadRecordings();
 
     } catch (err) {
       console.error("Stop recording failed:", err);
+    }
+  };
+
+  const deleteRecording = async (recordingId) => {
+    try {
+      const ip = await getServerIP();
+      const token = await AsyncStorage.getItem("accessToken");
+
+      const res = await fetch(
+        `http://${ip}:8000/api/recordings/${recordingId}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to delete recording");
+      }
+
+      // Remove from UI immediately
+      setRecordings((prev) =>
+        prev.filter((r) => r.id !== recordingId)
+      );
+
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -354,27 +357,79 @@ export default function LiveTVPlayer({ navigation }) {
           <AntDesign name="left" size={22} color="white" />
         </TouchableOpacity>
         {/* <Player key={selectedChannel.url} source={selectedChannel.url} /> */}
-        
+
         <VideoReader selectedChannel={selectedChannel}></VideoReader>
 
-        <TouchableOpacity
-          onPress={recording ? stopRecording : startRecording}
-          style={[
-            styles.recordButton,
-            recording && styles.recordingActive,
-          ]}
-        >
-          <Animated.View
-            style={[
-              styles.recordDot,
-              recording && { transform: [{ scale: pulseAnim }] },
-            ]}
-          />
 
-          <Text style={styles.recordText}>
-            {recording ? "STOP" : "REC"}
-          </Text>
-        </TouchableOpacity>
+        <View>
+
+          <View style={styles.horizontal_item}>
+            {!recordingSelected && (
+              <TouchableOpacity
+                onPress={recording ? stopRecording : startRecording}
+                style={[
+                  styles.recordButton,
+                  recording && styles.recordingActive,
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.recordDot,
+                    recording && { transform: [{ scale: pulseAnim }] },
+                  ]}
+                />
+
+                <Text style={styles.recordText}>
+                  {recording ? "STOP" : "REC"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.horizontal_item}>
+              <Text style={styles.recordText}>Like</Text>
+              <AntDesign name="like" size={22} color="white" />
+              <Text style={styles.recordText}>Dislike</Text>
+              <AntDesign name="dislike" size={22} color="white" />
+            </View>
+
+            {recordingSelected && (
+              <View style={styles.horizontal_item}>
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => {
+                    let idToPass = null;
+
+                    // Priority 1: Live recording ID
+                    if (recordingId) {
+                      idToPass = recordingId;
+                    }
+                    // Priority 2: Selected recording from the list
+                    else if (selectedChannel?.id) {
+                      idToPass = selectedChannel.id;
+                    }
+
+                    console.log('Navigating with recordId:', idToPass);
+
+                    if (!idToPass) {
+                      Alert.alert('Error', 'No recording ID available');
+                      return;
+                    }
+
+                    navigation.navigate('Import', {
+                      recordId: idToPass,
+                    });
+                  }}
+                >
+                  <Text style={styles.buttonText}>Create Lesson</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.button}>
+                  <Text style={styles.buttonText}>Crop Video</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+          </View>
+        </View>
 
         {metadata && (
           <View style={{ padding: 10 }}>
@@ -419,7 +474,10 @@ export default function LiveTVPlayer({ navigation }) {
 
             return (
               <Pressable
-                onPress={() => setSelectedChannel(item)}
+                onPress={() => {
+                  setSelectedChannel(item)
+                  { console.log(item) }
+                }}
                 style={[
                   styles.card,
                   active && styles.cardActive,
@@ -449,6 +507,7 @@ export default function LiveTVPlayer({ navigation }) {
                 onPress={() => {
                   console.log(item);
                   setSelectedChannel(item);
+                  setRecordingSelected(false)
                 }}
                 style={[
                   styles.card,
@@ -476,7 +535,10 @@ export default function LiveTVPlayer({ navigation }) {
 
             return (
               <Pressable
-                onPress={() => setSelectedChannel(item)}
+                onPress={() => {
+                  setSelectedChannel(item)
+                  setRecordingSelected(false)
+                }}
                 style={[
                   styles.card,
                   active && styles.cardActive,
@@ -503,7 +565,10 @@ export default function LiveTVPlayer({ navigation }) {
 
             return (
               <Pressable
-                onPress={() => setSelectedChannel(item)}
+                onPress={() => {
+                  setSelectedChannel(item)
+                  setRecordingSelected(false)
+                }}
                 style={[
                   styles.card,
                   active && styles.cardActive,
@@ -531,9 +596,14 @@ export default function LiveTVPlayer({ navigation }) {
               style={styles.card}
               onPress={() => {
                 setSelectedChannel(item)
+                setRecordingSelected(true)
                 console.log(item);
               }}
             >
+
+              <TouchableOpacity style={styles.deleteButton} onPress={() => deleteRecording(item.id)} >
+                <AntDesign name="delete" size={13} color="white" />
+              </TouchableOpacity>
               <ImageBackground
                 source={{
                   uri: `http://${serverIP}:8000${item.record_img}`,
@@ -582,7 +652,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  
+
   sectionTitle: {
     color: 'white',
     fontSize: 18,
@@ -698,4 +768,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 1,
   },
+  deleteButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 100,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  horizontal_item: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    gap: 12,
+    flexDirection: "row",
+    justifyContent: "space-between"
+  }
 });

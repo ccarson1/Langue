@@ -12,7 +12,7 @@ import {
   Alert,
   Switch,
   Platform,
-  ProgressBar,
+  ProgressViewIOS 
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -24,8 +24,13 @@ import LoadingOverlay from './components/LoadingOverlay';
 import ButtonGroup from './components/ButtonGroup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getServerIP } from '../utils/config';
+import ProgressBar from './components/ProgressBar';
 
-export default function ImportScreen({ navigation }) {
+console.log('ButtonGroup:', ButtonGroup);
+console.log('CustomPopup:', CustomPopup);
+console.log('LoadingOverlay:', LoadingOverlay);
+
+export default function ImportScreen({ navigation, route }) {
   const [url, setUrl] = useState('');
   const [lessonFile, setLessonFile] = useState(null);
   const [mediaFile, setMediaFile] = useState(null);
@@ -54,46 +59,8 @@ export default function ImportScreen({ navigation }) {
   const sourceOptions = [{ label: 'Manual', value: 'manual' }, { label: 'URL', value: 'url' }]
   const [uploadSource, setUploadSource] = useState('manual');
   const [translateTarget, setTranslateTarget] = useState(false);
+  const { recordId } = route.params || {};
 
-
-  const fetchLanguages = async () => {
-    try {
-      const res = await fetch(`http://${serverIP}:8000/api/languages/`);
-      const data = await res.json();
-      setLanguages(data); // assuming data is an array of { id, lang_name }
-    } catch (err) {
-      console.error('Failed to fetch languages:', err);
-      Alert.alert('Error', 'Failed to load language options.');
-    }
-  };
-
-  const pollProgress = () => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${serverIP}:8000/api/lesson-import-progress/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setProgress(data.progress);
-
-        if (data.progress >= 100) {
-          clearInterval(pollingInterval);
-          setLoading(false);
-        }
-
-        else if (data.progress < 0) {
-          clearInterval(pollingInterval);
-          setLoading(false);
-
-          showError("Lesson import failed.");
-        }
-      } catch (err) {
-        console.error(err);
-        clearInterval(interval);
-        setLoading(false);
-      }
-    }, 1000);
-  };
 
   useEffect(() => {
     const loadIP = async () => {
@@ -138,6 +105,129 @@ export default function ImportScreen({ navigation }) {
     loadTokenAndSettings(); // <--- fetch user settings
   }, [serverIP]);
 
+
+  const fetchLanguages = async () => {
+    try {
+      const res = await fetch(`http://${serverIP}:8000/api/languages/`);
+      const data = await res.json();
+      setLanguages(data); // assuming data is an array of { id, lang_name }
+    } catch (err) {
+      console.error('Failed to fetch languages:', err);
+      Alert.alert('Error', 'Failed to load language options.');
+    }
+  };
+
+  const pollProgress = () => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${serverIP}:8000/api/lesson-import-progress/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setProgress(data.progress);
+
+        if (data.progress >= 100) {
+          clearInterval(pollingInterval);
+          setLoading(false);
+        }
+
+        else if (data.progress < 0) {
+          clearInterval(pollingInterval);
+          setLoading(false);
+
+          showError("Lesson import failed.");
+        }
+      } catch (err) {
+        console.error(err);
+        clearInterval(interval);
+        setLoading(false);
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    console.log('Route params received:', route.params);
+  }, [route.params]);
+
+  const loadRecordingFile = async () => {
+    try {
+      setLoading(true);
+      const ip = await getServerIP();           // get fresh IP
+      const storedToken = await AsyncStorage.getItem("accessToken");
+
+      if (!storedToken || !ip) {
+        console.warn("Missing IP or token");
+        return;
+      }
+
+      console.log(`Fetching recording ${recordId} from ${ip}...`);
+
+      const res = await fetch(
+        `http://${ip}:8000/api/recording-detail/${recordId}/`,
+        {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        }
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Error body:', errorText);
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      processRecordingData(data, ip);   // ← pass ip here
+
+    } catch (err) {
+      console.error("Failed to load recording:", err);
+      Alert.alert('Error', 'Failed to load recording details. You can still select media manually.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function - now accepts ip parameter
+  const processRecordingData = (data, ip) => {
+    const baseUrl = `http://${ip}:8000`;
+
+    const mediaObj = {
+      uri: `${baseUrl}${data.record_file}`,
+      name: data.title ? `${data.title}.mp4` : `recording-${recordId}.mp4`,
+      type: "video/mp4",
+      mimeType: "video/mp4",
+    };
+
+    let imageObj = null;
+    if (data.record_img) {
+      imageObj = {
+        uri: `${baseUrl}${data.record_img}`,
+        name: `thumbnail-${recordId}.jpg`,
+        type: "image/jpeg",
+        mimeType: "image/jpeg",
+      };
+    }
+
+    setUploadType('video');
+    setUploadSource('manual');
+    setMediaFile(mediaObj);
+    setMediaUploaded(true);
+    setVideoFormat(true);
+    setFileUploaded(false);
+
+    if (imageObj) {
+      setImageFile(imageObj);
+      setImageReference(true);
+    }
+
+    console.log('✅ Recording + thumbnail loaded successfully');
+  };
+
+
+  useEffect(() => {
+    if (!recordId) return;
+    loadRecordingFile();
+  }, [recordId]);
+
   useEffect(() => {
     if (uploadType === 'video') {
       setVideoFormat(true);
@@ -157,6 +247,8 @@ export default function ImportScreen({ navigation }) {
       setLessonEmpty(false);
     }
   }, [uploadType]);
+
+
 
   const showSuccess = (message) => {
     setPopup({ visible: true, message: message, type: 'success' });
@@ -208,7 +300,7 @@ export default function ImportScreen({ navigation }) {
     setLoading(false);
   };
 
-  const handleAudioPick = async () => {
+  const handleMediaPick = async () => {
     setLoading(true)
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -250,31 +342,6 @@ export default function ImportScreen({ navigation }) {
     return new Blob([u8arr], { type: mime });
   }
 
-  async function appendFileToFormData(formData, fieldName, file) {
-    if (!file) return;
-
-    if (file.uri.startsWith('data:')) {
-      if (Platform.OS === 'web') {
-        const blob = dataURLtoBlob(file.uri);
-        formData.append(fieldName, blob, file.name);
-      } else {
-        const base64Content = file.uri.split(',')[1];
-        const fileUri = `${FileSystem.cacheDirectory}${file.name}`;
-        await FileSystem.writeAsStringAsync(fileUri, base64Content, { encoding: FileSystem.EncodingType.Base64 });
-        formData.append(fieldName, {
-          uri: fileUri,
-          name: file.name,
-          type: file.mimeType || 'application/octet-stream',
-        });
-      }
-    } else {
-      formData.append(fieldName, {
-        uri: file.uri,
-        name: file.name,
-        type: file.mimeType || 'application/octet-stream',
-      });
-    }
-  }
 
   async function appendFileToFormData(formData, fieldName, file) {
     if (!file) return;
@@ -519,7 +586,7 @@ export default function ImportScreen({ navigation }) {
               {mediaUploaded && (
                 <View>
                   <Text style={styles.label}>Media Upload</Text>
-                  <TouchableOpacity style={styles.button} onPress={handleAudioPick}>
+                  <TouchableOpacity style={styles.button} onPress={handleMediaPick}>
                     <Text style={styles.buttonText}>
                       {mediaFile ? `Selected: ${mediaFile.name}` : 'Choose Media'}
                     </Text>
@@ -655,9 +722,7 @@ export default function ImportScreen({ navigation }) {
               <View style={{ marginTop: 20 }}>
                 {Platform.OS === 'android' ? (
                   <ProgressBar styleAttr="Horizontal" progress={progress / 100} indeterminate={false} color="#00adb5" />
-                ) : Platform.OS === 'ios' ? (
-                  <ProgressViewIOS progress={progress / 100} />
-                ) : (
+                ): (
                   <progress value={progress} max={100} style={{ width: '100%' }} />
                 )}
                 <Text style={{ color: '#fff' }}>{progress}%</Text>

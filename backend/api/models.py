@@ -4,6 +4,8 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 import uuid
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.conf import settings
+import os
 
 
 def lesson_file_upload_path(instance, filename):
@@ -253,3 +255,27 @@ class Recording(models.Model):
     is_favorite = models.BooleanField(default=False, db_column='record_is_favorite')
     record_lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.created_at}"
+    
+    def delete(self, *args, **kwargs):
+        try:
+            if self.record_file and os.path.isfile(self.record_file.path):
+                os.remove(self.record_file.path)
+        except Exception:
+            pass
+
+        try:
+            if self.record_img:
+                thumb_path = os.path.join(
+                    settings.MEDIA_ROOT,
+                    self.record_img.replace("/media/", "")
+                )
+
+                if os.path.isfile(thumb_path):
+                    os.remove(thumb_path)
+        except Exception:
+            pass
+
+        super().delete(*args, **kwargs)
