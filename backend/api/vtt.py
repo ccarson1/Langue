@@ -12,6 +12,7 @@ import csv
 import os
 import io
 import re
+from .stt import SpeechToText
 
 class VTT():
     
@@ -54,6 +55,8 @@ class VTT():
         self.lesson_import_progress = lesson_import_progress
         self.user_id = user_id
 
+        
+
 
     def create_sentences(self, segments):
         for seg in segments:
@@ -88,7 +91,7 @@ class VTT():
 
     def process_lesson(self):
 
-        csv_path = self.save_csv(self.lesson_file)
+        stt = SpeechToText()
 
         print("Media_file:", self.media_file)
 
@@ -97,11 +100,20 @@ class VTT():
                 self.save_media(self.media_file, 'mp4')
             self.save_media(self.media_file, 'mp3')
 
-        print("CSV Path: ", csv_path)
-        
-
-        segments = self.csv_to_segments(csv_path)
-        print("Segments: ", segments)
+        #Load CSV file
+        if self.lesson_file:
+            csv_path = self.save_csv(self.lesson_file)
+            print("CSV Path: ", csv_path)
+            segments = self.csv_to_segments(csv_path)
+            print("Segments: ", segments)
+        elif self.alwaysGenerateCaptions:
+            segments_with_info = stt.transcribe_with_timestamps(self.media_file, self.yt_dlp_lang)
+            print("Uploaded Target Language: ", self.yt_dlp_lang)
+            print("Language probability: ", segments_with_info['language'])
+            print("Language Match: ", self.yt_dlp_lang == segments_with_info['language'])
+            segments = segments_with_info['segments']
+        else:
+            segments = []
 
         self.create_sentences(segments)
 

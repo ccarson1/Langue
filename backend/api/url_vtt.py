@@ -137,12 +137,14 @@ class URL_VTT():
             start_ms = int(seg["start"] * 1000)
             end_ms = int(seg["end"] * 1000)
             text = seg["text"]
-            translated_text = translate_word(text, self.yt_dlp_lang, self.yt_dlp_tar_lang)
 
-            self.lesson_import_progress[self.user_id] += 70 / len(segments)
-            print(f"Progress: {self.lesson_import_progress[self.user_id]}%")
-            print(f"Here is the lesson_language: {self.lesson_language}")
-            print(f"Here is the translate_language: {self.translate_language}")
+            if self.translateTarget:
+                translated_text = translate_word(text, self.yt_dlp_lang, self.yt_dlp_tar_lang)
+
+                self.lesson_import_progress[self.user_id] += 70 / len(segments)
+                print(f"Progress: {self.lesson_import_progress[self.user_id]}%")
+                print(f"Here is the lesson_language: {self.lesson_language}")
+                print(f"Here is the translate_language: {self.translate_language}")
 
 
             sentence = Sentence.objects.create(

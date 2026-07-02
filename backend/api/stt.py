@@ -5,8 +5,8 @@ class SpeechToText:
     def __init__(
         self,
         model_size="medium",
-        device="cuda",
-        compute_type="float16",
+        device="cpu",
+        compute_type="int8",
     ):
         """
         model_size:
@@ -76,14 +76,17 @@ class SpeechToText:
                     "start": segment.start,
                     "end": segment.end,
                     "text": segment.text.strip(),
+                    "translated": ""
                 }
             )
-
+            print("start: ", segment.start, "end: ", segment.end, "text: ", segment.text.strip())
         return {
             "segments": results,
             "language": info.language,
             "language_probability": info.language_probability,
         }
+    
+
 
     def transcribe_words(
         self,
@@ -121,3 +124,4 @@ class SpeechToText:
             "language": info.language,
             "language_probability": info.language_probability,
         }
+    

@@ -394,7 +394,7 @@ def import_lesson(request):
                 lesson.save()
 
             # FILE IMPORT
-            if fileUploaded and (audioUploaded or videoFormat):
+            if (fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat):
 
                 if lesson_file:
                     lesson.doc_file = lesson_file
@@ -414,26 +414,7 @@ def import_lesson(request):
                     media_file,
                     translateTarget
                 )
-                #csv_path = save_lesson_media.save_csv( lesson_file )
 
-                # if not csv_path:
-                #     raise Exception(
-                #         "CSV generation failed"
-                #     )
-
-                # audio_success = ( save_lesson_media.save_audio_as_mp3( audio_file ) )
-
-                # if not audio_success:
-                #     raise Exception(
-                #         "Audio conversion failed"
-                #     )
-
-                # split_success = ( save_lesson_media.split_media_by_csv_ms( csv_path=csv_path ) )
-
-                # if not split_success:
-                #     raise Exception(
-                #         "Audio splitting failed"
-                #     )
 
                 success = save_lesson_media.process_lesson()
                 if not success:
@@ -447,6 +428,8 @@ def import_lesson(request):
 
                 lesson.audio_folder = ( save_lesson_media.AUDIO_DIR )
                 lesson.save()
+            else:
+                print("(fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) is false")
 
             lesson_import_progress[user_id] = 100
 

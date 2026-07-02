@@ -212,7 +212,7 @@ export default function ImportScreen({ navigation }) {
     setLoading(true)
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'audio/*',
+        type: ['audio/*', 'video/*'],
         copyToCacheDirectory: true,
       });
 
@@ -304,7 +304,7 @@ export default function ImportScreen({ navigation }) {
   }
 
   const handleImport = async () => {
-    if (!url && !lessonFile && !lessonEmpty) {
+    if (!url && !lessonFile && !lessonEmpty && !alwaysGenerateCaptions) {
       showError(`Missing input: Please provide a URL or upload a file.`);
       Alert.alert('Missing input', 'Please provide a URL or upload a file.');
       return;
