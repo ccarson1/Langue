@@ -14,10 +14,13 @@ export const createStyles = (insets) =>
             backgroundColor: '#222831',
             justifyContent: 'space-between', // Distribute space evenly
         },
-
+        middleScroll: {
+            flex: 0.7,
+            width: '100%',
+        },
         // Top section - fixed space
         topSection: {
-            flex: 0.2,
+            flex: 0.28,
             alignItems: 'right',
             width: '100%',
             textAlign: 'center',
@@ -34,7 +37,7 @@ export const createStyles = (insets) =>
             color: 'white',
             fontStyle: 'bold',
             fontSize: 22,
-            top: 50,
+            top: 40,
             left: 40,
             fontFamily: 'PlaywriteHU-Regular',
             height: 50
@@ -56,11 +59,11 @@ export const createStyles = (insets) =>
 
         // Middle section - main content with fixed space
         middleSection: {
-            flex: .7,
-            width: '80%',
+            flex: 1,
+            width: '100%',
             justifyContent: 'center',
             alignItems: 'center',
-
+            paddingBottom: 50,
 
         },
 
@@ -142,7 +145,7 @@ export const createStyles = (insets) =>
             backgroundColor: 'rgb(57, 62, 70)',
             borderRadius: 5,
             padding: 15,
-            width: Platform.OS === 'web' ? '75%' : "120%",
+            width: Platform.OS === 'web' ? '80%' : "100%",
             height: '100%',
             minHeight: 250, // Fixed minimum height
             position: 'relative',
@@ -151,7 +154,7 @@ export const createStyles = (insets) =>
             scrollbarColor: '#888 #444444',
         },
 
-        
+
 
         buttonText: {
             color: 'black',
@@ -261,5 +264,11 @@ export const createStyles = (insets) =>
             paddingTop: 10,
             paddingHorizontal: 8,
             paddingBottom: 30,
+        },
+        videoPlayer: {
+            width: Platform.OS === 'web' ? '80%' : "50%",
+            top: 50,
+            marginTop: 50,
+            paddingTop: 50,
         },
     });

@@ -301,6 +301,8 @@ def import_lesson(request):
 
             videoFormat = request.data.get('videoFormat', 'false' ).lower() in ['true', '1', 'yes']
             print("videoFormat: ",request.data.get("videoFormat"))
+
+            
             
             audioUploaded = request.data.get('audioUploaded', 'false' ).lower() in ['true', '1', 'yes']
             lessonPrivate = request.data.get( 'lessonPrivate', 'false' ).lower() in ['true', '1', 'yes']
@@ -387,7 +389,7 @@ def import_lesson(request):
                         "YouTube processing failed"
                     )
 
-                lesson.audio_folder = (
+                lesson.media_folder = (
                     save_lesson_media.AUDIO_DIR
                 )
 
@@ -400,7 +402,8 @@ def import_lesson(request):
                     lesson.doc_file = lesson_file
 
                 if media_file:
-                    lesson.audio_file = media_file
+                    lesson.media_file = media_file
+                    
 
                 lesson.save()
                 save_lesson_media = VTT( 
@@ -422,11 +425,11 @@ def import_lesson(request):
                         "YouTube processing failed"
                     )
 
-                lesson.audio_folder = (
+                lesson.media_folder = (
                     save_lesson_media.AUDIO_DIR
                 )
 
-                lesson.audio_folder = ( save_lesson_media.AUDIO_DIR )
+                lesson.media_folder = ( save_lesson_media.AUDIO_DIR )
                 lesson.save()
             else:
                 print("(fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference is false")
@@ -508,6 +511,7 @@ def get_lessons(request):
     target_lang_id = settings.target_language.id
     lessons = Lesson.objects.filter(target_language_id=target_lang_id, user=user)
     serializer = LessonSerializer(lessons, many=True, context={'request': request})
+    print(serializer.data)
     return Response(serializer.data)
 
 def str_to_bool(value):
@@ -548,7 +552,7 @@ def edit_lesson(request, lesson_id):
             'created_at' : lesson.created_at,
             'image_data': image_data,
             'image_name': os.path.basename(lesson.image.name) if lesson.image else None,
-            'audio_name': os.path.basename(lesson.audio_file.name) if lesson.audio_file else None,
+            'audio_name': os.path.basename(lesson.media_file.name) if lesson.media_file else None,
 
             'sentences': [
                 {
@@ -576,8 +580,8 @@ def edit_lesson(request, lesson_id):
         if 'image' in request.FILES:
             lesson.image = request.FILES['image']
 
-        if 'audio_file' in request.FILES:
-            lesson.audio_file = request.FILES['audio_file']
+        if 'media_file' in request.FILES:
+            lesson.media_file = request.FILES['audio_file']
 
         
 
@@ -731,6 +735,9 @@ def user_settings(request):
                 'repeat_audio': settings.repeat_audio,
                 'repeat_audio_all': settings.repeat_audio_all,
                 'shuffle_audio': settings.shuffle_audio,
+                'showVideoCaptions': settings.showVideoCaptions,
+                'showVideoView': settings.showVideoView,
+                'continuousPlay': settings.continuousPlay,
                 # add more fields as needed
             }
             return Response(data)
@@ -748,6 +755,9 @@ def user_settings(request):
         repeat_audio = request.data.get('repeat_audio')
         repeat_audio_all = request.data.get('repeat_audio_all')
         shuffle_audio = request.data.get('shuffle_audio')
+        showVideoCaptions = request.data.get('showVideoCaptions')
+        showVideoView = request.data.get('showVideoView')
+        continuousPlay = request.data.get('continuousPlay')
 
         if native_id is None or target_id is None:
             return Response(
@@ -771,6 +781,9 @@ def user_settings(request):
             settings.repeat_audio = repeat_audio if repeat_audio is not None else settings.repeat_audio
             settings.repeat_audio_all = repeat_audio_all if repeat_audio_all is not None else settings.repeat_audio_all
             settings.shuffle_audio = shuffle_audio if shuffle_audio is not None else settings.shuffle_audio
+            settings.showVideoCaptions = showVideoCaptions if showVideoCaptions is not None else settings.showVideoCaptions
+            settings.showVideoView = showVideoView if showVideoView is not None else settings.showVideoView
+            settings.continuousPlay = continuousPlay if continuousPlay is not None else settings.continuousPlay
             settings.save()
 
             return Response({'message': 'Settings updated successfully'})
@@ -958,7 +971,7 @@ def lesson_detail_with_sentences(request, lesson_id):
             "id": lesson.id,
             "title": lesson.title,
             "doc_file": lesson.doc_file.url if lesson.doc_file else None,
-            "audio_file": lesson.audio_file.url if lesson.audio_file else None,
+            "audio_file": lesson.media_file.url if lesson.media_file else None,
             "native_language": native_language_id,
             "target_language": target_language_id,
             'audioUploaded': lesson.audioUploaded,
@@ -971,7 +984,8 @@ def lesson_detail_with_sentences(request, lesson_id):
                     "end_ms": s.end_ms
                 }
                 for s in sentences
-            ]
+            ],
+            'videoFormat' : lesson.videoFormat
         }
 
         print(lesson_data['sentences'])
@@ -996,17 +1010,17 @@ def get_audio(request):
         try:
             lesson = Lesson.objects.get(id=lesson_id)
 
-            if not lesson.audio_folder and not getattr(lesson, 'audio_file', None):
+            if not lesson.media_folder and not getattr(lesson, 'media_file', None):
                 return Response({'error': 'Lesson has no audio'}, status=404)
 
             # === PREFERRED: Use Django FileField if available ===
-            if hasattr(lesson, 'audio_file') and lesson.audio_file:
-                audio_path = lesson.audio_file.path
+            if hasattr(lesson, 'media_file') and lesson.media_file:
+                audio_path = lesson.media_file.path
                 print("FULL AUDIO PATH (from FileField):", audio_path)
 
-            # === FALLBACK: Build from audio_folder ===
+            # === FALLBACK: Build from media_folder ===
             else:
-                audio_folder = lesson.audio_folder
+                audio_folder = lesson.media_folder
 
                 print("Audio Folder:", audio_folder)
 
@@ -1051,11 +1065,11 @@ def get_audio(request):
             
 
             lesson = Lesson.objects.get(id=lesson_id)
-            if not lesson.audio_folder:
+            if not lesson.media_folder:
                 return Response({'error': 'Audio folder not set for this lesson'}, status=404)
 
             # Construct absolute path
-            audio_folder = os.path.join(settings.BASE_DIR, 'api', lesson.audio_folder)
+            audio_folder = os.path.join(settings.BASE_DIR, 'api', lesson.media_folder)
             print(f"Audio folder: {audio_folder}")
 
             if not os.path.exists(audio_folder):
@@ -1165,7 +1179,7 @@ def get_waveform(request):
 
     audio_path = os.path.join(
         os.path.dirname(
-            lesson.audio_folder
+            lesson.media_folder
         ),
         "audio.mp3"
     )
@@ -1712,4 +1726,22 @@ def channels(request):
     print("Found Channels:", channels)
 
     return Response(data)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def get_video(request):
+
+    print("User:", request.user)
+    print("Authenticated:", request.user.is_authenticated)
+    print("Authorization:", request.headers.get("Authorization"))
+
+    lesson = Lesson.objects.get(
+        id=request.data["lesson_id"],
+        user=request.user
+    )
+
+    return FileResponse(
+        lesson.media_file.open("rb"),
+        content_type="video/mp4"
+    )
 

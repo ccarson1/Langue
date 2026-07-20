@@ -67,7 +67,9 @@ class SignupSerializer(serializers.Serializer):
             user_set_speed=1.00,
             repeat_audio=False,
             repeat_audio_all=False,
-            shuffle_audio=False
+            shuffle_audio=False,
+            showVideoCaptions=False,
+            showVideoView=False
         )
 
         return user
@@ -113,7 +115,7 @@ class LessonSerializer(serializers.ModelSerializer):
             'id',
             'image',
             'doc_file',
-            'audio_file',
+            'media_file',
             'user',
             'title',
             'url',
@@ -126,6 +128,8 @@ class LessonSerializer(serializers.ModelSerializer):
             'urlReference',
             'created_at',
             'sentences',
+            'videoFormat',
+            
         ]
 
     def get_image(self, obj):

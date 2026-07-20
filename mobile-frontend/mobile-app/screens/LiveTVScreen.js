@@ -385,10 +385,8 @@ export default function LiveTVPlayer({ navigation }) {
               </TouchableOpacity>
             )}
             <View style={styles.horizontal_item}>
-              <Text style={styles.recordText}>Like</Text>
-              <AntDesign name="like" size={22} color="white" />
-              <Text style={styles.recordText}>Dislike</Text>
-              <AntDesign name="dislike" size={22} color="white" />
+              <AntDesign style={{marginRight: 25}} name="like" size={18} color="white" />
+              <AntDesign style={{marginRight: 15}}  name="dislike" size={18} color="white" />
             </View>
 
             {recordingSelected && (
@@ -781,9 +779,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   horizontal_item: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 5,
     paddingVertical: 10,
-    gap: 12,
+    gap: 10,
     flexDirection: "row",
     justifyContent: "space-between"
   }

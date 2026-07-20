@@ -100,8 +100,8 @@ class Report(models.Model):
 class Lesson(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     doc_file = models.FileField(upload_to=lesson_file_upload_path, null=True, blank=True)
-    audio_file = models.FileField(upload_to=audio_file_upload_path, null=True, blank=True)
-    audio_folder = models.CharField(max_length=500, blank=True, null=True)
+    media_file = models.FileField(upload_to=audio_file_upload_path, null=True, blank=True)
+    media_folder = models.CharField(max_length=500, blank=True, null=True)
     image = models.ImageField(null=True, blank=True, default='images/default-01.jpg', upload_to=image_file_upload_path)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
     title = models.CharField(max_length=100, blank=True, null=True)
@@ -114,6 +114,7 @@ class Lesson(models.Model):
     fileUploaded = models.BooleanField(default=False)
     urlReference = models.BooleanField(default=False)
     videoFormat = models.BooleanField(default=False)
+    
     
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -156,6 +157,9 @@ class UserSetting(models.Model):
     repeat_audio = models.BooleanField(default=False, db_column='repeat_audio')
     repeat_audio_all = models.BooleanField(default=False, db_column='repeat_audio_all')
     shuffle_audio = models.BooleanField(default=False, db_column='shuffle_audio')
+    showVideoCaptions = models.BooleanField(default=False)
+    showVideoView = models.BooleanField(default=False)
+    continuousPlay = models.BooleanField(default=False)
     
 class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')

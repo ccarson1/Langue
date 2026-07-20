@@ -30,6 +30,7 @@ urlpatterns = [
     path('user-progress/<int:lesson_id>/', views.user_lessons_progress_view, name='user_lessons_progress'),
     path('lesson/<int:lesson_id>/', views.lesson_detail_with_sentences, name='lesson-detail'),
     path('audio/', views.get_audio, name='lesson-audio'),
+    path('video/', views.get_video, name='lesson-video'),
     path('waveform/', views.get_waveform, name='waveform'),
     path('change-lesson/', views.change_lesson, name='change-lesson'),
     path('lesson-import-progress/', views.lesson_import_progress_view, name='lesson_import_progress'),

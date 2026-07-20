@@ -60,6 +60,8 @@ export default function ImportScreen({ navigation, route }) {
   const [uploadSource, setUploadSource] = useState('manual');
   const [translateTarget, setTranslateTarget] = useState(false);
   const { recordId } = route.params || {};
+  const [ShowVideoCaptions, setShowVideoCaptions] = useState(false);
+  const [ShowVideoView, setShowVideoView] = useState(false);
 
 
   useEffect(() => {
@@ -219,6 +221,7 @@ export default function ImportScreen({ navigation, route }) {
       setImageReference(true);
     }
 
+
     console.log('✅ Recording + thumbnail loaded successfully');
   };
 
@@ -231,8 +234,12 @@ export default function ImportScreen({ navigation, route }) {
   useEffect(() => {
     if (uploadType === 'video') {
       setVideoFormat(true);
+      setShowVideoCaptions(true);
+      setShowVideoView(true);
     } else {
       setVideoFormat(false);
+      setShowVideoCaptions(false);
+      setShowVideoView(false);
     }
 
     if (uploadType === 'audio') {
@@ -411,6 +418,8 @@ export default function ImportScreen({ navigation, route }) {
       formData.append('videoFormat', videoFormat);
       formData.append('alwaysGenerateCaptions', alwaysGenerateCaptions);
       formData.append('translateTarget', translateTarget);
+      formData.append('showVideoCaptions', ShowVideoCaptions);
+      formData.append('showVideoView', ShowVideoView);
 
       // Start polling progress
       const pollingInterval = setInterval(async () => {

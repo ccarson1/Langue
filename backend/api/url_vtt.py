@@ -199,7 +199,7 @@ class URL_VTT():
         print("Splitting segments...")
         self.split_segments(segments)
         uuid_folder = self.uuid
-        self.lesson.audio_file.name = f"lessons/{uuid_folder}/audio.mp3"
+        self.lesson.media_file.name = f"lessons/{uuid_folder}/audio.mp3"
         self.lesson.audio_folder = f"lessons/{uuid_folder}"  # ← remove the trailing /audio
         self.lesson.save()
         print("Done!")

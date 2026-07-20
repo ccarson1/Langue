@@ -25,15 +25,24 @@ export default function BottomAudioMenu({
     setRepeatAll,
     shuffle,
     setShuffle,
+    ShowVideoCaptions,
+    setShowVideoCaptions,
+    ShowVideoView,
+    setShowVideoView,
+    continuousPlay,
+    setContinuousPlay,
     showToggles = true,
     showAudioVisualizer = false,
+    videoFormat = false,
     lessonId = null,
     audioDurationMs = null,
     targetText = '',
+
 }) {
 
     const [expanded, setExpanded] = useState(false);
     const [isPhraseMode, setIsPhraseMode] = useState(true);
+
 
     // Dynamic height
     const containerHeight = useMemo(() => {
@@ -68,7 +77,7 @@ export default function BottomAudioMenu({
             </TouchableOpacity>
 
             {expanded && (
-                <ScrollView 
+                <ScrollView
                     style={styles.scrollContent}
                     contentContainerStyle={styles.contentContainer}
                     showsVerticalScrollIndicator={false}
@@ -121,6 +130,32 @@ export default function BottomAudioMenu({
                                     </View>
                                 </>
                             )}
+
+                            {videoFormat && (
+                                <>
+                                    <View style={styles.toggleCard}>
+                                        <Text style={styles.label}>Show Video View</Text>
+                                        <Switch value={ShowVideoView} onValueChange={setShowVideoView} />
+                                    </View>
+                                    <View style={styles.toggleCard}>
+                                        <Text style={styles.label}>Show Video Captions</Text>
+                                        <Switch
+                                            value={ShowVideoCaptions}
+                                            disabled={!ShowVideoView}
+                                            onValueChange={(value) => {
+                                                if (ShowVideoView) {
+                                                    setShowVideoCaptions(value);
+                                                }
+                                            }}
+                                        />
+                                    </View>
+                                </>
+                            )}
+
+                            <View style={styles.toggleCard}>
+                                <Text style={styles.label}>Continuous Play</Text>
+                                <Switch value={continuousPlay} onValueChange={setContinuousPlay} />
+                            </View>
 
                             {targetText && (
                                 <View style={styles.pronunciationSection}>
@@ -200,9 +235,9 @@ const styles = StyleSheet.create({
         flex: 1,
         gap: 10,
     },
-    sliderCard: { 
-        padding: 8, 
-        marginBottom: 8 
+    sliderCard: {
+        padding: 8,
+        marginBottom: 8
     },
     toggleCard: {
         paddingHorizontal: 8,
@@ -221,9 +256,9 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         fontSize: 13,
     },
-    slider: { 
-        width: '100%', 
-        height: 14 
+    slider: {
+        width: '100%',
+        height: 14
     },
 
     /* Pronunciation */

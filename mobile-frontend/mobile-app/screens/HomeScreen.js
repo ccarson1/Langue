@@ -19,6 +19,7 @@ import LoadingOverlay from './components/LoadingOverlay';
 import ProgressBar from './components/ProgressBar';
 import CustomPopup from './components/CustomPopup';
 import DefinitionList from './components/DefinitionList';
+import LessonVideoPlayer from "./components/LessonVideoPlayer";
 
 
 //import styles from './styles/HomeStyles';
@@ -58,12 +59,18 @@ export default function HomeScreen({ navigation }) {
     const [description, setDescription] = useState('');
     const [lessonAudio, setLessonAudio] = useState(null);
     const [hasAudio, setHasAudio] = useState(true);
+    const [videoFormat, setVideoFormat] = useState(false);
 
     const soundRef = useRef(null);
+    const videoRef = useRef(null);
     const [volume, setVolume] = useState(1.0);
     const [playbackRate, setPlaybackRate] = useState(1.0);
     const [wordFrequencies, setWordFrequencies] = useState([]);
     const [selectedFrequency, setSelectedFrequency] = useState(0);
+    const [ShowVideoCaptions, setShowVideoCaptions] = useState(false);
+    const [ShowVideoView, setShowVideoView] = useState(false);
+    const [settingsLoaded, setSettingsLoaded] = useState(false);
+    const [continuousPlay, setContinuousPlay] = useState(false);
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
@@ -71,6 +78,7 @@ export default function HomeScreen({ navigation }) {
 
     const insets = useSafeAreaInsets();
     const styles = createStyles(insets);
+    const [lessonData, setLessonData] = useState(null);
 
     const fetchWordFrequencies = async (sentenceId) => {
         try {
@@ -163,6 +171,20 @@ export default function HomeScreen({ navigation }) {
         console.log("segmentStart:", rows[index][3]);
         if (!lessonAudio || !rows[index]) return;
 
+        if (ShowVideoView && videoFormat) {
+
+            const segmentStart = rows[index][3];
+
+            setStartMs(segmentStart);
+            setEndMs(rows[index][4]);
+
+            videoRef.current?.seek(segmentStart);
+            videoRef.current?.play();
+
+            setIsPlaying(true);
+            return;
+        }
+
         try {
             if (!soundRef.current) {
                 const { sound } = await Audio.Sound.createAsync(
@@ -190,6 +212,12 @@ export default function HomeScreen({ navigation }) {
             setEndMs(segmentEnd);
 
             await sound.setPositionAsync(segmentStart);
+
+            // if (ShowVideoView) {
+            //     videoRef.current?.seek(segmentStart);
+            //     videoRef.current?.play();
+            // }
+
             await sound.playAsync();
 
             setIsPlaying(true);
@@ -216,7 +244,15 @@ export default function HomeScreen({ navigation }) {
 
     const pauseAudio = async () => {
         setIsPlaying(false);
-        if (soundRef.current) await soundRef.current.pauseAsync();
+
+        if (ShowVideoView && videoFormat) {
+            videoRef.current?.pause();
+            return;
+        }
+
+        if (soundRef.current) {
+            await soundRef.current.pauseAsync();
+        }
     };
 
     // --- Word translation ---
@@ -312,7 +348,10 @@ export default function HomeScreen({ navigation }) {
                 nativeLanguage,
                 targetLanguage,
                 volume,
-                playbackRate
+                playbackRate,
+                ShowVideoCaptions,
+                ShowVideoView,
+                continuousPlay
             });
             const response = await fetch(
                 `http://${serverIP}:8000/api/settings/`,
@@ -327,6 +366,9 @@ export default function HomeScreen({ navigation }) {
                         user_set_speed: playbackRate,
                         native_language: nativeLanguage.lang_name,
                         target_language: targetLanguage.lang_name,
+                        showVideoCaptions: ShowVideoCaptions,
+                        showVideoView: ShowVideoView,
+                        continuousPlay: continuousPlay
                     }),
                 }
             );
@@ -356,8 +398,21 @@ export default function HomeScreen({ navigation }) {
                 if (res.ok) {
                     const data = await res.json();
 
+                    console.log("Settings data from backend:", data)
+                    console.log("Video Captions:", data.showVideoCaptions)
+                    console.log("Video view: ", data.showVideoView)
+
                     setVolume(data.user_set_volume ?? 1.0);
                     setPlaybackRate(data.user_set_speed ?? 1.0);
+                    setShowVideoCaptions(data.showVideoCaptions);
+                    setShowVideoView(data.showVideoView);
+                    setContinuousPlay(data.continuousPlay);
+                    setSettingsLoaded(true);
+
+                    console.log("Captions after load: ", ShowVideoCaptions);
+                    console.log("Datatype: ", typeof (ShowVideoCaptions))
+                    console.log("Video View after load: ", ShowVideoView);
+                    console.log("Datatype: ", typeof (ShowVideoView))
                 }
             } catch (e) {
                 console.error("Failed to load settings:", e);
@@ -435,11 +490,13 @@ export default function HomeScreen({ navigation }) {
                 const lessonRes = await fetch(`http://${serverIP}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
                 if (lessonRes.ok) {
                     const lessonData = await lessonRes.json();
-                    const parsed = (lessonData.sentences || []).map(s => [s.id, s.sentence, s.translated_sentence, s.start_ms, s.end_ms]);
+                    setLessonData(lessonData);
+                    const parsed = (lessonData.sentences || []).map(s => [s.id, s.sentence, s.translated_sentence, s.start_ms, s.end_ms, s.videoFormat]);
                     console.log("Fetched lesson data:", parsed);
                     console.log("Current Lesson:", lessonData);
                     setRows(parsed);
                     setHasAudio(lessonData.audioUploaded);
+                    setVideoFormat(lessonData.videoFormat);
                     console.log(lessonData.audioUploaded);
                 }
             } catch (err) {
@@ -528,6 +585,7 @@ export default function HomeScreen({ navigation }) {
                             playbackRate,
                             true
                         );
+
                     }
                 } else {
                     await soundRef.current.setVolumeAsync(volume);
@@ -543,7 +601,14 @@ export default function HomeScreen({ navigation }) {
         };
 
         updateAudioSettings();
-    }, [volume, playbackRate]);
+    }, [
+        volume,
+        playbackRate,
+        ShowVideoCaptions,
+        ShowVideoView,
+        continuousPlay
+    ]);
+
 
     useEffect(() => {
         if (!rows.length || !token) return;
@@ -568,7 +633,10 @@ export default function HomeScreen({ navigation }) {
 
     }, [
         volume,
-        playbackRate
+        playbackRate,
+        ShowVideoCaptions,
+        ShowVideoView,
+        continuousPlay
     ]);
 
     // --- Render ---
@@ -577,6 +645,8 @@ export default function HomeScreen({ navigation }) {
     return (
 
         <View style={styles.container}>
+
+
             {/* Top Section */}
             <View style={styles.topSection}>
 
@@ -587,12 +657,10 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
 
             </View>
-
-            {/* Middle Section */}
             {user && (
                 <View style={{
                     position: 'absolute',
-                    top: height / 9,
+                    top: height / 10,
                     right: 0,
                     padding: 10,
                 }}>
@@ -605,75 +673,111 @@ export default function HomeScreen({ navigation }) {
                     </Text>
                 </View>
             )}
+            <ScrollView
+                style={styles.middleScroll}
+                contentContainerStyle={styles.middleSection}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+            >
+                {/* Middle Section */}
 
-            <View style={styles.middleSection}>
 
-                <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
+                <View style={styles.middleSection}>
 
-                {/* Fixed-height word container */}
-                <View style={styles.wordContainer}>
-                    <ScrollView
-                        style={styles.wordScroll}
-                        contentContainerStyle={styles.wordWrap}
-                        showsVerticalScrollIndicator={true}
-                    >
-                        {console.log(rows[index]?.[1])}
-                        {rows[index]?.[1].split(' ').map((word, i) => (
-                            <Text
-                                key={i}
-                                style={styles.word}
+                    {console.log(lessonData)}
+
+                    {lessonData?.videoFormat && ShowVideoView && (
+
+                        <LessonVideoPlayer
+                            ref={videoRef}
+                            style={styles.videoPlayer}
+                            lesson={lessonData}
+                            token={token}
+                            serverIP={serverIP}
+                            onWordPress={displaySelectedText}
+                            ShowVideoCaptions={ShowVideoCaptions}
+                            startMs={startMs}
+                            endMs={endMs}
+                            continuousPlay={continuousPlay}
+                        />
+
+                    )}
+
+
+                    {/* Fixed-height word container */}
+                    {!ShowVideoCaptions && (
+                        <>
+                            <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
+
+
+                            <View style={styles.wordContainer}>
+                                <ScrollView
+                                    style={styles.wordScroll}
+                                    contentContainerStyle={styles.wordWrap}
+                                    showsVerticalScrollIndicator={true}
+                                >
+                                    {console.log(rows[index]?.[1])}
+                                    {rows[index]?.[1].split(' ').map((word, i) => (
+                                        <Text
+                                            key={i}
+                                            style={styles.word}
+                                            onPress={() => {
+                                                // handle word click here
+                                                displaySelectedText(word)
+
+                                                // or call a function: onWordPress(word)
+                                            }}
+                                        >
+                                            {word}
+                                            {/* Add a space after each word */}
+                                            {i < rows[index]?.[2].split(' ').length - 1 ? ' ' : ''}
+                                        </Text>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        </>
+                    )}
+
+
+
+                    {/* Fixed-height definition container */}
+                    <ScrollView style={styles.defContainer}>
+                        <View>
+                            <Text style={styles.defHeader}>Definition</Text>
+                        </View>
+
+
+                        <View style={styles.translateBtn}>
+                            <TouchableOpacity
                                 onPress={() => {
-                                    // handle word click here
-                                    displaySelectedText(word)
-
-                                    // or call a function: onWordPress(word)
+                                    setDescription(rows[parseInt(index)][2]);
+                                    console.log(index)
+                                    console.log(rows[index][2])
                                 }}
+
                             >
-                                {word}
-                                {/* Add a space after each word */}
-                                {i < rows[index]?.[2].split(' ').length - 1 ? ' ' : ''}
+                                <Text style={styles.buttonText}>Translate Sentence</Text>
+                            </TouchableOpacity>
+                        </View>
+
+
+
+                        <StatusIndicator frequency={selectedFrequency} />
+                        <Text style={styles.partOfSpeech}>adjective</Text>
+
+
+                        <View style={styles.textRow}>
+                            {/* <Text style={styles.leftText}>Target:</Text> */}
+                            <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
+                                <AntDesign name="copy" size={24} color="black" />
+                            </TouchableOpacity>
+
+                            <Text style={styles.rightText}>
+                                {selectedText} : {multiDefinition ? multiDefDisplay : translatedText}
                             </Text>
-                        ))}
-                    </ScrollView>
-                </View>
-                {/* Fixed-height definition container */}
-                <ScrollView style={styles.defContainer}>
-                    <View>
-                        <Text style={styles.defHeader}>Definition</Text>
-                    </View>
-
-
-                    <View style={styles.translateBtn}>
-                        <TouchableOpacity
-                            onPress={() => {
-                                setDescription(rows[parseInt(index)][2]);
-                                console.log(index)
-                                console.log(rows[index][2])
-                            }}
-
-                        >
-                            <Text style={styles.buttonText}>Translate Sentence</Text>
-                        </TouchableOpacity>
-                    </View>
-
-
-
-                    <StatusIndicator frequency={selectedFrequency} />
-                    <Text style={styles.partOfSpeech}>adjective</Text>
-
-
-                    <View style={styles.textRow}>
-                        {/* <Text style={styles.leftText}>Target:</Text> */}
-                        <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
-                            <AntDesign name="copy" size={24} color="black" />
-                        </TouchableOpacity>
-
-                        <Text style={styles.rightText}>
-                            {selectedText} : {multiDefinition ? multiDefDisplay : translatedText}
-                        </Text>
-                    </View>
-                    <View style={styles.separatorSolid} />
-                    {/* <View style={styles.textRow}>
+                        </View>
+                        <View style={styles.separatorSolid} />
+                        {/* <View style={styles.textRow}>
                         <Text style={styles.leftText}>Native:</Text>
                         <TextInput
                             style={styles.rightText}
@@ -683,37 +787,37 @@ export default function HomeScreen({ navigation }) {
                         
 
                     </View> */}
-                    <DefinitionList
-                        definitions={Array.isArray(translatedText) ? translatedText : []}
-                        translationIDs={translationIDs}
-                        onWordPress={displaySelectedText}
-                        onAddDefinition={handleAddDefinition}
-                        selectedText={selectedText}
-                        translatedText={translatedText}
-                        nat_id={nativeLanguage}
-                        tar_id={targetLanguage}
-                        popup={popup}
-                        token={token}
-                        server={serverIP}
-                        showSuccess={showSuccess}
-                        showError={showError}
-                        onDefinitionUpdated={handleUpdateDefinition}
-                        onRefreshTranslation={refreshTranslation}
-                    />
+                        <DefinitionList
+                            definitions={Array.isArray(translatedText) ? translatedText : []}
+                            translationIDs={translationIDs}
+                            onWordPress={displaySelectedText}
+                            onAddDefinition={handleAddDefinition}
+                            selectedText={selectedText}
+                            translatedText={translatedText}
+                            nat_id={nativeLanguage}
+                            tar_id={targetLanguage}
+                            popup={popup}
+                            token={token}
+                            server={serverIP}
+                            showSuccess={showSuccess}
+                            showError={showError}
+                            onDefinitionUpdated={handleUpdateDefinition}
+                            onRefreshTranslation={refreshTranslation}
+                        />
 
-                    <View style={styles.separatorDotted} />
-                    <View>
-                        {/* <TextInput
+                        <View style={styles.separatorDotted} />
+                        <View>
+                            {/* <TextInput
                             style={styles.defDescription}
                             value={description}
                             onChangeText={''}
                         /> */}
-                        <Text
-                            style={styles.defDescription}
+                            <Text
+                                style={styles.defDescription}
 
-                        >{description}</Text>
-                    </View>
-                    {/* <View style={styles.translateBtn}>
+                            >{description}</Text>
+                        </View>
+                        {/* <View style={styles.translateBtn}>
                         <TouchableOpacity
                             onPress={() => {
                                 setDescription(rows[parseInt(index)][2]);
@@ -725,132 +829,136 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.buttonText}>Translate Sentence</Text>
                         </TouchableOpacity>
                     </View> */}
-                </ScrollView>
-            </View>
+                    </ScrollView>
 
-            {menuOpen && (
-                <Animated.View style={[styles.sideMenu, { transform: [{ translateX: slideAnim }] }]}>
+                </View>
+            </ScrollView>
+            {
+                menuOpen && (
+                    <Animated.View style={[styles.sideMenu, { transform: [{ translateX: slideAnim }] }]}>
 
-                    <Text style={styles.menuHeader}>Menu {user && <Text style={{ fontSize: 10 }}>{user.username}</Text>}</Text>
-                    <View style={styles.separatorSolid} />
+                        <Text style={styles.menuHeader}>Menu {user && <Text style={{ fontSize: 10 }}>{user.username}</Text>}</Text>
+                        <View style={styles.separatorSolid} />
 
-                    {user && (
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Import');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Import</Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity
                             onPress={() => {
-                                navigation.navigate('Import');
+                                navigation.navigate('Lessons');
                                 setMenuOpen(false);
                             }}
                         >
-                            <Text style={styles.navText}>Import</Text>
+                            <Text style={styles.navText}>Lessons</Text>
                         </TouchableOpacity>
-                    )}
 
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Lessons');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>Lessons</Text>
-                    </TouchableOpacity>
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Listening');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Listening</Text>
+                            </TouchableOpacity>
+                        )}
 
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Listening');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Listening</Text>
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('LiveTVScreen');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Live TV</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Alphabet');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Alphabet</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {user ? (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Account');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Account</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Login');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Login</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {!user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Signup');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Signup</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Settings');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Settings</Text>
+                            </TouchableOpacity>
+                        )}
+
+
+
+
+                        <TouchableOpacity onPress={() => setShowExitModal(true)}>
+                            <Text style={styles.navText}>Exit</Text>
                         </TouchableOpacity>
-                    )}
-
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('LiveTVScreen');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Live TV</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Alphabet');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Alphabet</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {user ? (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Account');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Account</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Login');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Login</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {!user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Signup');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Signup</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Settings');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>Settings</Text>
-                        </TouchableOpacity>
-                    )}
-
-
-
-
-                    <TouchableOpacity onPress={() => setShowExitModal(true)}>
-                        <Text style={styles.navText}>Exit</Text>
-                    </TouchableOpacity>
-                </Animated.View>
-            )}
+                    </Animated.View>
+                )
+            }
             {/* Bottom Section */}
             <View style={styles.bottomSection}>
 
                 <View style={styles.controls}>
-                    <AntDesign name="left" size={24} color="white" onPress={back} />
+                    {!continuousPlay && (<AntDesign name="left" size={24} color="white" onPress={back} />)}
+
                     {isPlaying ? (
                         <FontAwesome name="pause" size={24} color="white" onPress={pauseAudio} />
                     ) : (
                         <FontAwesome name="play" size={24} color="white" onPress={playAudio} />
                     )
                     }
+                    {!continuousPlay && (<AntDesign name="right" size={24} color="white" onPress={next} />)}
 
-                    <AntDesign name="right" size={24} color="white" onPress={next} />
                 </View>
             </View>
 
@@ -877,11 +985,19 @@ export default function HomeScreen({ navigation }) {
                 playbackRate={playbackRate}
                 setPlaybackRate={setPlaybackRate}
                 showToggles={false}
+                videoFormat={videoFormat}
                 targetText={rows[index]?.[1]}
+                setShowVideoCaptions={setShowVideoCaptions}
+                ShowVideoCaptions={ShowVideoCaptions}
+                setShowVideoView={setShowVideoView}
+                ShowVideoView={ShowVideoView}
+                continuousPlay={continuousPlay}
+                setContinuousPlay={setContinuousPlay}
+
             />
 
             <LoadingOverlay visible={loading} />
 
-        </View>
+        </View >
     );
 }
