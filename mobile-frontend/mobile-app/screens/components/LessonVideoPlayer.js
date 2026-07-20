@@ -20,6 +20,7 @@ const LessonVideoPlayer = forwardRef(({
     startMs,
     endMs,
     continuousPlay,
+    onPlaybackFinished,
 }, ref) => {
 
     const [videoUri, setVideoUri] = useState(null);
@@ -37,26 +38,29 @@ const LessonVideoPlayer = forwardRef(({
         }
     );
 
-    const currentMs = player.currentTime * 1000;
+    // const currentMs = player.currentTime * 1000;
 
-    if (!continuousPlay &&
-        endMs > 0 &&
-        currentMs >= endMs) {
+    // if (!continuousPlay &&
+    //     endMs > 0 &&
+    //     currentMs >= endMs) {
 
-        player.pause();
-        player.currentTime = startMs / 1000;
-        return;
-    }
+    //     player.pause();
+    //     player.currentTime = startMs / 1000;
+    //     return;
+    // }
 
-    const sentence = findSentence(currentMs);
+    // const sentence = findSentence(player.currentTime * 1000);
 
     useImperativeHandle(ref, () => ({
         play() {
             player.play();
+            onPlaybackFinished?.();
+            
         },
 
         pause() {
             player.pause();
+            onPlaybackFinished?.();
         },
 
         seek(ms) {
@@ -76,6 +80,7 @@ const LessonVideoPlayer = forwardRef(({
 
                 player.pause();
                 player.currentTime = startMs / 1000;
+                onPlaybackFinished?.();
             }
 
         }, 50);

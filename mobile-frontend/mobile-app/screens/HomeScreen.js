@@ -699,15 +699,16 @@ export default function HomeScreen({ navigation }) {
                             startMs={startMs}
                             endMs={endMs}
                             continuousPlay={continuousPlay}
+                            onPlaybackFinished={() => setIsPlaying(false)}
                         />
 
                     )}
-
+                    <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
 
                     {/* Fixed-height word container */}
-                    {!ShowVideoCaptions && (
+                    {(!ShowVideoCaptions || !lessonData?.videoFormat)  &&(
                         <>
-                            <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
+                            
 
 
                             <View style={styles.wordContainer}>

@@ -68,6 +68,7 @@ docker run -p 8025:8025 -p 1025:1025 mailhog/mailhog
 http://localhost:8025/
 
 # Local Build on windows
+navigate to  C:\dev\Langue\mobile-frontend\mobile-app>
 Remove-Item -Recurse -Force node_modules
 Remove-Item -Force package-lock.json
 npm install
