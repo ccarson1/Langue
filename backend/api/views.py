@@ -12,8 +12,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording
-from django.db.models import Q
+from django.db.models.functions import TruncDate
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation
+from django.db.models import Q, Count
+
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer
 from django.views.generic import TemplateView
 from .w_translate import translate_word
@@ -1744,4 +1746,57 @@ def get_video(request):
         lesson.media_file.open("rb"),
         content_type="video/mp4"
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def statistics(request):
+
+    user = request.user
+    total_lessons = Lesson.objects.filter( user=user ).count()
+    total_words = UserWord.objects.filter( user=user ).count()
+    total_phrases = PhraseTranslation.objects.filter( user=user ).count()
+    total_recordings = Recording.objects.filter( user=user ).count()
+    completed_lessons = UserLessonsProgress.objects.filter( user=user, current_lesson_index__gt=0 ).count()
+
+
+
+    words_by_date = (
+        UserWord.objects
+        .filter(user=user)
+        .values("creation_date")
+        .annotate(count=Count("id"))
+        .order_by("creation_date")
+    )
+
+
+    language_distribution = (
+        UserWord.objects
+        .filter(user=user)
+        .values( "word__language__lang_name" )
+        .annotate( count=Count("id") )
+    )
+
+
+    return Response({
+
+        "summary": {
+            "lessons": total_lessons,
+            "words": total_words,
+            "phrases": total_phrases,
+            "recordings": total_recordings,
+            "completed": completed_lessons
+        },
+
+
+        "words_over_time": [
+            {
+                "date": row["creation_date"],
+                "count": row["count"]
+            }
+            for row in words_by_date
+        ],
+        "languages": list(language_distribution)
+
+    })
 

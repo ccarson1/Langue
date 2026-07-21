@@ -271,4 +271,12 @@ export const createStyles = (insets) =>
             marginTop: 50,
             paddingTop: 50,
         },
+        backLink: {
+            position: 'absolute',
+            top: 40,
+            right: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            zIndex: 10,
+        },
     });

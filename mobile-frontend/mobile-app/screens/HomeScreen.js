@@ -80,6 +80,12 @@ export default function HomeScreen({ navigation }) {
     const styles = createStyles(insets);
     const [lessonData, setLessonData] = useState(null);
 
+    const indexRef = useRef(0);
+
+    useEffect(() => {
+        indexRef.current = index;
+    }, [index]);
+
     const fetchWordFrequencies = async (sentenceId) => {
         try {
             const response = await fetch(
@@ -137,6 +143,27 @@ export default function HomeScreen({ navigation }) {
                     : item
             );
         });
+    };
+
+    const syncSentenceFromPosition = (positionMs) => {
+        if (!rows.length) return;
+
+        const newIndex = rows.findIndex(
+            row =>
+                positionMs >= row[3] &&
+                positionMs < row[4]
+        );
+
+        if (newIndex === -1 || newIndex === indexRef.current)
+            return;
+
+        indexRef.current = newIndex;
+        setIndex(newIndex);
+
+        fetchWordFrequencies(rows[newIndex][0]);
+
+        // Optional:
+        updateLessonProgress(newIndex);
     };
 
     // --- Clipboard helper ---
@@ -227,8 +254,17 @@ export default function HomeScreen({ navigation }) {
             sound.setOnPlaybackStatusUpdate(async (status) => {
                 if (!status.isLoaded) return;
 
-                // ignore callback from old play requests
-                if (currentIndex !== index) return;
+                if (continuousPlay) {
+                    syncSentenceFromPosition(status.positionMillis);
+
+                    if (status.didJustFinish) {
+                        setIsPlaying(false);
+
+                        // play next lesson here
+                    }
+
+                    return;
+                }
 
                 if (status.positionMillis >= segmentEnd) {
                     await sound.pauseAsync();
@@ -339,6 +375,17 @@ export default function HomeScreen({ navigation }) {
             console.error('Token decode failed:', err);
             return null;
         }
+    };
+
+    const handleSentenceChanged = (sentence) => {
+        const newIndex = rows.findIndex(r => r[0] === sentence.id);
+
+        if (newIndex === -1 || newIndex === indexRef.current)
+            return;
+
+        indexRef.current = newIndex;
+        setIndex(newIndex);
+        fetchWordFrequencies(sentence.id);
     };
 
     const saveAudioSettings = async () => {
@@ -700,15 +747,16 @@ export default function HomeScreen({ navigation }) {
                             endMs={endMs}
                             continuousPlay={continuousPlay}
                             onPlaybackFinished={() => setIsPlaying(false)}
+                            onSentenceChanged={handleSentenceChanged}
                         />
 
                     )}
                     <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
 
                     {/* Fixed-height word container */}
-                    {(!ShowVideoCaptions || !lessonData?.videoFormat)  &&(
+                    {(!ShowVideoCaptions || !lessonData?.videoFormat) && (
                         <>
-                            
+
 
 
                             <View style={styles.wordContainer}>
@@ -849,6 +897,17 @@ export default function HomeScreen({ navigation }) {
                                 }}
                             >
                                 <Text style={styles.navText}>Import</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Statistics');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>Statistics</Text>
                             </TouchableOpacity>
                         )}
 

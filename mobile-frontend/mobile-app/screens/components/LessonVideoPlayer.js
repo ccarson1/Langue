@@ -21,6 +21,7 @@ const LessonVideoPlayer = forwardRef(({
     endMs,
     continuousPlay,
     onPlaybackFinished,
+    onSentenceChanged,
 }, ref) => {
 
     const [videoUri, setVideoUri] = useState(null);
@@ -211,16 +212,15 @@ const LessonVideoPlayer = forwardRef(({
                 !currentSentence ||
                 sentence.id !== currentSentence.id
             ) {
-
                 setCurrentSentence(sentence);
-
+                onSentenceChanged?.(player.currentTime * 1000);
             }
 
         }, 150);
 
         return () => clearInterval(interval);
 
-    }, [player, currentSentence]);
+    }, [player, currentSentence, onSentenceChanged]);
 
     const words = useMemo(() => {
 
@@ -258,7 +258,7 @@ const LessonVideoPlayer = forwardRef(({
                 key={videoUri}
                 style={styles.video}
                 player={player}
-                nativeControls
+                nativeControls={false}
             />
             {ShowVideoCaptions && (
                 <View style={styles.overlay}>
