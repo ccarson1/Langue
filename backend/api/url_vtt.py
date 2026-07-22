@@ -9,10 +9,11 @@ from api.models import Sentence, Lesson, Language
 from .w_translate import translate_word
 from django.conf import settings
 import uuid
+from django.core.files import File
 
 class URL_VTT():
     
-    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, translateTarget):
+    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_uuid, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, translateTarget):
         
         def normalize_youtube_url(url):
             if "youtube.com/shorts/" in url:
@@ -21,7 +22,7 @@ class URL_VTT():
             return url
         
 
-        self.uuid = str(uuid.uuid4())
+        self.uuid = str(lesson_uuid)
         self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.mp3")
         self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "video.mp4")
         self.YOUTUBE_URL = normalize_youtube_url(YOUTUBE_URL)
@@ -199,8 +200,24 @@ class URL_VTT():
         print("Splitting segments...")
         self.split_segments(segments)
         uuid_folder = self.uuid
-        self.lesson.media_file.name = f"lessons/{uuid_folder}/audio.mp3"
-        self.lesson.audio_folder = f"lessons/{uuid_folder}"  # ← remove the trailing /audio
+        filename = self.VIDEO_FILE if self.videoFormat else self.AUDIO_FILE
+
+        print("Saving file:", filename)
+        print("Exists:", os.path.exists(filename))
+        print("Lesson ID:", self.lesson.id)
+
+        with open(filename, "rb") as f:
+            self.lesson.media_file.save(
+                os.path.basename(filename),
+                File(f),
+                save=True,
+            )
+
+        print("Media name:", self.lesson.media_file.name)
+        print("Media path:", self.lesson.media_file.path)
+
+        #self.lesson.media_file.name = f"lessons/{uuid_folder}/audio.mp3"
+        self.lesson.media_folder = f"lessons/{uuid_folder}"  # ← remove the trailing /audio
         self.lesson.save()
         print("Done!")
         print("PROCESS COMPLETED SUCCESSFULLY")

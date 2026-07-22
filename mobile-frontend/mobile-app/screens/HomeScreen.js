@@ -746,6 +746,8 @@ export default function HomeScreen({ navigation }) {
                             startMs={startMs}
                             endMs={endMs}
                             continuousPlay={continuousPlay}
+                            volume={volume}
+                            playbackRate={playbackRate}
                             onPlaybackFinished={() => setIsPlaying(false)}
                             onSentenceChanged={handleSentenceChanged}
                         />

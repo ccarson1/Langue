@@ -20,6 +20,8 @@ const LessonVideoPlayer = forwardRef(({
     startMs,
     endMs,
     continuousPlay,
+    volume,
+    playbackRate,
     onPlaybackFinished,
     onSentenceChanged,
 }, ref) => {
@@ -36,27 +38,24 @@ const LessonVideoPlayer = forwardRef(({
         videoUri,
         (player) => {
             player.loop = false;
+            player.volume = volume;
+            player.playbackRate = playbackRate;
         }
     );
 
-    // const currentMs = player.currentTime * 1000;
+    useEffect(() => {
+        if (!player) return;
 
-    // if (!continuousPlay &&
-    //     endMs > 0 &&
-    //     currentMs >= endMs) {
+        player.volume = volume;
+        player.playbackRate = playbackRate;
 
-    //     player.pause();
-    //     player.currentTime = startMs / 1000;
-    //     return;
-    // }
-
-    // const sentence = findSentence(player.currentTime * 1000);
+    }, [player, volume, playbackRate]);
 
     useImperativeHandle(ref, () => ({
         play() {
             player.play();
             onPlaybackFinished?.();
-            
+
         },
 
         pause() {

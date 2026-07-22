@@ -378,6 +378,7 @@ def import_lesson(request):
                     lesson.id,
                     lesson.target_language.id,
                     lesson.native_language.id,
+                    lesson.uuid,
                     lesson_import_progress,
                     user_id,
                     alwaysGenerateCaptions,
@@ -427,11 +428,9 @@ def import_lesson(request):
                         "YouTube processing failed"
                     )
 
-                lesson.media_folder = (
-                    save_lesson_media.AUDIO_DIR
-                )
+                lesson.refresh_from_db()
 
-                lesson.media_folder = ( save_lesson_media.AUDIO_DIR )
+                lesson.media_folder = save_lesson_media.AUDIO_DIR
                 lesson.save()
             else:
                 print("(fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference is false")
@@ -1742,8 +1741,33 @@ def get_video(request):
         user=request.user
     )
 
+    video_path = None
+
+    # Try normal FileField first
+    if lesson.media_file:
+        video_path = lesson.media_file.path
+
+    # Fallback: build path from media_folder
+    else:
+        print("media_file empty, using media_folder fallback")
+
+        video_path = os.path.join(
+            settings.MEDIA_ROOT,
+            lesson.media_folder,
+            "audio",
+            "video.mp4"
+        )
+
+    print("Video path:", video_path)
+
+    if not os.path.exists(video_path):
+        return Response(
+            {"error": "Video file not found", "path": video_path},
+            status=404
+        )
+
     return FileResponse(
-        lesson.media_file.open("rb"),
+        open(video_path, "rb"),
         content_type="video/mp4"
     )
 

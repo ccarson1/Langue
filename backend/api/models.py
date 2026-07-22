@@ -11,7 +11,7 @@ import os
 def lesson_file_upload_path(instance, filename):
     return f'lessons/{instance.uuid}/{filename}'
 
-def audio_file_upload_path(instance, filename):
+def media_file_upload_path(instance, filename):
     return f'lessons/{instance.uuid}/audio/{filename}'
 
 def record_file_upload_path(instance, filename):
@@ -100,7 +100,7 @@ class Report(models.Model):
 class Lesson(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     doc_file = models.FileField(upload_to=lesson_file_upload_path, null=True, blank=True)
-    media_file = models.FileField(upload_to=audio_file_upload_path, null=True, blank=True)
+    media_file = models.FileField(upload_to=media_file_upload_path, null=True, blank=True)
     media_folder = models.CharField(max_length=500, blank=True, null=True)
     image = models.ImageField(null=True, blank=True, default='images/default-01.jpg', upload_to=image_file_upload_path)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
