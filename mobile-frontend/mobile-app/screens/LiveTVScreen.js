@@ -637,7 +637,7 @@ export default function LiveTVPlayer({ navigation }) {
                   source={
                     item.image
                       ? {
-                        uri: `${API_BASE}/media/${item.image}`,
+                        uri: item.image,
                       }
                       : undefined
                   }

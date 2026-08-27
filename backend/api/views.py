@@ -281,17 +281,21 @@ def generate_waveform(audio_path, samples=2000):
 
     return waveform
 
+
 def create_channel_snapshot(channel_url, channel_id):
     image_uuid = uuid.uuid4().hex
 
-    filename = f"{channel_id}_{image_uuid}.jpg"
+    folder_name = f"{channel_id}_{image_uuid}"
+    filename = f"{folder_name}.jpg"
 
+    # Path stored in the database / returned by the API
     relative_path = os.path.join(
         "channels",
-        f"{channel_id}_{image_uuid}",
+        folder_name,
         filename
-    )
+    ).replace("\\", "/")
 
+    # Actual path on the filesystem
     full_path = os.path.join(
         settings.MEDIA_ROOT,
         relative_path
@@ -322,6 +326,7 @@ def create_channel_snapshot(channel_url, channel_id):
             return None
 
         print("Snapshot created:", full_path)
+        print("Relative path:", relative_path)
 
         return relative_path
 
@@ -332,6 +337,8 @@ def create_channel_snapshot(channel_url, channel_id):
     except Exception as e:
         print("Snapshot error:", e)
         return None
+
+
 
 @csrf_exempt
 @api_view(['POST'])
@@ -1819,19 +1826,21 @@ def channels(request):
             image_uuid = uuid.uuid4().hex
             folder_name = f"{channel.id}_{image_uuid}"
 
-            file_path = os.path.join(
+            file_path = "/".join([
                 "channels",
                 folder_name,
                 f"{folder_name}{os.path.splitext(channel_img.name)[1]}"
-            )
+            ])
 
             saved_path = default_storage.save(
                 file_path,
                 channel_img
             )
 
-            channel.channel_img = saved_path
+            channel.channel_img = saved_path.replace("\\", "/")
             channel.save()
+
+            
 
             print("Uploaded channel image:", saved_path)
 
@@ -1858,8 +1867,8 @@ def channels(request):
             "owner": channel.user.username,
             "private": channel.channel_private,
             "is_favorite": channel.is_favorite,
-            "target_language": settings.target_language_id,
-            "native_language": settings.target_language_id
+            "target_language": user_settings.target_language_id,
+            "native_language": user_settings.target_language_id
         }, status=201)
 
 
