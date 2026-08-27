@@ -20,8 +20,18 @@ import { useEvent } from 'expo';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import VideoReader from './components/VideoReader';
+import * as DocumentPicker from 'expo-document-picker';
 
 const { width } = Dimensions.get('window');
+
+const formatDuration = (seconds) => {
+  if (!seconds) return "0:00";
+
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
 
 
 
@@ -72,6 +82,10 @@ export default function LiveTVPlayer({ navigation }) {
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [recordingSelected, setRecordingSelected] = useState('');
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelUrl, setNewChannelUrl] = useState('');
+  const [addingChannel, setAddingChannel] = useState(false);
+  const [channelImage, setChannelImage] = useState(null);
 
   const favoriteChannels = React.useMemo(
     () => channels.filter(c => c.is_favorite),
@@ -333,6 +347,108 @@ export default function LiveTVPlayer({ navigation }) {
     }
   };
 
+  async function appendFileToFormData(formData, fieldName, file) {
+    if (!file) return;
+
+    if (Platform.OS === 'web') {
+      if (file.file instanceof File) {
+        formData.append(fieldName, file.file);
+        return;
+      }
+
+      const response = await fetch(file.uri);
+      const blob = await response.blob();
+
+      formData.append(fieldName, blob, file.name);
+      return;
+    }
+
+    formData.append(fieldName, {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || 'application/octet-stream',
+    });
+  }
+
+  const handleChannelImagePick = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets?.length > 0) {
+        setChannelImage(result.assets[0]);
+      }
+
+    } catch (error) {
+      console.error("Channel image pick error:", error);
+    }
+  };
+
+  const addChannel = async () => {
+    if (!newChannelName.trim()) {
+      console.log("Channel name is required");
+      return;
+    }
+
+    if (!newChannelUrl.trim()) {
+      console.log("Channel URL is required");
+      return;
+    }
+
+    try {
+      setAddingChannel(true);
+
+      const formData = new FormData();
+
+      formData.append("channel_name", newChannelName.trim());
+      formData.append("channel_url", newChannelUrl.trim());
+
+      if (channelImage) {
+        await appendFileToFormData(
+          formData,
+          "channel_img",
+          channelImage
+        );
+      }
+
+      const res = await fetch(`${API_BASE}/api/channels/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      console.log("Add channel response:", data);
+
+      if (!res.ok) {
+        console.error("Failed to add channel:", data);
+        return;
+      }
+
+      // Add the new channel to the existing list
+      setChannels((prev) => [...prev, data]);
+
+      // Select the newly added channel
+      setSelectedChannel(data);
+
+      // Clear form
+      setNewChannelName("");
+      setNewChannelUrl("");
+      setChannelImage(null);
+
+    } catch (error) {
+      console.error("Add channel error:", error);
+
+    } finally {
+      setAddingChannel(false);
+    }
+  };
 
 
   if (loading || !selectedChannel) {
@@ -385,8 +501,8 @@ export default function LiveTVPlayer({ navigation }) {
               </TouchableOpacity>
             )}
             <View style={styles.horizontal_item}>
-              <AntDesign style={{marginRight: 25}} name="like" size={18} color="white" />
-              <AntDesign style={{marginRight: 15}}  name="dislike" size={18} color="white" />
+              <AntDesign style={{ marginRight: 25 }} name="like" size={18} color="white" />
+              <AntDesign style={{ marginRight: 15 }} name="dislike" size={18} color="white" />
             </View>
 
             {recordingSelected && (
@@ -449,12 +565,48 @@ export default function LiveTVPlayer({ navigation }) {
           <Text style={styles.sectionTitle}>
             Add Channel
           </Text>
-          <View style={styles.row}>
-            <TextInput style={styles.TvInput} />
 
-            <TouchableOpacity style={styles.button}>
-              <Text style={styles.buttonText}>Add Channel</Text>
+          <View style={{ paddingHorizontal: 15 }}>
+
+            <TextInput
+              style={styles.TvInput}
+              placeholder="Channel Name"
+              placeholderTextColor="#aaa"
+              value={newChannelName}
+              onChangeText={setNewChannelName}
+            />
+
+            <TextInput
+              style={[styles.TvInput, { marginTop: 10 }]}
+              placeholder="Channel URL"
+              placeholderTextColor="#aaa"
+              value={newChannelUrl}
+              onChangeText={setNewChannelUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <TouchableOpacity
+              style={[styles.button, { marginTop: 10 }]}
+              onPress={handleChannelImagePick}
+            >
+              <Text style={styles.buttonText}>
+                {channelImage
+                  ? `Selected: ${channelImage.name}`
+                  : "Choose Channel Image"}
+              </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.button}
+              onPress={addChannel}
+              disabled={addingChannel}
+            >
+              <Text style={styles.buttonText}>
+                {addingChannel ? "Adding..." : "Add Channel"}
+              </Text>
+            </TouchableOpacity>
+
           </View>
         </View>
 
@@ -464,7 +616,7 @@ export default function LiveTVPlayer({ navigation }) {
         <FlatList
           data={favoriteChannels}
           horizontal
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
           renderItem={({ item }) => {
@@ -473,16 +625,33 @@ export default function LiveTVPlayer({ navigation }) {
             return (
               <Pressable
                 onPress={() => {
-                  setSelectedChannel(item)
-                  { console.log(item) }
+                  setSelectedChannel(item);
+                  console.log(item);
                 }}
                 style={[
                   styles.card,
                   active && styles.cardActive,
                 ]}
               >
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <View style={styles.cardGlow} />
+                <ImageBackground
+                  source={
+                    item.image
+                      ? {
+                        uri: `${API_BASE}/media/${item.image}`,
+                      }
+                      : undefined
+                  }
+                  style={styles.cardBackground}
+                  imageStyle={styles.cardImage}
+                >
+                  <View style={styles.cardOverlay} />
+
+                  <Text style={styles.cardTitle}>
+                    {item.name}
+                  </Text>
+
+                  <View style={styles.cardGlow} />
+                </ImageBackground>
               </Pressable>
             );
           }}
@@ -494,7 +663,7 @@ export default function LiveTVPlayer({ navigation }) {
         <FlatList
           data={channels}
           horizontal
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
           renderItem={({ item }) => {
@@ -503,17 +672,32 @@ export default function LiveTVPlayer({ navigation }) {
             return (
               <Pressable
                 onPress={() => {
-                  console.log(item);
+                  console.log("Selected channel:", item);
                   setSelectedChannel(item);
-                  setRecordingSelected(false)
+                  setRecordingSelected(false);
                 }}
                 style={[
                   styles.card,
                   active && styles.cardActive,
                 ]}
               >
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <View style={styles.cardGlow} />
+                <ImageBackground
+                  source={
+                    item.image
+                      ? { uri: `${API_BASE}/media/${item.image}`, }
+                      : undefined
+                  }
+                  style={styles.cardBackground}
+                  imageStyle={styles.cardImage}
+                >
+                  <View style={styles.cardOverlay} />
+
+                  <Text style={styles.cardTitle}>
+                    {item.name}
+                  </Text>
+
+                  <View style={styles.cardGlow} />
+                </ImageBackground>
               </Pressable>
             );
           }}
@@ -613,6 +797,7 @@ export default function LiveTVPlayer({ navigation }) {
                 {item.title}
               </Text>
 
+
               <Text
                 style={{
                   color: "#ccc",
@@ -620,7 +805,8 @@ export default function LiveTVPlayer({ navigation }) {
                   margin: 5,
                 }}
               >
-                {new Date(item.created_at).toLocaleDateString()}
+                {new Date(item.created_at).toLocaleDateString()} • {formatDuration(item.duration)}
+
               </Text>
 
             </Pressable>

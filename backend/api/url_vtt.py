@@ -6,7 +6,7 @@ import whisper
 import webvtt
 import json
 from api.models import Sentence, Lesson, Language
-from .w_translate import translate_word
+from .w_translate import load_user_model, translate_word
 from django.conf import settings
 import uuid
 from django.core.files import File
@@ -23,8 +23,8 @@ class URL_VTT():
         
 
         self.uuid = str(lesson_uuid)
-        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.mp3")
-        self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "video.mp4")
+        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, f"{self.uuid}.mp3")
+        self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, f"{self.uuid}.mp4")
         self.YOUTUBE_URL = normalize_youtube_url(YOUTUBE_URL)
 
         self.OUTPUT_DIR = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid)
@@ -132,6 +132,7 @@ class URL_VTT():
         return int(h) * 3600 + int(m) * 60 + s + ms / 1000
 
     def split_segments(self, segments):
+        load_user_model(self.user_id)
 
         
         for idx, seg in enumerate(segments):

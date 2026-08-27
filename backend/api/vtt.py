@@ -4,7 +4,7 @@ from pydub import AudioSegment
 import webvtt
 import json
 from api.models import Sentence, Lesson, Language
-from .w_translate import translate_word
+from .w_translate import load_user_model, translate_word
 from django.conf import settings
 import uuid
 from pydub import AudioSegment
@@ -16,11 +16,11 @@ from .stt import SpeechToText
 
 class VTT():
     
-    def __init__(self, lesson_file, lesson_id, lesson_language_id, translate_language_id, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, media_file, translateTarget):
+    def __init__(self, lesson_file, lesson_id, lesson_language_id, translate_language_id, lesson_uuid, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, media_file, translateTarget):
         
-        self.uuid = str(uuid.uuid4())
-        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "audio.mp3")
-        self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, "video.mp4")
+        self.uuid = str(lesson_uuid)
+        self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, f"{self.uuid}.mp3")
+        self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, f"{self.uuid}.mp4")
         self.lesson_file = lesson_file
         self.media_file = media_file
         print(type(lesson_file))
@@ -59,11 +59,13 @@ class VTT():
 
 
     def create_sentences(self, segments):
+        load_user_model(self.user_id)
         for seg in segments:
             start_ms = int(seg["start"] * 1000)
             end_ms = int(seg["end"] * 1000)
 
             text = seg["text"]
+            
 
             if self.translateTarget:
                 translated = translate_word(
@@ -94,11 +96,13 @@ class VTT():
         stt = SpeechToText()
 
         print("Media_file:", self.media_file)
+        print("Video Format: ", self.videoFormat)
 
         if self.media_file:
             if self.videoFormat:
-                self.save_media(self.media_file, 'mp4')
-            self.save_media(self.media_file, 'mp3')
+                self.save_video(self.media_file)
+
+            self.save_audio(self.media_file)
 
         #Load CSV file
         if self.lesson_file:
@@ -119,7 +123,7 @@ class VTT():
 
         uuid_folder = self.uuid
 
-        self.lesson.media_file.name = f"lessons/{uuid_folder}/audio.mp3"
+        self.lesson.media_file.name = f"lessons/{uuid_folder}/{self.uuid}.mp4"
         self.lesson.audio_folder = f"lessons/{uuid_folder}"
         self.lesson.save()
 
@@ -129,7 +133,7 @@ class VTT():
         
     def csv_to_segments(self, csv_path):
         segments = []
-
+        load_user_model(self.user_id)
         with open(csv_path, newline='', encoding='utf-8-sig') as csvfile:
             reader = csv.DictReader(csvfile)
 
@@ -156,6 +160,7 @@ class VTT():
 
                 native = row.get("native", "").strip()
                 target = row.get("target", "").strip()
+                
 
                 if not native:
                     print("Translating existing target to generate native text...")
@@ -190,12 +195,50 @@ class VTT():
     #     os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
     #     audio.export(self.AUDIO_FILE, format="mp3")
         
-    def save_media(self, uploaded_audio, format_type):
+    # def save_media(self, uploaded_audio, format_type):
+    #     try:
+    #         uploaded_audio.seek(0)  # IMPORTANT: reset stream
+    #         audio = AudioSegment.from_file(uploaded_audio)
+    #         os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
+    #         audio.export(self.AUDIO_FILE, format=format_type)
+    #         return True
+
+    #     except Exception as e:
+    #         print("Audio conversion error:", str(e))
+    #         return False
+
+    def save_video(self, uploaded_file):
         try:
-            uploaded_audio.seek(0)  # IMPORTANT: reset stream
-            audio = AudioSegment.from_file(uploaded_audio)
-            os.makedirs(os.path.dirname(self.AUDIO_FILE), exist_ok=True)
-            audio.export(self.AUDIO_FILE, format=format_type)
+            uploaded_file.seek(0)
+
+            os.makedirs(self.OUTPUT_DIR, exist_ok=True)
+
+            with open(self.VIDEO_FILE, "wb") as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
+
+            print(f"Video saved: {self.VIDEO_FILE}")
+            return True
+
+        except Exception as e:
+            print("Video save error:", str(e))
+            return False
+
+
+    def save_audio(self, uploaded_file):
+        try:
+            uploaded_file.seek(0)
+
+            audio = AudioSegment.from_file(uploaded_file)
+
+            os.makedirs(self.OUTPUT_DIR, exist_ok=True)
+
+            audio.export(
+                self.AUDIO_FILE,
+                format="mp3"
+            )
+
+            print(f"Audio saved: {self.AUDIO_FILE}")
             return True
 
         except Exception as e:

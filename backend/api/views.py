@@ -13,12 +13,13 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel
 from django.db.models import Q, Count
-
-from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer
+from rest_framework import generics
+from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, TranslationModelSerializer
 from django.views.generic import TemplateView
-from .w_translate import translate_word
+from .w_translate import load_user_model, translate_word
+from django.core.files.storage import default_storage
 
 from django.http import FileResponse, Http404, JsonResponse
 from rest_framework.views import APIView
@@ -130,6 +131,7 @@ def translate(request):
     ).first()
 
     dictionary_name = None
+    load_user_model(request.user)
 
     if user_setting:
         dictionary_name = user_setting.dictionary_name
@@ -279,6 +281,58 @@ def generate_waveform(audio_path, samples=2000):
 
     return waveform
 
+def create_channel_snapshot(channel_url, channel_id):
+    image_uuid = uuid.uuid4().hex
+
+    filename = f"{channel_id}_{image_uuid}.jpg"
+
+    relative_path = os.path.join(
+        "channels",
+        f"{channel_id}_{image_uuid}",
+        filename
+    )
+
+    full_path = os.path.join(
+        settings.MEDIA_ROOT,
+        relative_path
+    )
+
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", channel_url,
+        "-frames:v", "1",
+        "-q:v", "2",
+        full_path,
+    ]
+
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            print("FFmpeg error:")
+            print(result.stderr)
+            return None
+
+        print("Snapshot created:", full_path)
+
+        return relative_path
+
+    except subprocess.TimeoutExpired:
+        print("FFmpeg snapshot timed out.")
+        return None
+
+    except Exception as e:
+        print("Snapshot error:", e)
+        return None
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -412,7 +466,8 @@ def import_lesson(request):
                 save_lesson_media = VTT( 
                     lesson_file, lesson.id, 
                     lesson.target_language.id, 
-                    lesson.native_language.id, 
+                    lesson.native_language.id,
+                    lesson.uuid,
                     lesson_import_progress, 
                     user_id, 
                     alwaysGenerateCaptions, 
@@ -739,7 +794,7 @@ def user_settings(request):
                 'showVideoCaptions': settings.showVideoCaptions,
                 'showVideoView': settings.showVideoView,
                 'continuousPlay': settings.continuousPlay,
-                # add more fields as needed
+                'translation_model': ( settings.translationModel.id if settings.translationModel else None ),
             }
             return Response(data)
 
@@ -749,6 +804,7 @@ def user_settings(request):
     elif request.method == 'PUT':
         native_id = request.data.get('native_language')
         target_id = request.data.get('target_language')
+        translation_model_id = request.data.get( 'translation_model' )
         notifications = request.data.get('notifications')
         dictionary_name = request.data.get('dictionary_name')
         user_set_volume = request.data.get('user_set_volume')
@@ -771,8 +827,16 @@ def user_settings(request):
 
             native_lang = get_object_or_404(Language, lang_name=native_id)
             target_lang = get_object_or_404(Language, lang_name=target_id)
-
             settings, _ = UserSetting.objects.get_or_create(user=user)
+            translation_model = None
+
+            if translation_model_id:
+                translation_model = get_object_or_404( TranslationModel, id=translation_model_id, is_active=True )
+
+            if translation_model_id:
+                settings.translationModel = translation_model
+
+            
             settings.native_language = native_lang
             settings.target_language = target_lang
             settings.notifications = bool(notifications)
@@ -790,6 +854,9 @@ def user_settings(request):
             return Response({'message': 'Settings updated successfully'})
         except Language.DoesNotExist:
             return Response({'error': 'Invalid language ID'}, status=status.HTTP_400_BAD_REQUEST)
+        except TranslationModel.DoesNotExist:
+
+            return Response( { 'error': 'Invalid translation model.' }, status=status.HTTP_400_BAD_REQUEST )
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
@@ -1288,6 +1355,22 @@ def stop_record(request):
         thumbnail_path,
     ], check=True)
 
+    video_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            video_path,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    duration = float(result.stdout.strip()) if result.stdout.strip() else 0
+
     recording = Recording.objects.create(
         user=request.user,
         record_name=recording_id,
@@ -1297,6 +1380,7 @@ def stop_record(request):
         record_channel=Channel.objects.get(pk=request.data["channel_id"]),
         native_language = Language.objects.get(lang_name=language_name),
         record_private=False,
+        duration=duration,
     )
 
     file_url = request.build_absolute_uri(recording.record_file.url)
@@ -1330,9 +1414,16 @@ def delete_recording(request, recording_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def recordings(request):
+
+    try:
+        user_settings = UserSetting.objects.get(user=request.user)
+
+    except UserSetting.DoesNotExist:
+        return Response( {"error": "User settings not found"}, status=404 )
+    
     recordings = (
         Recording.objects
-        .filter(user=request.user)
+        .filter(user=request.user, native_language=user_settings.target_language)
         .order_by("-created_at")
     )
 
@@ -1356,6 +1447,7 @@ def recording_detail(request, recording_id):   # ← changed from pk to recordin
             "record_file": recording.record_file.url if getattr(recording, 'record_file', None) else None,
             "record_img": getattr(recording, 'record_img', None),
             "created_at": recording.created_at.isoformat() if hasattr(recording, 'created_at') else None,
+            "duration" : recording.duration
         }
         
         return Response(data)
@@ -1686,22 +1778,99 @@ def evaluate_pronunciation_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def channels(request):
 
-    settings = UserSetting.objects.get(user=request.user)
+    user_settings = UserSetting.objects.get(user=request.user)
 
     print("User:", request.user)
-    print("Settings:", settings)
-    print("Native:", settings.target_language_id)
+    print("Settings:", user_settings)
+    print("Native:", user_settings.target_language_id)
 
+    # ADD CHANNEL
+    if request.method == 'POST':
+
+        channel_name = request.data.get('channel_name')
+        channel_url = request.data.get('channel_url')
+        channel_img = request.FILES.get('channel_img')
+
+        if not channel_name or not channel_url:
+            return Response(
+                {"error": "Channel name and URL are required."},
+                status=400
+            )
+
+        channel = Channel.objects.create(
+            user=request.user,
+            channel_name=channel_name,
+            channel_url=channel_url,
+            native_language_id=user_settings.target_language_id,
+            channel_private=False,
+            is_favorite=False
+        )
+
+        # ---------------------------------
+        # USER PROVIDED IMAGE
+        # ---------------------------------
+
+        if channel_img:
+
+            image_uuid = uuid.uuid4().hex
+            folder_name = f"{channel.id}_{image_uuid}"
+
+            file_path = os.path.join(
+                "channels",
+                folder_name,
+                f"{folder_name}{os.path.splitext(channel_img.name)[1]}"
+            )
+
+            saved_path = default_storage.save(
+                file_path,
+                channel_img
+            )
+
+            channel.channel_img = saved_path
+            channel.save()
+
+            print("Uploaded channel image:", saved_path)
+
+        # ---------------------------------
+        # NO IMAGE → STREAM SNAPSHOT
+        # ---------------------------------
+
+        else:
+            snapshot_path = create_channel_snapshot( channel_url, channel.id )
+
+            if snapshot_path:
+                channel.channel_img = snapshot_path
+                channel.save()
+                print("Channel snapshot saved:", snapshot_path)
+
+            else:
+                print("Could not create channel snapshot.")
+
+        return Response({
+            "id": channel.id,
+            "name": channel.channel_name,
+            "url": channel.channel_url,
+            "image": channel.channel_img,
+            "owner": channel.user.username,
+            "private": channel.channel_private,
+            "is_favorite": channel.is_favorite,
+            "target_language": settings.target_language_id,
+            "native_language": settings.target_language_id
+        }, status=201)
+
+
+    # GET CHANNELS
     channels = Channel.objects.filter(
-        native_language_id=settings.target_language_id,
+        native_language_id=user_settings.target_language_id,
         channel_private=False
     ) & Channel.objects.filter(
         user=request.user
     )
+
     for c in channels:
         print(c.native_language)
         print(c.id, c.native_language_id)
@@ -1715,11 +1884,12 @@ def channels(request):
             "id": c.id,
             "name": c.channel_name,
             "url": c.channel_url,
+            "image": c.channel_img,
             "owner": c.user.username,
             "private": c.channel_private,
             "is_favorite": c.is_favorite,
-            "target_language": settings.target_language_id,
-            "native_language": settings.target_language_id
+            "target_language": user_settings.target_language_id,
+            "native_language": user_settings.target_language_id
         }
         for c in channels
     ]
@@ -1744,8 +1914,9 @@ def get_video(request):
     video_path = None
 
     # Try normal FileField first
-    if lesson.media_file:
+    if lesson.media_file and lesson.media_file.name.lower().endswith(".mp4"):
         video_path = lesson.media_file.path
+        print("The current Video filepath is", video_path)
 
     # Fallback: build path from media_folder
     else:
@@ -1754,7 +1925,6 @@ def get_video(request):
         video_path = os.path.join(
             settings.MEDIA_ROOT,
             lesson.media_folder,
-            "audio",
             "video.mp4"
         )
 
@@ -1824,3 +1994,8 @@ def statistics(request):
 
     })
 
+class TranslationModelListView(generics.ListAPIView):
+    queryset = TranslationModel.objects.filter(
+        is_active=True
+    )
+    serializer_class = TranslationModelSerializer

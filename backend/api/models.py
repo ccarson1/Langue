@@ -11,8 +11,12 @@ import os
 def lesson_file_upload_path(instance, filename):
     return f'lessons/{instance.uuid}/{filename}'
 
+# def media_file_upload_path(instance, filename):
+#     return f'lessons/{instance.uuid}/{filename}'
+
 def media_file_upload_path(instance, filename):
-    return f'lessons/{instance.uuid}/audio/{filename}'
+    extension = os.path.splitext(filename)[1].lower()
+    return f'lessons/{instance.uuid}/{instance.uuid}{extension}'
 
 def record_file_upload_path(instance, filename):
     return f'record/{filename}'
@@ -144,6 +148,26 @@ class PhraseTranslation(models.Model):
 
     class Meta:
         db_table = 'Phrase_Translations'
+
+class TranslationModel(models.Model):
+    MODEL_TYPES = [
+        ("m2m100", "M2M100"),
+        ("opus", "OPUS"),
+    ]
+
+    name = models.CharField(max_length=100)
+    model_type = models.CharField(max_length=50, choices=MODEL_TYPES)
+
+    model_name = models.CharField(max_length=255)
+    save_path = models.CharField(max_length=255)
+
+    source_language = models.CharField(max_length=20, null=True, blank=True)
+    target_language = models.CharField(max_length=20, null=True, blank=True)
+
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.source_language} → {self.target_language})"
         
 class UserSetting(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -160,6 +184,7 @@ class UserSetting(models.Model):
     showVideoCaptions = models.BooleanField(default=False)
     showVideoView = models.BooleanField(default=False)
     continuousPlay = models.BooleanField(default=False)
+    translationModel = models.ForeignKey(TranslationModel,on_delete=models.CASCADE, related_name='settings_translation_model', null=True, blank=True)
     
 class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -258,6 +283,7 @@ class Recording(models.Model):
     record_private = models.BooleanField(default=False)
     is_favorite = models.BooleanField(default=False, db_column='record_is_favorite')
     record_lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, blank=True)
+    duration = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -283,3 +309,4 @@ class Recording(models.Model):
             pass
 
         super().delete(*args, **kwargs)
+

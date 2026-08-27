@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording
+from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording, TranslationModel, Channel
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone 
 
@@ -151,6 +151,7 @@ class RecordingSerializer(serializers.ModelSerializer):
             "url",
             "created_at",
             "is_favorite",
+            "duration"
         ]
 
     def get_url(self, obj):
@@ -158,3 +159,15 @@ class RecordingSerializer(serializers.ModelSerializer):
         if obj.record_file:
             return request.build_absolute_uri(obj.record_file.url)
         return None
+
+
+class TranslationModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TranslationModel
+        fields = [
+            "id",
+            "name",
+            "model_type",
+            "model_name",
+        ]
+

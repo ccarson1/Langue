@@ -22,6 +22,8 @@ export default function SettingsScreen({ navigation }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [dictionaries, setDictionaries] = useState([]);
   const [selectedDictionary, setSelectedDictionary] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [loadedModels, setLoadedModels] = useState([]);
   const [profilePrivate, setProfilePrivate] = useState(false);
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
@@ -36,6 +38,44 @@ export default function SettingsScreen({ navigation }) {
     } catch (err) {
       console.error('Failed to fetch languages:', err);
       Alert.alert('Error', 'Failed to load language options.');
+    }
+  };
+
+  const fetchTranslationModels = async () => {
+    try {
+      const storedToken = await AsyncStorage.getItem(
+        'accessToken'
+      );
+
+      const res = await fetch(
+        `http://${serverIP}:8000/api/translation-models/`,
+        {
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.detail || 'Failed to load translation models'
+        );
+      }
+
+      setLoadedModels(data);
+
+    } catch (err) {
+      console.error(
+        'Failed to fetch translation models:',
+        err
+      );
+
+      Alert.alert(
+        'Error',
+        'Failed to load translation models.'
+      );
     }
   };
 
@@ -131,6 +171,7 @@ export default function SettingsScreen({ navigation }) {
     };
 
     fetchLanguages();
+    fetchTranslationModels();
     loadTokenAndSettings();
 
   }, [serverIP]);
@@ -163,6 +204,7 @@ export default function SettingsScreen({ navigation }) {
           notifications: notificationsEnabled,
           dictionary_name: selectedDictionary,
           privacy: profilePrivate,
+          translation_model: selectedModel,
         }),
       });
 
@@ -256,6 +298,30 @@ export default function SettingsScreen({ navigation }) {
           </Picker>
         </View>
 
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedModel}
+            onValueChange={setSelectedModel}
+            style={styles.picker}
+            dropdownIconColor="white"
+          >
+            <Picker.Item
+              label="Translation Model"
+              value=""
+            />
+
+            {loadedModels.map((mod) => (
+
+              <Picker.Item
+                key={mod.id}
+                label={mod.name}
+                value={mod.id}
+              />
+            ))}
+
+          </Picker>
+        </View>
+
         <View style={styles.checkboxRow}>
           <Switch
             value={notificationsEnabled}
@@ -266,7 +332,7 @@ export default function SettingsScreen({ navigation }) {
           <Text style={styles.checkboxLabel}>Enable Notifications</Text>
         </View>
 
-        
+
 
         <TouchableOpacity style={styles.button} onPress={handleSave}>
           <Text style={styles.buttonText}>Save Settings</Text>
