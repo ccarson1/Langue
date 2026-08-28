@@ -46,7 +46,7 @@ export default function HomeScreen({ navigation }) {
     const [startMs, setStartMs] = useState(0);
     const [endMs, setEndMs] = useState(0);
     const [selectedText, setSelectedText] = useState('');
-    const [translatedText, setTranslatedText] = useState('');
+    const [translatedText, setTranslatedText] = useState([]);
     const [translationIDs, setTranslationIDs] = useState([]);
     const [multiDefinition, setMultiDefinition] = useState(false);
     const [multiDefDisplay, setMultiDefDisplay] = useState('');
