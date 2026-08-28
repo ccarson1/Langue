@@ -379,7 +379,7 @@ export default function ImportScreen({ navigation, route }) {
 
   const handleImport = async () => {
     if (!url && !lessonFile && !lessonEmpty && !alwaysGenerateCaptions) {
-      showError(`Missing input: Please provide a URL or upload a file.`);
+      showError(`Missing captions: Please provide a URL, upload a lesson file or turn on "Generate captions".`);
       Alert.alert('Missing input', 'Please provide a URL or upload a file.');
       return;
     }
@@ -683,7 +683,7 @@ export default function ImportScreen({ navigation, route }) {
               trackColor={{ false: '#777', true: '#00adb5' }}
               thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
             />
-            <Text style={styles.checkboxLabel}>Always Generate (captions from audio)</Text>
+            <Text style={styles.checkboxLabel}>Generate captions from audio</Text>
           </View>
 
           <View style={styles.checkboxRow}>

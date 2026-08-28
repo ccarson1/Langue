@@ -249,7 +249,6 @@ export default function HomeScreen({ navigation }) {
 
             setIsPlaying(true);
 
-            const currentIndex = index;
 
             sound.setOnPlaybackStatusUpdate(async (status) => {
                 if (!status.isLoaded) return;
@@ -343,19 +342,38 @@ export default function HomeScreen({ navigation }) {
     };
 
     // --- Navigation helpers ---
-    const next = () => {
-        if (index < rows.length - 1) {
-            setIndex(index + 1);
-            setDescription('');
-            updateLessonProgress(index + 1);
+    const changeSentence = async (newIndex) => {
+        if (!rows.length) return;
+        if (newIndex < 0 || newIndex >= rows.length) return;
+
+        const row = rows[newIndex];
+
+        indexRef.current = newIndex;
+        setIndex(newIndex);
+
+        setStartMs(row[3]);
+        setEndMs(row[4]);
+
+        setDescription('');
+        setSelectedText('');
+        setTranslatedText([]);
+        setTranslationIDs([]);
+        setSelectedFrequency(0);
+
+        fetchWordFrequencies(row[0]);
+        updateLessonProgress(newIndex);
+
+        if (ShowVideoView && videoFormat) {
+            await videoRef.current?.seek(row[3]);
         }
     };
+
+    const next = () => {
+        changeSentence(indexRef.current + 1);
+    };
+
     const back = () => {
-        if (index > 0) {
-            setIndex(index - 1);
-            setDescription('');
-            updateLessonProgress(index - 1);
-        }
+        changeSentence(indexRef.current - 1);
     };
 
     // --- Menu toggle ---
@@ -378,14 +396,20 @@ export default function HomeScreen({ navigation }) {
     };
 
     const handleSentenceChanged = (sentence) => {
-        const newIndex = rows.findIndex(r => r[0] === sentence.id);
+        const newIndex = rows.findIndex(row => row[0] === sentence.id);
 
-        if (newIndex === -1 || newIndex === indexRef.current)
-            return;
+        if (newIndex === -1) return;
+        if (newIndex === indexRef.current) return;
+
+        const row = rows[newIndex];
 
         indexRef.current = newIndex;
         setIndex(newIndex);
-        fetchWordFrequencies(sentence.id);
+
+        setStartMs(row[3]);
+        setEndMs(row[4]);
+
+        fetchWordFrequencies(row[0]);
     };
 
     const saveAudioSettings = async () => {
@@ -731,7 +755,6 @@ export default function HomeScreen({ navigation }) {
 
                 <View style={styles.middleSection}>
 
-                    {console.log(lessonData)}
 
                     {lessonData?.videoFormat && ShowVideoView && (
 
@@ -767,7 +790,7 @@ export default function HomeScreen({ navigation }) {
                                     contentContainerStyle={styles.wordWrap}
                                     showsVerticalScrollIndicator={true}
                                 >
-                                    {console.log(rows[index]?.[1])}
+
                                     {rows[index]?.[1].split(' ').map((word, i) => (
                                         <Text
                                             key={i}
@@ -802,8 +825,6 @@ export default function HomeScreen({ navigation }) {
                             <TouchableOpacity
                                 onPress={() => {
                                     setDescription(rows[parseInt(index)][2]);
-                                    console.log(index)
-                                    console.log(rows[index][2])
                                 }}
 
                             >
@@ -858,28 +879,13 @@ export default function HomeScreen({ navigation }) {
 
                         <View style={styles.separatorDotted} />
                         <View>
-                            {/* <TextInput
-                            style={styles.defDescription}
-                            value={description}
-                            onChangeText={''}
-                        /> */}
+
                             <Text
                                 style={styles.defDescription}
 
                             >{description}</Text>
                         </View>
-                        {/* <View style={styles.translateBtn}>
-                        <TouchableOpacity
-                            onPress={() => {
-                                setDescription(rows[parseInt(index)][2]);
-                                console.log(index)
-                                console.log(rows[index][2])
-                            }}
 
-                        >
-                            <Text style={styles.buttonText}>Translate Sentence</Text>
-                        </TouchableOpacity>
-                    </View> */}
                     </ScrollView>
 
                 </View>

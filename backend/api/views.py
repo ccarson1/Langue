@@ -961,6 +961,8 @@ def user_lessons_progress_view(request):
         except Lesson.DoesNotExist:
             return Response({"error": "Lesson not found"}, status=404)
 
+        
+
         # Create or update the progress
         progress, created = UserLessonsProgress.objects.update_or_create(
             user=user,
@@ -1559,6 +1561,7 @@ def sentence_word_frequency(request):
                         interval_days = 14
 
                     user_word.review_date = timezone.now().date() + timedelta(days=interval_days)
+                    user_word.last_seen = timezone.now().date()
 
                     user_word.save()
 

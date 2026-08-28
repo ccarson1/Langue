@@ -82,6 +82,7 @@ class UserWord(models.Model):
     clicks = models.PositiveIntegerField(default=0)
     creation_date = models.DateField(default=timezone.now)
     review_date = models.DateField(default=timezone.now)
+    last_seen = models.DateField(default=timezone.now)
     user = models.ForeignKey(User, db_column='user_id', on_delete=models.CASCADE)
 
     class Meta:
