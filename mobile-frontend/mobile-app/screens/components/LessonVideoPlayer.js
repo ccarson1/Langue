@@ -309,68 +309,69 @@ export default LessonVideoPlayer;
 const styles = StyleSheet.create({
 
     container: {
-
         width: "100%",
-        height: "80%",
-        marginTop: "20%",
+        height: "100%",
         borderRadius: 15,
         overflow: "hidden",
         backgroundColor: "#222",
-        elevation: 5,
+
+        ...Platform.select({
+            web: {
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
+            },
+            default: {
+                elevation: 5,
+            },
+        }),
     },
 
     video: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
 
-
-        width: Platform.OS === 'web' ? '100%' : "90%",
-        aspectRatio: Platform.OS === 'web' ? 16 / 3 : 13 / 14,
-
-
+        width: "100%",
+        height: "100%",
     },
 
     overlay: {
+        position: "absolute",
 
+        bottom: 20,
+        left: 10,
+        right: 10,
 
-        bottom: 100,
-        left: 2,
-        right: 3,
         backgroundColor: "rgba(0,0,0,.55)",
         borderRadius: 12,
         padding: 5,
-
     },
 
     wordRow: {
-
         flexDirection: "row",
         flexWrap: "wrap",
         justifyContent: "center",
-
     },
 
     word: {
-
         color: "white",
         fontSize: 20,
         paddingHorizontal: 2,
         lineHeight: 32,
-
     },
 
     selectedWord: {
-
         backgroundColor: "#FFCC00",
         color: "black",
         borderRadius: 4,
         overflow: "hidden",
-
     },
 
     loading: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        height: 250,
-
-    }
+    },
 
 });

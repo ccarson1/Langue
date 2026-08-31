@@ -31,7 +31,7 @@ import { createStyles } from './styles/HomeStyles';
 
 export default function HomeScreen({ navigation }) {
     const { width, height } = useWindowDimensions();
-
+    const isLargeScreen = width >= 900;
 
     // State
     const [token, setToken] = useState(null);
@@ -715,357 +715,732 @@ export default function HomeScreen({ navigation }) {
 
     return (
 
+
         <View style={styles.container}>
 
+            {/* ============================================================
+        TOP SECTION
+    ============================================================ */}
 
-            {/* Top Section */}
             <View style={styles.topSection}>
 
-                <Text style={styles.topNavText}>Langue</Text>
+                <Text style={styles.topNavText}>
+                    Langue
+                </Text>
 
-                <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerIcon}>
-                    <Entypo name="menu" size={40} color="white" />
+                <TouchableOpacity
+                    onPress={toggleMenu}
+                    style={styles.hamburgerIcon}
+                >
+                    <Entypo
+                        name="menu"
+                        size={40}
+                        color="white"
+                    />
                 </TouchableOpacity>
 
             </View>
-            {user && (
-                <View style={{
-                    position: 'absolute',
-                    top: height / 10,
-                    right: 0,
-                    padding: 10,
-                }}>
-                    <Text style={{
-                        color: 'white',
-                        fontSize: width * 0.02,
 
-                    }}>
+
+            {/* ============================================================
+        USER GREETING
+    ============================================================ */}
+{/* 
+            {user && (
+                <View
+                    style={{
+                        position: 'absolute',
+                        top: height / 10,
+                        right: 0,
+                        padding: 10,
+                    }}
+                >
+                    <Text
+                        style={{
+                            color: 'white',
+                            fontSize: width * 0.02,
+                        }}
+                    >
                         Hello, {user.username}
                     </Text>
                 </View>
-            )}
+            )} */}
+
+
+            {/* ============================================================
+        MIDDLE SCROLL
+    ============================================================ */}
+
             <ScrollView
                 style={styles.middleScroll}
                 contentContainerStyle={styles.middleSection}
                 showsVerticalScrollIndicator={false}
                 showsHorizontalScrollIndicator={false}
             >
-                {/* Middle Section */}
+
+                {/* ========================================================
+            RESPONSIVE COLUMNS
+        ======================================================== */}
+
+                <View
+                    style={[
+                        styles.middleColumns,
+                        isLargeScreen
+                            ? styles.middleColumnsLarge
+                            : styles.middleColumnsSmall,
+                    ]}
+                >
 
 
-                <View style={styles.middleSection}>
+                    {/* ====================================================
+                LEFT COLUMN
+
+                Contains:
+                - LessonVideoPlayer
+                - ProgressBar
+                - Word container
+            ==================================================== */}
+
+                    <View
+                        style={[
+                            styles.leftColumn,
+                            isLargeScreen
+                                ? styles.leftColumnLarge
+                                : styles.leftColumnSmall,
+                        ]}
+                    >
+
+                        {/* ---------------- VIDEO ---------------- */}
+
+                        {lessonData?.videoFormat && ShowVideoView && (
+
+                            <LessonVideoPlayer
+                                ref={videoRef}
+                                lesson={lessonData}
+                                token={token}
+                                serverIP={serverIP}
+                                onWordPress={displaySelectedText}
+                                ShowVideoCaptions={ShowVideoCaptions}
+                                startMs={startMs}
+                                endMs={endMs}
+                                continuousPlay={continuousPlay}
+                                volume={volume}
+                                playbackRate={playbackRate}
+                                onPlaybackFinished={() => setIsPlaying(false)}
+                                onSentenceChanged={handleSentenceChanged}
+                            />
+
+                        )}
 
 
-                    {lessonData?.videoFormat && ShowVideoView && (
+                        {/* ---------------- PROGRESS BAR ---------------- */}
 
-                        <LessonVideoPlayer
-                            ref={videoRef}
-                            style={styles.videoPlayer}
-                            lesson={lessonData}
-                            token={token}
-                            serverIP={serverIP}
-                            onWordPress={displaySelectedText}
-                            ShowVideoCaptions={ShowVideoCaptions}
-                            startMs={startMs}
-                            endMs={endMs}
-                            continuousPlay={continuousPlay}
-                            volume={volume}
-                            playbackRate={playbackRate}
-                            onPlaybackFinished={() => setIsPlaying(false)}
-                            onSentenceChanged={handleSentenceChanged}
+                        <ProgressBar
+                            progress={
+                                rows.length > 1
+                                    ? index / (rows.length - 1)
+                                    : 0
+                            }
                         />
 
-                    )}
-                    <ProgressBar progress={rows.length > 1 ? index / (rows.length - 1) : 0} />
 
-                    {/* Fixed-height word container */}
-                    {(!ShowVideoCaptions || !lessonData?.videoFormat) && (
-                        <>
+                        {/* ---------------- WORD CONTAINER ---------------- */}
 
-
+                        {(!ShowVideoCaptions || !lessonData?.videoFormat) && (
 
                             <View style={styles.wordContainer}>
+
                                 <ScrollView
                                     style={styles.wordScroll}
                                     contentContainerStyle={styles.wordWrap}
                                     showsVerticalScrollIndicator={true}
                                 >
 
-                                    {rows[index]?.[1].split(' ').map((word, i) => (
-                                        <Text
-                                            key={i}
-                                            style={styles.word}
-                                            onPress={() => {
-                                                // handle word click here
-                                                displaySelectedText(word)
+                                    {rows[index]?.[1]
+                                        ?.split(' ')
+                                        .map((word, i) => (
 
-                                                // or call a function: onWordPress(word)
-                                            }}
-                                        >
-                                            {word}
-                                            {/* Add a space after each word */}
-                                            {i < rows[index]?.[2].split(' ').length - 1 ? ' ' : ''}
-                                        </Text>
-                                    ))}
+                                            <Text
+                                                key={i}
+                                                style={styles.word}
+                                                onPress={() => {
+                                                    displaySelectedText(word);
+                                                }}
+                                            >
+                                                {word}
+
+                                                {i <
+                                                    rows[index]?.[2]
+                                                        ?.split(' ')
+                                                        .length - 1
+                                                    ? ' '
+                                                    : ''
+                                                }
+
+                                            </Text>
+
+                                        ))
+                                    }
+
                                 </ScrollView>
+
                             </View>
-                        </>
-                    )}
+
+                        )}
+
+                    </View>
 
 
+                    {/* ====================================================
+                RIGHT COLUMN
 
-                    {/* Fixed-height definition container */}
-                    <ScrollView style={styles.defContainer}>
-                        <View>
-                            <Text style={styles.defHeader}>Definition</Text>
-                        </View>
+                Contains:
+                - Definition
+                - Translate button
+                - Status indicator
+                - Selected word
+                - Definitions
+                - Description
+            ==================================================== */}
+
+                    <View
+                        style={[
+                            styles.rightColumn,
+                            isLargeScreen
+                                ? styles.rightColumnLarge
+                                : styles.rightColumnSmall,
+                        ]}
+                    >
+
+                        <ScrollView
+                            style={styles.defContainer}
+                            showsVerticalScrollIndicator={true}
+                        >
+
+                            {/* ---------------- HEADER ---------------- */}
+
+                            <View>
+                                <Text style={styles.defHeader}>
+                                    Definition
+                                </Text>
+                            </View>
 
 
-                        <View style={styles.translateBtn}>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setDescription(rows[parseInt(index)][2]);
-                                }}
+                            {/* ---------------- TRANSLATE BUTTON ---------------- */}
 
-                            >
-                                <Text style={styles.buttonText}>Translate Sentence</Text>
-                            </TouchableOpacity>
-                        </View>
+                            <View style={styles.translateBtn}>
+
+                                <TouchableOpacity
+                                    onPress={() => {
+
+                                        if (rows[index]) {
+                                            setDescription(rows[index][2]);
+                                        }
+
+                                    }}
+                                >
+
+                                    <Text style={styles.buttonText}>
+                                        Translate Sentence
+                                    </Text>
+
+                                </TouchableOpacity>
+
+                            </View>
 
 
+                            {/* ---------------- STATUS ---------------- */}
 
-                        <StatusIndicator frequency={selectedFrequency} />
-                        <Text style={styles.partOfSpeech}>adjective</Text>
+                            <StatusIndicator
+                                frequency={selectedFrequency}
+                            />
 
 
-                        <View style={styles.textRow}>
-                            {/* <Text style={styles.leftText}>Target:</Text> */}
-                            <TouchableOpacity style={styles.copy1} onPress={copyToClipboard}>
-                                <AntDesign name="copy" size={24} color="black" />
-                            </TouchableOpacity>
+                            {/* ---------------- PART OF SPEECH ---------------- */}
 
-                            <Text style={styles.rightText}>
-                                {selectedText} : {multiDefinition ? multiDefDisplay : translatedText}
+                            <Text style={styles.partOfSpeech}>
+                                adjective
                             </Text>
-                        </View>
-                        <View style={styles.separatorSolid} />
-                        {/* <View style={styles.textRow}>
-                        <Text style={styles.leftText}>Native:</Text>
-                        <TextInput
-                            style={styles.rightText}
-                            value={translatedText}
-                            onChangeText={setTranslatedText}
-                        />
-                        
 
-                    </View> */}
-                        <DefinitionList
-                            definitions={Array.isArray(translatedText) ? translatedText : []}
-                            translationIDs={translationIDs}
-                            onWordPress={displaySelectedText}
-                            onAddDefinition={handleAddDefinition}
-                            selectedText={selectedText}
-                            translatedText={translatedText}
-                            nat_id={nativeLanguage}
-                            tar_id={targetLanguage}
-                            popup={popup}
-                            token={token}
-                            server={serverIP}
-                            showSuccess={showSuccess}
-                            showError={showError}
-                            onDefinitionUpdated={handleUpdateDefinition}
-                            onRefreshTranslation={refreshTranslation}
-                        />
 
-                        <View style={styles.separatorDotted} />
-                        <View>
+                            {/* =================================================
+                        SELECTED WORD / TRANSLATION
+                    ================================================= */}
 
-                            <Text
-                                style={styles.defDescription}
+                            <View style={styles.textRow}>
 
-                            >{description}</Text>
-                        </View>
+                                <TouchableOpacity
+                                    style={styles.copy1}
+                                    onPress={copyToClipboard}
+                                >
 
-                    </ScrollView>
+                                    <AntDesign
+                                        name="copy"
+                                        size={24}
+                                        color="black"
+                                    />
+
+                                </TouchableOpacity>
+
+
+                                <Text style={styles.rightText}>
+
+                                    {selectedText}
+
+                                    {' : '}
+
+                                    {
+                                        multiDefinition
+                                            ? multiDefDisplay
+                                            : translatedText
+                                    }
+
+                                </Text>
+
+                            </View>
+
+
+                            {/* ---------------- SOLID SEPARATOR ---------------- */}
+
+                            <View style={styles.separatorSolid} />
+
+
+                            {/* =================================================
+                        DEFINITIONS
+                    ================================================= */}
+
+                            <DefinitionList
+                                definitions={
+                                    Array.isArray(translatedText)
+                                        ? translatedText
+                                        : []
+                                }
+
+                                translationIDs={translationIDs}
+
+                                onWordPress={displaySelectedText}
+
+                                onAddDefinition={handleAddDefinition}
+
+                                selectedText={selectedText}
+
+                                translatedText={translatedText}
+
+                                nat_id={nativeLanguage}
+
+                                tar_id={targetLanguage}
+
+                                popup={popup}
+
+                                token={token}
+
+                                server={serverIP}
+
+                                showSuccess={showSuccess}
+
+                                showError={showError}
+
+                                onDefinitionUpdated={
+                                    handleUpdateDefinition
+                                }
+
+                                onRefreshTranslation={
+                                    refreshTranslation
+                                }
+                            />
+
+
+                            {/* ---------------- DOTTED SEPARATOR ---------------- */}
+
+                            <View style={styles.separatorDotted} />
+
+
+                            {/* ---------------- DESCRIPTION ---------------- */}
+
+                            <View>
+
+                                <Text style={styles.defDescription}>
+                                    {description}
+                                </Text>
+
+                            </View>
+
+                        </ScrollView>
+
+                    </View>
 
                 </View>
+
             </ScrollView>
-            {
-                menuOpen && (
-                    <Animated.View style={[styles.sideMenu, { transform: [{ translateX: slideAnim }] }]}>
 
-                        <Text style={styles.menuHeader}>Menu {user && <Text style={{ fontSize: 10 }}>{user.username}</Text>}</Text>
-                        <View style={styles.separatorSolid} />
+
+            {/* ============================================================
+        SIDE MENU
+    ============================================================ */}
+
+            {menuOpen && (
+
+                <Animated.View
+                    style={[
+                        styles.sideMenu,
+                        {
+                            transform: [
+                                {
+                                    translateX: slideAnim,
+                                },
+                            ],
+                        },
+                    ]}
+                >
+
+                    <Text style={styles.menuHeader}>
+
+                        Menu
 
                         {user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Import');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Import</Text>
-                            </TouchableOpacity>
+                            <Text style={{ fontSize: 10 }}>
+                                {' '}{user.username}
+                            </Text>
                         )}
 
-                        {user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Statistics');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Statistics</Text>
-                            </TouchableOpacity>
-                        )}
+                    </Text>
 
+
+                    <View style={styles.separatorSolid} />
+
+
+                    {/* ---------------- IMPORT ---------------- */}
+
+                    {user && (
                         <TouchableOpacity
                             onPress={() => {
-                                navigation.navigate('Lessons');
+                                navigation.navigate('Import');
                                 setMenuOpen(false);
                             }}
                         >
-                            <Text style={styles.navText}>Lessons</Text>
+                            <Text style={styles.navText}>
+                                Import
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- STATISTICS ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Statistics');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Statistics
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- LESSONS ---------------- */}
+
+                    <TouchableOpacity
+                        onPress={() => {
+                            navigation.navigate('Lessons');
+                            setMenuOpen(false);
+                        }}
+                    >
+                        <Text style={styles.navText}>
+                            Lessons
+                        </Text>
+                    </TouchableOpacity>
+
+
+                    {/* ---------------- LISTENING ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Listening');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Listening
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- LIVE TV ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('LiveTVScreen');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Live TV
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- ALPHABET ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Alphabet');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Alphabet
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- ACCOUNT / LOGIN ---------------- */}
+
+                    {user ? (
+
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Account');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Account
+                            </Text>
                         </TouchableOpacity>
 
-                        {user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Listening');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Listening</Text>
-                            </TouchableOpacity>
-                        )}
+                    ) : (
 
-
-                        {user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('LiveTVScreen');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Live TV</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Alphabet');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Alphabet</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {user ? (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Account');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Account</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Login');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Login</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {!user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Signup');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Signup</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {user && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    navigation.navigate('Settings');
-                                    setMenuOpen(false);
-                                }}
-                            >
-                                <Text style={styles.navText}>Settings</Text>
-                            </TouchableOpacity>
-                        )}
-
-
-
-
-                        <TouchableOpacity onPress={() => setShowExitModal(true)}>
-                            <Text style={styles.navText}>Exit</Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Login');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Login
+                            </Text>
                         </TouchableOpacity>
-                    </Animated.View>
-                )
-            }
-            {/* Bottom Section */}
+
+                    )}
+
+
+                    {/* ---------------- SIGNUP ---------------- */}
+
+                    {!user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Signup');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Signup
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- SETTINGS ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                navigation.navigate('Settings');
+                                setMenuOpen(false);
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Settings
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+
+                    {/* ---------------- EXIT ---------------- */}
+
+                    <TouchableOpacity
+                        onPress={() => setShowExitModal(true)}
+                    >
+                        <Text style={styles.navText}>
+                            Exit
+                        </Text>
+                    </TouchableOpacity>
+
+                </Animated.View>
+
+            )}
+
+
+            {/* ============================================================
+        BOTTOM CONTROLS
+    ============================================================ */}
+
             <View style={styles.bottomSection}>
 
                 <View style={styles.controls}>
-                    {!continuousPlay && (<AntDesign name="left" size={24} color="white" onPress={back} />)}
+
+                    {/* BACK */}
+
+                    {!continuousPlay && (
+
+                        <AntDesign
+                            name="left"
+                            size={20}
+                            color="white"
+                            onPress={back}
+                        />
+
+                    )}
+
+
+                    {/* PLAY / PAUSE */}
 
                     {isPlaying ? (
-                        <FontAwesome name="pause" size={24} color="white" onPress={pauseAudio} />
+
+                        <FontAwesome
+                            name="pause"
+                            size={20}
+                            color="white"
+                            onPress={pauseAudio}
+                        />
+
                     ) : (
-                        <FontAwesome name="play" size={24} color="white" onPress={playAudio} />
-                    )
-                    }
-                    {!continuousPlay && (<AntDesign name="right" size={24} color="white" onPress={next} />)}
+
+                        <FontAwesome
+                            name="play"
+                            size={24}
+                            color="white"
+                            onPress={playAudio}
+                        />
+
+                    )}
+
+
+                    {/* NEXT */}
+
+                    {!continuousPlay && (
+
+                        <AntDesign
+                            name="right"
+                            size={24}
+                            color="white"
+                            onPress={next}
+                        />
+
+                    )}
 
                 </View>
+
             </View>
+
+
+            {/* ============================================================
+        EXIT CONFIRMATION
+    ============================================================ */}
 
             <ExitConfirmationModal
                 visible={showExitModal}
-                onCancel={() => setShowExitModal(false)}
+
+                onCancel={() =>
+                    setShowExitModal(false)
+                }
+
                 onConfirm={() => {
+
                     setShowExitModal(false);
+
                     BackHandler.exitApp();
+
                 }}
             />
 
 
+            {/* ============================================================
+        CUSTOM POPUP
+    ============================================================ */}
+
             <CustomPopup
                 visible={popup.visible}
+
                 message={popup.message}
+
                 type={popup.type}
-                onClose={() => setPopup({ ...popup, visible: false })}
+
+                onClose={() =>
+                    setPopup({
+                        ...popup,
+                        visible: false,
+                    })
+                }
             />
+
+
+            {/* ============================================================
+        BOTTOM AUDIO MENU
+    ============================================================ */}
 
             <BottomAudioMenu
+
                 volume={volume}
+
                 setVolume={setVolume}
+
                 playbackRate={playbackRate}
+
                 setPlaybackRate={setPlaybackRate}
+
                 showToggles={false}
+
                 videoFormat={videoFormat}
+
                 targetText={rows[index]?.[1]}
-                setShowVideoCaptions={setShowVideoCaptions}
-                ShowVideoCaptions={ShowVideoCaptions}
-                setShowVideoView={setShowVideoView}
-                ShowVideoView={ShowVideoView}
-                continuousPlay={continuousPlay}
-                setContinuousPlay={setContinuousPlay}
+
+                setShowVideoCaptions={
+                    setShowVideoCaptions
+                }
+
+                ShowVideoCaptions={
+                    ShowVideoCaptions
+                }
+
+                setShowVideoView={
+                    setShowVideoView
+                }
+
+                ShowVideoView={
+                    ShowVideoView
+                }
+
+                continuousPlay={
+                    continuousPlay
+                }
+
+                setContinuousPlay={
+                    setContinuousPlay
+                }
 
             />
 
-            <LoadingOverlay visible={loading} />
 
-        </View >
-    );
+            {/* ============================================================
+        LOADING OVERLAY
+    ============================================================ */}
+
+            <LoadingOverlay
+                visible={loading}
+            />
+
+        </View>
+    )
+
 }
