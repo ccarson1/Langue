@@ -22,12 +22,14 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import * as DocumentPicker from 'expo-document-picker';
 
-import BottomAudioMenu from './components/BottomAudioMenu';          // ← adjust path as needed
-import AudioWaveVisualizer from './components/AudioWaveVisualizer';  // ← adjust path as needed
+import BottomAudioMenu from './components/BottomAudioMenu';
+import AudioWaveVisualizer from './components/AudioWaveVisualizer';
 
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createStyles } from './styles/LessonEditStyles';
+import LoadingOverlay from './components/LoadingOverlay';
+import CustomPopup from './components/CustomPopup';
 
 export default function LessonEditScreen({ route, navigation }) {
     const { lessonId } = route.params;
@@ -44,6 +46,8 @@ export default function LessonEditScreen({ route, navigation }) {
     const [sentences, setSentences] = useState([]);
     const [sentencesExpanded, setSentencesExpanded] = useState(false);
     const [serverIP, setServerIP] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [showDeletePopup, setShowDeletePopup] = useState(false);
 
     // ── BottomAudioMenu state (showToggles=false so only sliders are used) ──
     const [volume, setVolume] = useState(1);
@@ -139,9 +143,9 @@ export default function LessonEditScreen({ route, navigation }) {
 
             if (audioFile) {
                 if (Platform.OS === 'web') {
-                    formData.append('audio_file', audioFile.file);
+                    formData.append('media_file', audioFile.file);
                 } else {
-                    formData.append('audio_file', {
+                    formData.append('media_file', {
                         uri:
                             Platform.OS === 'ios'
                                 ? audioFile.uri.replace('file://', '')
@@ -171,6 +175,51 @@ export default function LessonEditScreen({ route, navigation }) {
             console.error(error);
             Alert.alert('Error', error.message);
         }
+    };
+
+    // ── Delete Lesson ─────────────────────────────────────────────
+    const deleteLesson = async () => {
+        try {
+            setDeleting(true);
+
+            const token = await AsyncStorage.getItem('accessToken');
+
+            const res = await fetch(
+                `http://${serverIP}:8000/api/edit-lesson/${lessonId}/`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Delete failed');
+            }
+
+            // Go directly to the Home screen
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+            });
+
+        } catch (error) {
+            console.error('Delete lesson error:', error);
+
+            setDeleting(false);
+
+            Alert.alert(
+                'Error',
+                error.message || 'Failed to delete lesson'
+            );
+        }
+    };
+
+    const confirmDeleteLesson = () => {
+        setShowDeletePopup(true);
     };
 
     // ── Download TXT ─────────────────────────────────────────────────────────
@@ -276,7 +325,7 @@ export default function LessonEditScreen({ route, navigation }) {
                         style={styles.downloadButton}
                         onPress={async () => {
                             const result = await DocumentPicker.getDocumentAsync({
-                                type: 'audio/*',
+                                type: ['audio/*', 'video/*'],
                                 copyToCacheDirectory: true,
                             });
                             if (result.assets && result.assets.length > 0) {
@@ -285,7 +334,7 @@ export default function LessonEditScreen({ route, navigation }) {
                         }}
                     >
                         <Text style={styles.downloadButtonText}>
-                            {audioFile ? 'Audio Selected' : 'Upload Audio'}
+                            {audioFile ? 'Media Selected' : 'Upload Media'}
                         </Text>
                     </TouchableOpacity>
 
@@ -385,7 +434,36 @@ export default function LessonEditScreen({ route, navigation }) {
                     <Text style={styles.saveButtonText}>Save Lesson</Text>
                 </TouchableOpacity>
 
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={confirmDeleteLesson}
+                >
+                    <AntDesign name="delete" size={20} color="white" />
+
+                    <Text style={styles.deleteButtonText}>
+                        Delete Lesson
+                    </Text>
+                </TouchableOpacity>
+
             </ScrollView>
+
+            <LoadingOverlay visible={deleting} />
+
+            <CustomPopup
+                visible={showDeletePopup}
+                message={`Are you sure you want to delete "${title}"? This cannot be undone.`}
+                type="caution"
+                showButtons={true}
+                acceptText="Delete"
+                declineText="Cancel"
+                onAccept={() => {
+                    setShowDeletePopup(false);
+                    deleteLesson();
+                }}
+                onDecline={() => {
+                    setShowDeletePopup(false);
+                }}
+            />
 
             {/* ── BottomAudioMenu: showToggles=false (no repeat/shuffle/etc) ─ */}
             <BottomAudioMenu

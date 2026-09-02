@@ -569,7 +569,7 @@ export default function ImportScreen({ navigation, route }) {
                   trackColor={{ false: '#777', true: '#00adb5' }}
                   thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
                 />
-                <Text style={styles.checkboxLabel}>Upload Lesson File</Text>
+                <Text style={styles.checkboxLabel}>Upload Lesson File <small>(.csv)</small></Text>
               </View>
 
               {fileUploaded && (

@@ -50,7 +50,7 @@ import base64
 import random
 from .utils.pronunciation_evaluator import evaluate_pronunciation
 
-lesson_import_progress = {} 
+lesson_import_progress = {}
 RECORDINGS = {}
 
 BASE_NEW_WORD_FREQUENCY = 5.0
@@ -68,7 +68,7 @@ def api_signup(request):
     if serializer.is_valid():
         serializer.save()
         return Response({'message': 'Account created successfully!'}, status=status.HTTP_201_CREATED)
-    
+
     print("Serializer errors:", serializer.errors)  # <-- key line
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -76,7 +76,7 @@ def api_signup(request):
 @api_view(['POST'])
 def translate(request):
     text = request.data.get('text', '').strip().lower()
-    nat_id = request.data.get('native_id', {}).get('id') 
+    nat_id = request.data.get('native_id', {}).get('id')
     tar_id = request.data.get('target_id', {}).get('id')
 
 
@@ -98,7 +98,7 @@ def translate(request):
 
     print(f"Word found in DB: {word}")
     print(f"Word ID: {word.id if word else 'N/A'}")
-    
+
     if word:
         translations = WordTranslation.objects.filter(
             word_id=word.id,
@@ -120,8 +120,8 @@ def translate(request):
         # print(f"Definition IDs: {[d['id'] for d in data]}")
 
         # return Response({ "translated": data, "inDatabase": 1 })
-    
-    
+
+
     # -----------------------------------
     # DICTIONARY FALLBACK
     # -----------------------------------
@@ -139,10 +139,10 @@ def translate(request):
     if dictionary_name:
 
         try:
-            
+
 
             lang_code = target_language.yt_dlp_lang
-            
+
 
             dictionary_path = os.path.join(
                 settings.BASE_DIR,
@@ -365,8 +365,8 @@ def import_lesson(request):
             videoFormat = request.data.get('videoFormat', 'false' ).lower() in ['true', '1', 'yes']
             print("videoFormat: ",request.data.get("videoFormat"))
 
-            
-            
+
+
             audioUploaded = request.data.get('audioUploaded', 'false' ).lower() in ['true', '1', 'yes']
             lessonPrivate = request.data.get( 'lessonPrivate', 'false' ).lower() in ['true', '1', 'yes']
 
@@ -462,23 +462,23 @@ def import_lesson(request):
             # FILE IMPORT
             if (fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference == False:
 
-                if lesson_file:
-                    lesson.doc_file = lesson_file
+                # if lesson_file:
+                #     lesson.doc_file = lesson_file
 
                 if media_file:
                     lesson.media_file = media_file
-                    
+
 
                 lesson.save()
-                save_lesson_media = VTT( 
-                    lesson_file, lesson.id, 
-                    lesson.target_language.id, 
+                save_lesson_media = VTT(
+                    lesson_file, lesson.id,
+                    lesson.target_language.id,
                     lesson.native_language.id,
                     lesson.uuid,
-                    lesson_import_progress, 
-                    user_id, 
-                    alwaysGenerateCaptions, 
-                    videoFormat, 
+                    lesson_import_progress,
+                    user_id,
+                    alwaysGenerateCaptions,
+                    videoFormat,
                     media_file,
                     translateTarget
                 )
@@ -584,9 +584,9 @@ def str_to_bool(value):
         return value.lower() == 'true'
     return False
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
-@parser_classes([MultiPartParser, FormParser]) 
+@parser_classes([MultiPartParser, FormParser])
 def edit_lesson(request, lesson_id):
 
     try:
@@ -644,9 +644,9 @@ def edit_lesson(request, lesson_id):
             lesson.image = request.FILES['image']
 
         if 'media_file' in request.FILES:
-            lesson.media_file = request.FILES['audio_file']
+            lesson.media_file = request.FILES['media_file']
 
-        
+
 
         incoming_sentences = request.data.get( 'sentences', [] )
 
@@ -675,13 +675,60 @@ def edit_lesson(request, lesson_id):
                     translate_language_id=lesson.native_language_id,
                 )
 
-        #lesson.save()
+        lesson.save()
         print("Native Language:", lesson.native_language)
         print("Target Language:", lesson.target_language )
 
         return Response({
             'message': 'Lesson updated successfully'
         })
+    elif request.method == 'DELETE':
+
+        try:
+            with transaction.atomic():
+
+                # Save paths before deleting the database object
+                image_name = (
+                    lesson.image.name
+                    if lesson.image
+                    else None
+                )
+
+                lesson_folder = os.path.join(
+                    settings.MEDIA_ROOT,
+                    'lessons',
+                    str(lesson.uuid)
+                )
+
+                # Delete image
+                if (
+                    image_name
+                    and image_name != 'images/default-01.jpg'
+                ):
+                    lesson.image.delete(save=False)
+
+                # Delete lesson folder
+                if os.path.isdir(lesson_folder):
+                    shutil.rmtree(lesson_folder)
+
+                # Delete database record
+                lesson.delete()
+
+            return Response(
+                {'message': 'Lesson deleted successfully'},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            print("Error deleting lesson:", e)
+
+            return Response(
+                {
+                    'error': 'Failed to delete lesson',
+                    'details': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @csrf_exempt
@@ -693,10 +740,10 @@ def save_word(request):
     required_fields = ['word', 'nat_id', 'tar_id', 'definition']
     if not all(field in request.data for field in required_fields):
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     word_text = request.data['word'].strip()
 
-    nat_id = request.data.get('nat_id', {}).get('id') 
+    nat_id = request.data.get('nat_id', {}).get('id')
     tar_id = request.data.get('tar_id', {}).get('id')
     user_id = user.id
     definition = request.data['definition'].strip()
@@ -761,7 +808,7 @@ class UserProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
-    
+
     @csrf_exempt
     def post(self, request):
         serializer = UserSerializer(request.user, data=request.data, partial=True)
@@ -769,7 +816,7 @@ class UserProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
 
 
 @api_view(['GET'])
@@ -843,7 +890,7 @@ def user_settings(request):
             if translation_model_id:
                 settings.translationModel = translation_model
 
-            
+
             settings.native_language = native_lang
             settings.target_language = target_lang
             settings.notifications = bool(notifications)
@@ -866,7 +913,7 @@ def user_settings(request):
             return Response( { 'error': 'Invalid translation model.' }, status=status.HTTP_400_BAD_REQUEST )
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 @api_view(['GET'])
 def get_dictionaries(request):
 
@@ -908,7 +955,7 @@ def get_dictionaries(request):
 
     return Response(dictionaries)
 
-@csrf_exempt 
+@csrf_exempt
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def account(request):
@@ -938,7 +985,7 @@ def account(request):
 
         user.save()
         return Response({'message': 'Account updated successfully.'}, status=status.HTTP_200_OK)
-    
+
 
 
 @api_view(['POST', 'GET'])
@@ -961,7 +1008,7 @@ def user_lessons_progress_view(request):
         except Lesson.DoesNotExist:
             return Response({"error": "Lesson not found"}, status=404)
 
-        
+
 
         # Create or update the progress
         progress, created = UserLessonsProgress.objects.update_or_create(
@@ -992,7 +1039,7 @@ def user_lessons_progress_view(request):
             "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
             "native_lang": native_lang_data,
             "target_lang": target_lang_data,
-            
+
         }
 
         return Response(data)
@@ -1005,7 +1052,7 @@ def user_lessons_progress_view(request):
                 lesson_id_int = int(lesson_id)
             except ValueError:
                 return Response({"error": "lesson_id must be an integer"}, status=400)
-            
+
             try:
                 lesson = Lesson.objects.get(id=lesson_id)
             except Lesson.DoesNotExist:
@@ -1030,7 +1077,7 @@ def user_lessons_progress_view(request):
                 return Response(data)
             except UserLessonsProgress.DoesNotExist:
                 return Response({"error": "Progress not found"}, status=404)
-            
+
 @api_view(['POST', 'GET'])
 @authentication_classes([JWTAuthentication])  # Don't leave this empty
 @permission_classes([IsAuthenticated])
@@ -1071,7 +1118,7 @@ def lesson_detail_with_sentences(request, lesson_id):
 
     except Lesson.DoesNotExist:
         return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
-    
+
 @csrf_exempt  # ✅ Must be OUTERMOST
 @api_view(['POST'])
 def get_audio(request):
@@ -1080,8 +1127,8 @@ def get_audio(request):
     current_lesson_index = int(request.data.get('current_lesson_index', 0))
     full_audio = request.data.get('full_audio')
     print(full_audio)
-    
-    
+
+
 
     if full_audio:
         try:
@@ -1139,7 +1186,7 @@ def get_audio(request):
     else:
 
         try:
-            
+
 
             lesson = Lesson.objects.get(id=lesson_id)
             if not lesson.media_folder:
@@ -1176,7 +1223,7 @@ def get_audio(request):
             print("Audio error:", str(e))
             return Response({'error': 'Server error while fetching audio'}, status=500)
 
-@csrf_exempt 
+@csrf_exempt
 @api_view(['POST'])
 def change_lesson(request):
     if request.method == 'POST':
@@ -1429,7 +1476,7 @@ def recordings(request):
 
     except UserSetting.DoesNotExist:
         return Response( {"error": "User settings not found"}, status=404 )
-    
+
     recordings = (
         Recording.objects
         .filter(user=request.user, native_language=user_settings.target_language)
@@ -1449,7 +1496,7 @@ def recordings(request):
 def recording_detail(request, recording_id):   # ← changed from pk to recording_id
     try:
         recording = Recording.objects.get(id=recording_id, user=request.user)
-        
+
         data = {
             "id": recording.id,
             "title": getattr(recording, 'record_name', None) or f"Recording {recording.id}",
@@ -1458,9 +1505,9 @@ def recording_detail(request, recording_id):   # ← changed from pk to recordin
             "created_at": recording.created_at.isoformat() if hasattr(recording, 'created_at') else None,
             "duration" : recording.duration
         }
-        
+
         return Response(data)
-        
+
     except Recording.DoesNotExist:
         return Response({"error": "Recording not found"}, status=404)
     except Exception as e:
@@ -1720,7 +1767,7 @@ def get_practice_item(request):
     try:
         user_setting = UserSetting.objects.filter(user=user).first()
         if not user_setting:
-            return Response({"error": "User settings not found. Please set your languages."}, 
+            return Response({"error": "User settings not found. Please set your languages."},
                           status=status.HTTP_400_BAD_REQUEST)
 
         target_lang = user_setting.target_language
@@ -1732,7 +1779,7 @@ def get_practice_item(request):
             ).select_related('word')
 
             if not user_words.exists():
-                return Response({"error": "No words available for practice"}, 
+                return Response({"error": "No words available for practice"},
                               status=status.HTTP_404_NOT_FOUND)
 
             user_word = random.choice(list(user_words))
@@ -1744,7 +1791,7 @@ def get_practice_item(request):
             )
 
             if not sentences.exists():
-                return Response({"error": "No sentences available for practice"}, 
+                return Response({"error": "No sentences available for practice"},
                               status=status.HTTP_404_NOT_FOUND)
 
             sentence = random.choice(list(sentences))
@@ -1772,7 +1819,7 @@ def evaluate_pronunciation_view(request):
         audio_file = request.FILES.get('audio')
 
         if not text or not audio_file:
-            return Response({"error": "Text and audio file are required"}, 
+            return Response({"error": "Text and audio file are required"},
                           status=status.HTTP_400_BAD_REQUEST)
 
         result = evaluate_pronunciation(audio_file, text, mode, request.user)
@@ -1786,7 +1833,7 @@ def evaluate_pronunciation_view(request):
 
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -1843,7 +1890,7 @@ def channels(request):
             channel.channel_img = saved_path.replace("\\", "/")
             channel.save()
 
-            
+
 
             print("Uploaded channel image:", saved_path)
 

@@ -185,4 +185,21 @@ export const createStyles = (insets) =>
             borderWidth: 1,
             borderColor: '#4b525c',
         },
+
+        deleteButton: {
+            marginTop: 15,
+            marginBottom: 30,
+            paddingVertical: 14,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            backgroundColor: 'red'
+        },
+
+        deleteButtonText: {
+            marginLeft: 8,
+            fontSize: 16,
+            fontWeight: 'bold',
+        },
     });

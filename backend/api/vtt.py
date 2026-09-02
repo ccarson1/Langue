@@ -23,6 +23,7 @@ class VTT():
         self.VIDEO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, f"{self.uuid}.mp4")
         self.lesson_file = lesson_file
         self.media_file = media_file
+        self.videoFormat = videoFormat
         print(type(lesson_file))
         print(type(media_file))
         
@@ -104,11 +105,9 @@ class VTT():
 
             self.save_audio(self.media_file)
 
-        #Load CSV file
+        # Load CSV file directly from uploaded file
         if self.lesson_file:
-            csv_path = self.save_csv(self.lesson_file)
-            print("CSV Path: ", csv_path)
-            segments = self.csv_to_segments(csv_path)
+            segments = self.csv_to_segments(self.lesson_file)
             print("Segments: ", segments)
         elif self.alwaysGenerateCaptions:
             segments_with_info = stt.transcribe_with_timestamps(self.media_file, self.yt_dlp_lang)
@@ -123,7 +122,10 @@ class VTT():
 
         uuid_folder = self.uuid
 
-        self.lesson.media_file.name = f"lessons/{uuid_folder}/{self.uuid}.mp4"
+        if self.videoFormat:
+            self.lesson.media_file.name = f"lessons/{uuid_folder}/{self.uuid}.mp4"
+        else:
+            self.lesson.media_file.name = f"lessons/{uuid_folder}/{self.uuid}.mp3"
         self.lesson.audio_folder = f"lessons/{uuid_folder}"
         self.lesson.save()
 
@@ -131,52 +133,59 @@ class VTT():
         
         
         
-    def csv_to_segments(self, csv_path):
+    def csv_to_segments(self, uploaded_file):
         segments = []
         load_user_model(self.user_id)
-        with open(csv_path, newline='', encoding='utf-8-sig') as csvfile:
-            reader = csv.DictReader(csvfile)
 
-            print("Headers:", reader.fieldnames)
+        uploaded_file.seek(0)
 
-            for i, row in enumerate(reader, start=2):
+        csvfile = io.TextIOWrapper(
+            uploaded_file,
+            encoding='utf-8-sig',
+            newline=''
+        )
 
-                print(f"Row {i}: {row}")
+        reader = csv.DictReader(csvfile)
 
-                start = row.get("start_ms", "").strip()
-                end = row.get("end_ms", "").strip()
+        print("Headers:", reader.fieldnames)
 
-                # Skip blank rows
-                if not start or not end:
-                    print(f"Skipping blank row {i}")
-                    continue
+        for i, row in enumerate(reader, start=2):
 
-                try:
-                    start_ms = int(start)
-                    end_ms = int(end)
-                except ValueError:
-                    print(f"Invalid numbers on row {i}")
-                    continue
+            print(f"Row {i}: {row}")
 
-                native = row.get("native", "").strip()
-                target = row.get("target", "").strip()
-                
+            start = row.get("start_ms", "").strip()
+            end = row.get("end_ms", "").strip()
 
-                if not native:
-                    print("Translating existing target to generate native text...")
-                    native = translate_word(
-                        target,
-                        self.target_id.yt_dlp_lang,
-                        self.native_id.yt_dlp_lang
-                    )
+            if not start or not end:
+                print(f"Skipping blank row {i}")
+                continue
 
+            try:
+                start_ms = int(start)
+                end_ms = int(end)
+            except ValueError:
+                print(f"Invalid numbers on row {i}")
+                continue
 
-                segments.append({
-                    "start": start_ms / 1000,
-                    "end": end_ms / 1000,
-                    "text": native,
-                    "translated": target
-                })
+            native = row.get("native", "").strip()
+            target = row.get("target", "").strip()
+
+            if not native:
+                print("Translating existing target to generate native text...")
+                native = translate_word(
+                    target,
+                    self.target_id.yt_dlp_lang,
+                    self.native_id.yt_dlp_lang
+                )
+
+            segments.append({
+                "start": start_ms / 1000,
+                "end": end_ms / 1000,
+                "text": native,
+                "translated": target
+            })
+
+        csvfile.detach()
 
         return segments
 
