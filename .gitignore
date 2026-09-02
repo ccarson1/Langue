@@ -3,3 +3,5 @@ venv/
 
 backend/models/m2m100/
 *.safetensors
+backend/db.sqlite3
+
