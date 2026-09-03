@@ -1,5 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    StyleSheet,
+    Text,
+    View,
+    TouchableOpacity
+} from 'react-native';
 
 const CustomPopup = ({
     visible,
@@ -8,42 +15,87 @@ const CustomPopup = ({
     duration = 3000,
     onClose,
 
-    // New optional caution popup props
     showButtons = false,
     acceptText = 'Accept',
     declineText = 'Decline',
     onAccept,
     onDecline,
 }) => {
-    const translateY = useRef(new Animated.Value(-100)).current;
+    const translateY = useRef(new Animated.Value(-170)).current;
+    const opacity = useRef(new Animated.Value(0)).current;
+
+    // Controls whether the popup is actually displayed
+    const [shouldRender, setShouldRender] = useState(visible);
 
     useEffect(() => {
         if (visible) {
-            Animated.sequence([
+            // Make sure the popup is mounted before animating
+            setShouldRender(true);
+
+            translateY.setValue(-170);
+            opacity.setValue(0);
+
+            // Slide down + fade in
+            Animated.parallel([
                 Animated.timing(translateY, {
                     toValue: 0,
                     duration: 300,
                     useNativeDriver: true,
                 }),
+                Animated.timing(opacity, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+            ]).start();
 
-                // Don't automatically close a popup that has buttons
-                ...(showButtons
-                    ? []
-                    : [
-                        Animated.delay(duration),
+            // Normal popup automatically disappears
+            if (!showButtons) {
+                const timer = setTimeout(() => {
+                    Animated.parallel([
                         Animated.timing(translateY, {
-                            toValue: -100,
+                            toValue: -170,
                             duration: 300,
                             useNativeDriver: true,
                         }),
-                    ]),
-            ]).start(() => {
-                if (!showButtons && onClose) {
-                    onClose();
+                        Animated.timing(opacity, {
+                            toValue: 0,
+                            duration: 300,
+                            useNativeDriver: true,
+                        }),
+                    ]).start(({ finished }) => {
+                        if (finished) {
+                            setShouldRender(false);
+
+                            if (onClose) {
+                                onClose();
+                            }
+                        }
+                    });
+                }, duration + 300);
+
+                return () => clearTimeout(timer);
+            }
+        } else {
+            // Fade out + move up when visible becomes false
+            Animated.parallel([
+                Animated.timing(translateY, {
+                    toValue: -170,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(opacity, {
+                    toValue: 0,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+            ]).start(({ finished }) => {
+                if (finished) {
+                    setShouldRender(false);
                 }
             });
         }
-    }, [visible, showButtons, duration, onClose, translateY]);
+    }, [visible, showButtons, duration, onClose, translateY, opacity]);
 
     let bgColor = '#4CAF50';
 
@@ -54,24 +106,62 @@ const CustomPopup = ({
     }
 
     const handleAccept = () => {
-        if (onAccept) {
-            onAccept();
-        }
+        Animated.parallel([
+            Animated.timing(translateY, {
+                toValue: -170,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start(({ finished }) => {
+            if (finished) {
+                setShouldRender(false);
 
-        if (onClose) {
-            onClose();
-        }
+                if (onAccept) {
+                    onAccept();
+                }
+
+                if (onClose) {
+                    onClose();
+                }
+            }
+        });
     };
 
     const handleDecline = () => {
-        if (onDecline) {
-            onDecline();
-        }
+        Animated.parallel([
+            Animated.timing(translateY, {
+                toValue: -170,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start(({ finished }) => {
+            if (finished) {
+                setShouldRender(false);
 
-        if (onClose) {
-            onClose();
-        }
+                if (onDecline) {
+                    onDecline();
+                }
+
+                if (onClose) {
+                    onClose();
+                }
+            }
+        });
     };
+
+    if (!shouldRender) {
+        return null;
+    }
 
     return (
         <Animated.View
@@ -79,6 +169,7 @@ const CustomPopup = ({
                 styles.container,
                 {
                     transform: [{ translateY }],
+                    opacity,
                     backgroundColor: bgColor,
                 },
             ]}

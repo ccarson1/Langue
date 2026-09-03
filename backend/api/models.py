@@ -24,6 +24,13 @@ def record_file_upload_path(instance, filename):
 def image_file_upload_path(instance, filename):
     return f'images/{filename}'
 
+class Tag(models.Model):
+    name = models.CharField( max_length=100, unique=True )
+    creation_date = models.DateTimeField( auto_now_add=True )
+
+    def __str__(self):
+        return self.name
+
 class Language(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     lang_name = models.CharField(max_length=25, unique=True)
@@ -119,6 +126,7 @@ class Lesson(models.Model):
     fileUploaded = models.BooleanField(default=False)
     urlReference = models.BooleanField(default=False)
     videoFormat = models.BooleanField(default=False)
+    tags = models.ManyToManyField(Tag, blank=True, related_name='lesson_tags' )
     
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -158,10 +166,8 @@ class TranslationModel(models.Model):
 
     name = models.CharField(max_length=100)
     model_type = models.CharField(max_length=50, choices=MODEL_TYPES)
-
     model_name = models.CharField(max_length=255)
     save_path = models.CharField(max_length=255)
-
     source_language = models.CharField(max_length=20, null=True, blank=True)
     target_language = models.CharField(max_length=20, null=True, blank=True)
 
@@ -249,6 +255,7 @@ class Channel(models.Model):
     channel_private = models.BooleanField(default=False)
     is_favorite = models.BooleanField(default=False, db_column='is_favorite')
     created_at = models.DateTimeField(auto_now_add=True)
+    tags = models.ManyToManyField(Tag, blank=True, related_name='channel_tags' )
 
 
 class ChannelVote(models.Model):
@@ -286,6 +293,7 @@ class Recording(models.Model):
     record_lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, blank=True)
     duration = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    tags = models.ManyToManyField(Tag, blank=True, related_name='record_tags' )
 
     def __str__(self):
         return f"{self.created_at}"
@@ -296,13 +304,9 @@ class Recording(models.Model):
                 os.remove(self.record_file.path)
         except Exception:
             pass
-
         try:
             if self.record_img:
-                thumb_path = os.path.join(
-                    settings.MEDIA_ROOT,
-                    self.record_img.replace("/media/", "")
-                )
+                thumb_path = os.path.join( settings.MEDIA_ROOT, self.record_img.replace("/media/", "") )
 
                 if os.path.isfile(thumb_path):
                     os.remove(thumb_path)

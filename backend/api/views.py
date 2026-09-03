@@ -13,7 +13,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel, Tag
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, TranslationModelSerializer
@@ -572,7 +572,7 @@ def get_lessons(request):
     settings = UserSetting.objects.get(user=user)
     print(f"This lessons target language is : {settings.target_language.id}")
     target_lang_id = settings.target_language.id
-    lessons = Lesson.objects.filter(target_language_id=target_lang_id, user=user)
+    lessons = Lesson.objects.filter( Q(user=user) | Q(lesson_private=False), target_language_id=target_lang_id )
     serializer = LessonSerializer(lessons, many=True, context={'request': request})
     print(serializer.data)
     return Response(serializer.data)
@@ -1915,6 +1915,7 @@ def channels(request):
             "url": channel.channel_url,
             "image": channel.channel_img,
             "owner": channel.user.username,
+            "owner_id": channel.user.id,
             "private": channel.channel_private,
             "is_favorite": channel.is_favorite,
             "target_language": user_settings.target_language_id,
@@ -1927,7 +1928,6 @@ def channels(request):
         native_language_id=user_settings.target_language_id,
         channel_private=False
     ) & Channel.objects.filter(
-        user=request.user
     )
 
     for c in channels:
@@ -1945,6 +1945,7 @@ def channels(request):
             "url": c.channel_url,
             "image": c.channel_img,
             "owner": c.user.username,
+            "owner_id": c.user.id,
             "private": c.channel_private,
             "is_favorite": c.is_favorite,
             "target_language": user_settings.target_language_id,
@@ -1967,7 +1968,7 @@ def get_video(request):
 
     lesson = Lesson.objects.get(
         id=request.data["lesson_id"],
-        user=request.user
+        lesson_private=False,
     )
 
     video_path = None
@@ -2052,6 +2053,269 @@ def statistics(request):
         "languages": list(language_distribution)
 
     })
+
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def tags(request):
+
+    # --------------------------------------------------
+    # GET
+    # Get tags for a specific Lesson/Recording/Channel
+    # --------------------------------------------------
+
+    if request.method == 'GET':
+
+        tag_type = request.query_params.get('tag_type')
+        object_id = request.query_params.get('object_id')
+
+        # No object specified:
+        # Return every available tag.
+        if not tag_type and not object_id:
+            tags = Tag.objects.all().values(
+                'id',
+                'name'
+            )
+
+            return Response(
+                list(tags),
+                status=status.HTTP_200_OK
+            )
+
+        # If one was provided without the other, reject it.
+        if not tag_type or not object_id:
+            return Response(
+                {
+                    'error': 'tag_type and object_id must be provided together.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        model_map = {
+            'lesson': Lesson,
+            'recording': Recording,
+            'channel': Channel,
+        }
+
+        model = model_map.get(tag_type.lower())
+
+        if not model:
+            return Response(
+                {
+                    'error': 'Invalid tag_type.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        obj = get_object_or_404(model, pk=object_id)
+
+        tags = obj.tags.all().values(
+            'id',
+            'name'
+        )
+
+        return Response(
+            list(tags),
+            status=status.HTTP_200_OK
+        )
+
+
+
+    # --------------------------------------------------
+    # POST
+    # Add an existing tag OR create a new tag
+    # --------------------------------------------------
+    if request.method == 'POST':
+
+        tag_type = request.data.get('tag_type')
+        object_id = request.data.get('object_id')
+        tag_id = request.data.get('tag_id')
+        tag_name = request.data.get('name')
+
+        if not tag_type or not object_id:
+            return Response(
+                {
+                    'error': 'tag_type and object_id are required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        model_map = {
+            'lesson': Lesson,
+            'recording': Recording,
+            'channel': Channel,
+        }
+
+        model = model_map.get(tag_type.lower())
+
+        if not model:
+            return Response(
+                {
+                    'error': 'Invalid tag_type.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        obj = get_object_or_404(model, pk=object_id)
+
+        # Existing tag
+        if tag_id:
+            tag = get_object_or_404(Tag, pk=tag_id)
+
+        # Create new tag
+        elif tag_name:
+            tag_name = tag_name.strip()
+
+            if not tag_name:
+                return Response(
+                    {
+                        'error': 'Tag name cannot be empty.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            tag, created = Tag.objects.get_or_create(
+                name=tag_name
+            )
+
+        else:
+            return Response(
+                {
+                    'error': 'Either tag_id or name is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Prevent duplicate relationship
+        if obj.tags.filter(pk=tag.pk).exists():
+            return Response(
+                {
+                    'message': 'Tag is already assigned.',
+                    'tag': {
+                        'id': tag.id,
+                        'name': tag.name
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+
+        obj.tags.add(tag)
+
+        return Response(
+            {
+                'message': 'Tag added successfully.',
+                'tag': {
+                    'id': tag.id,
+                    'name': tag.name
+                }
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    # --------------------------------------------------
+    # PUT
+    # Update the tag name
+    # --------------------------------------------------
+    if request.method == 'PUT':
+
+        tag_id = request.data.get('tag_id')
+        name = request.data.get('name')
+
+        if not tag_id or not name:
+            return Response(
+                {
+                    'error': 'tag_id and name are required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        name = name.strip()
+
+        if not name:
+            return Response(
+                {
+                    'error': 'Tag name cannot be empty.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        tag = get_object_or_404(Tag, pk=tag_id)
+
+        # Check for duplicate tag name
+        if Tag.objects.filter(
+            name__iexact=name
+        ).exclude(pk=tag.id).exists():
+
+            return Response(
+                {
+                    'error': 'A tag with this name already exists.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        tag.name = name
+        tag.save()
+
+        return Response(
+            {
+                'message': 'Tag updated successfully.',
+                'tag': {
+                    'id': tag.id,
+                    'name': tag.name
+                }
+            },
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------------------------
+    # DELETE
+    # Remove tag from Lesson/Recording/Channel
+    # --------------------------------------------------
+    if request.method == 'DELETE':
+
+        tag_type = request.data.get('tag_type')
+        object_id = request.data.get('object_id')
+        tag_id = request.data.get('tag_id')
+
+        if not tag_type or not object_id or not tag_id:
+            return Response(
+                {
+                    'error': (
+                        'tag_type, object_id, '
+                        'and tag_id are required.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        model_map = {
+            'lesson': Lesson,
+            'recording': Recording,
+            'channel': Channel,
+        }
+
+        model = model_map.get(tag_type.lower())
+
+        if not model:
+            return Response(
+                {
+                    'error': 'Invalid tag_type.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        obj = get_object_or_404(model, pk=object_id)
+        tag = get_object_or_404(Tag, pk=tag_id)
+
+        obj.tags.remove(tag)
+
+        return Response(
+            {
+                'message': 'Tag removed successfully.'
+            },
+            status=status.HTTP_200_OK
+        )
 
 class TranslationModelListView(generics.ListAPIView):
     queryset = TranslationModel.objects.filter(

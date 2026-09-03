@@ -30,10 +30,12 @@ function Player({ source }) {
         }
     };
 
+    const isHLS = source?.includes('.m3u8');
+
     const player = useVideoPlayer(
         {
             uri: source,
-            contentType: 'hls',
+            ...(isHLS ? { contentType: 'hls' } : {}),
         },
         (player) => {
             player.timeUpdateEventInterval = 0.25;

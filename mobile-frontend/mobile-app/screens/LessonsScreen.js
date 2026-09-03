@@ -21,6 +21,7 @@ export default function LessonsScreen({ navigation }) {
     const mediaUrl = `http://${serverIP}/media/`;
     const insets = useSafeAreaInsets();
     const styles = createStyles(insets);
+    const [user, setUser] = useState(null);
 
     const fetchLessons = async () => {
         try {
@@ -95,8 +96,41 @@ export default function LessonsScreen({ navigation }) {
         loadTokenAndSettings(); // <--- fetch user settings
     }, [serverIP]);
 
+    const decodeToken = (token) => {
+        try {
+            return jwtDecode(token);
+        } catch (err) {
+            console.error('Token decode failed:', err);
+            return null;
+        }
+    };
 
 
+    // --- Initialization ---
+    useEffect(() => {
+        const init = async () => {
+            try {
+                // // Load fonts (if any)
+                // await Font.loadAsync({
+                //     // Example: 'Roboto': require('../assets/fonts/Roboto-Regular.ttf')
+                // });
+
+                const ip = await getServerIP();
+                setServerIP(ip);
+
+                const storedToken = await AsyncStorage.getItem('accessToken');
+                if (storedToken) {
+                    setToken(storedToken);
+                    const decoded = decodeToken(storedToken);
+                    if (decoded) setUser(decoded);
+                }
+            } catch (err) {
+                console.error('Initialization error:', err);
+            }
+
+        };
+        init();
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -107,14 +141,16 @@ export default function LessonsScreen({ navigation }) {
             <ScrollView contentContainerStyle={styles.gridWrapper}>
                 {lessons.map((lesson) => (
                     <View key={lesson.id} style={styles.card}>
-                        <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => navigation.navigate("LessonEdit", {
-                                lessonId: lesson.id
-                            })}
-                        >
-                            <AntDesign name="edit" size={20} color="white" />
-                        </TouchableOpacity>
+                        {user && Number(lesson.user) === Number(user.user_id) && (
+                            <TouchableOpacity
+                                style={styles.editButton}
+                                onPress={() => navigation.navigate("LessonEdit", {
+                                    lessonId: lesson.id
+                                })}
+                            >
+                                <AntDesign name="edit" size={20} color="white" />
+                            </TouchableOpacity>
+                        )}
                         <Text style={styles.title}>{lesson.id}</Text>
                         <Text style={styles.title}>{lesson.title}</Text>
 

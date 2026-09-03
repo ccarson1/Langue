@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Platform,
   ScrollView,
+  Switch,
   TextInput,
   Animated,
   ImageBackground,
@@ -21,10 +22,14 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import VideoReader from './components/VideoReader';
 import * as DocumentPicker from 'expo-document-picker';
+import CustomPopup from './components/CustomPopup';
+import TagPopup from './components/TagPopup';
+
 
 // Screens at or above this width get the side-by-side video / info layout.
 // Below it, everything stacks in a single column for phones and narrow web views.
 const WIDE_LAYOUT_BREAKPOINT = 900;
+// Print ALL available names for AntDesign
 
 // Shared palette — kept consistent with the VideoReader/Player component
 const COLORS = {
@@ -212,13 +217,45 @@ export default function LiveTVPlayer({ navigation }) {
   const [channelImage, setChannelImage] = useState(null);
   const [nameFocused, setNameFocused] = useState(false);
   const [urlFocused, setUrlFocused] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(null);
+  const [isPublic, setIsPublic] = useState(false);
+  const [showTagPopup, setShowTagPopup] = useState(false);
 
   const { width } = useWindowDimensions();
   const isWideScreen = width >= WIDE_LAYOUT_BREAKPOINT;
 
+  const [tags, setTags] = useState([]);
+  const [allTags, setAllTags] = useState([]);
+
+  const loadAllTags = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/tags/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to load tags');
+      }
+
+      const data = await res.json();
+
+      setAllTags(data);
+    } catch (error) {
+      console.error('Failed to load all tags:', error);
+    }
+  };
+
   const favoriteChannels = React.useMemo(
-    () => channels.filter((c) => c.is_favorite),
-    [channels]
+    () =>
+      channels.filter(
+        (c) =>
+          c.is_favorite &&
+          Number(c.owner_id) === Number(user.user_id)
+      ),
+    [channels, user]
   );
 
   const decodeToken = (token) => {
@@ -229,6 +266,27 @@ export default function LiveTVPlayer({ navigation }) {
       return null;
     }
   };
+
+
+  const getTagTarget = () => {
+    if (!selectedChannel?.id) {
+      return null;
+    }
+
+    if (recordingSelected) {
+      return {
+        tagType: 'recording',
+        objectId: selectedChannel.id,
+      };
+    }
+
+    return {
+      tagType: 'channel',
+      objectId: selectedChannel.id,
+    };
+  };
+
+
 
   useEffect(() => {
     const init = async () => {
@@ -248,6 +306,12 @@ export default function LiveTVPlayer({ navigation }) {
     };
     init();
   }, []);
+
+  useEffect(() => {
+    if (!token || !serverIP) return;
+
+    loadAllTags();
+  }, [token, serverIP]);
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -296,6 +360,157 @@ export default function LiveTVPlayer({ navigation }) {
 
     loadMetadata();
   }, [selectedChannel]);
+
+
+  const loadCurrentTags = async () => {
+    const target = getTagTarget();
+
+    if (!target) {
+      setTags([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/tags/?tag_type=${target.tagType}&object_id=${target.objectId}`,
+        {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Failed to load current tags:', data);
+        setTags([]);
+        return;
+      }
+
+      setTags(data);
+    } catch (error) {
+      console.error('Failed to load current tags:', error);
+      setTags([]);
+    }
+  };
+
+
+
+  useEffect(() => {
+    if (!selectedChannel?.id || !token || !serverIP) {
+      setTags([]);
+      return;
+    }
+
+    loadCurrentTags();
+  }, [selectedChannel, recordingSelected, token, serverIP]);
+
+  const addTag = async (tag) => {
+    const target = getTagTarget();
+
+    if (!target) {
+      return;
+    }
+
+    try {
+      const body = {
+        tag_type: target.tagType,
+        object_id: target.objectId,
+      };
+
+      // Existing tag
+      if (tag.id) {
+        body.tag_id = tag.id;
+      }
+
+      // New tag
+      else if (tag.name) {
+        body.name = tag.name;
+      }
+
+      const res = await fetch(`${API_BASE}/api/tags/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Failed to add tag:', data);
+        return;
+      }
+
+      if (data.tag) {
+        setTags((currentTags) => {
+          const exists = currentTags.some(
+            (existingTag) =>
+              existingTag.id === data.tag.id
+          );
+
+          if (exists) {
+            return currentTags;
+          }
+
+          return [...currentTags, data.tag];
+        });
+
+        // Keep the global list of available tags updated.
+        setAllTags((currentTags) => {
+          const exists = currentTags.some(
+            (existingTag) =>
+              existingTag.id === data.tag.id
+          );
+
+          if (exists) {
+            return currentTags;
+          }
+
+          return [...currentTags, data.tag];
+        });
+      }
+    } catch (error) {
+      console.error('Add tag error:', error);
+    }
+  };
+
+
+  const removeTag = async (tag) => {
+    const target = getTagTarget();
+
+    if (!target || !tag?.id) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/tags/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          tag_type: target.tagType,
+          object_id: target.objectId,
+          tag_id: tag.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Failed to remove tag:', data);
+        return;
+      }
+
+      setTags((currentTags) =>
+        currentTags.filter(
+          (currentTag) =>
+            currentTag.id !== tag.id
+        )
+      );
+    } catch (error) {
+      console.error('Remove tag error:', error);
+    }
+  };
+
 
   const loadRecordings = async () => {
     try {
@@ -421,7 +636,9 @@ export default function LiveTVPlayer({ navigation }) {
   };
 
   const deleteRecording = async (recordingId) => {
+
     try {
+      setDeleting(true);
       const ip = await getServerIP();
       const token = await AsyncStorage.getItem('accessToken');
 
@@ -441,8 +658,14 @@ export default function LiveTVPlayer({ navigation }) {
 
       setRecordings((prev) => prev.filter((r) => r.id !== recordingId));
     } catch (err) {
+
       console.error(err);
+      setDeleting(false);
     }
+  };
+
+  const confirmDeleteRecording = () => {
+    setShowDeletePopup(true);
   };
 
   async function appendFileToFormData(formData, fieldName, file) {
@@ -535,7 +758,7 @@ export default function LiveTVPlayer({ navigation }) {
     }
   };
 
-  if (loading || !selectedChannel) {
+  if (loading) {
     return (
       <View style={styles.loadingScreen}>
         <Text style={styles.loadingText}>Loading channels…</Text>
@@ -636,6 +859,31 @@ export default function LiveTVPlayer({ navigation }) {
                   >
                     <AntDesign name="dislike" size={16} color={COLORS.text} />
                   </Pressable>
+                  <Pressable
+                    style={({ hovered }) => [
+                      styles.iconButton,
+                      hovered && styles.iconButtonHovered,
+                    ]}
+                  >
+                    <AntDesign name="star" size={16} color={COLORS.text} />
+                  </Pressable>
+                  {console.log("USER:", user.user_id)}
+                  {console.log("SELECTED CHANNEL:", selectedChannel.owner_id)}
+                  {Number(selectedChannel.owner_id) === Number(user.user_id) && (
+                    <View style={styles.toggleCard}>
+
+                      <Text style={styles.label}>Public</Text>
+                      <Switch value={isPublic} onValueChange={setIsPublic} />
+
+                      <Pressable
+                        style={({ hovered }) => [styles.iconButton, hovered && styles.iconButtonHovered,]} onPress={() => setShowTagPopup(true)} >
+                        <AntDesign name="tags" size={16} color={COLORS.text} />
+                      </Pressable>
+                    </View>
+                  )}
+
+
+
                 </View>
               </View>
 
@@ -807,7 +1055,23 @@ export default function LiveTVPlayer({ navigation }) {
         />
 
         <ScrollableRow
-          title="Most Liked"
+          title="Most Liked Channels"
+          data={[]}
+          keyExtractor={(item) => item.id}
+          emptyText="Nothing here yet."
+          renderItem={({ item }) => (
+            <ChannelCard
+              item={item}
+              active={selectedChannel.id === item.id}
+              onPress={() => {
+                setSelectedChannel(item);
+                setRecordingSelected(false);
+              }}
+            />
+          )}
+        />
+        <ScrollableRow
+          title="Most Liked Recordings"
           data={[]}
           keyExtractor={(item) => item.id}
           emptyText="Nothing here yet."
@@ -862,7 +1126,10 @@ export default function LiveTVPlayer({ navigation }) {
                   styles.deleteButton,
                   hovered && styles.deleteButtonHovered,
                 ]}
-                onPress={() => deleteRecording(item.id)}
+                onPress={() => {
+                  setDeletingItem(item);
+                  confirmDeleteRecording();
+                }}
               >
                 <AntDesign name="delete" size={13} color={COLORS.text} />
               </Pressable>
@@ -887,7 +1154,52 @@ export default function LiveTVPlayer({ navigation }) {
             </Pressable>
           )}
         />
+
+        <ScrollableRow
+          title="Public Recordings"
+          data={[]}
+          keyExtractor={(item) => item.id}
+          emptyText="Nothing here yet."
+          renderItem={({ item }) => (
+            <ChannelCard
+              item={item}
+              active={selectedChannel.id === item.id}
+              onPress={() => {
+                setSelectedChannel(item);
+                setRecordingSelected(false);
+              }}
+            />
+          )}
+        />
+
       </ScrollView>
+
+
+      <TagPopup
+        visible={showTagPopup}
+        tags={tags}
+        availableTags={allTags}
+        onClose={() => setShowTagPopup(false)}
+        onRemoveTag={removeTag}
+        onAddTag={addTag}
+      />
+
+      <CustomPopup
+        visible={showDeletePopup}
+        message={`Are you sure you want to delete this record? This cannot be undone.`}
+        type="caution"
+        showButtons={true}
+        acceptText="Delete"
+        declineText="Cancel"
+        onAccept={() => {
+          setShowDeletePopup(false);
+
+          deleteRecording(deletingItem.id);
+        }}
+        onDecline={() => {
+          setShowDeletePopup(false);
+        }}
+      />
     </View>
   );
 }
@@ -1014,12 +1326,12 @@ const styles = StyleSheet.create({
   actionsRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
 
   reactionGroup: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
   },
 
   iconButton: {
@@ -1386,5 +1698,19 @@ const styles = StyleSheet.create({
 
   deleteButtonHovered: {
     backgroundColor: COLORS.danger,
+  },
+  toggleCard: {
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 36,
+
+  },
+  label: {
+    color: 'white',
+    fontSize: 13,
+    marginBottom: 4,
+    marginRight: 15,
   },
 });

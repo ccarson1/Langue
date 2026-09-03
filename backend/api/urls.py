@@ -46,5 +46,6 @@ urlpatterns = [
     path('practice/evaluate/', views.evaluate_pronunciation_view, name='evaluate_pronunciation'),
     path('statistics/', views.statistics, name='statistics'),
     path( "translation-models/", views.TranslationModelListView.as_view(), name="translation-models" ),
+    path('tags/', views.tags, name='tags'),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
