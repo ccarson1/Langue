@@ -49,6 +49,7 @@ from .ocr import OCR
 import base64
 import random
 from .utils.pronunciation_evaluator import evaluate_pronunciation
+from .utils.storage import StorageManager
 
 lesson_import_progress = {}
 RECORDINGS = {}
@@ -238,6 +239,11 @@ def download_youtube_image(url, lesson):
 
             lesson.image.save(filename, image_content, save=True)
             print("FILE SAVED TO:", lesson.image.path)
+
+            storage_object = StorageManager.add_image( lesson.user, lesson.image )
+
+            print("Image:", storage_object.path)
+            print("Image size:", storage_object.size, "bytes")
             return True
 
     print("ALL THUMBNAIL ATTEMPTS FAILED")
@@ -409,6 +415,11 @@ def import_lesson(request):
             if image_file:
                 lesson.image = image_file
                 lesson.save()
+
+                storage_object = StorageManager.add_image( request.user, lesson.image )
+
+                print("Image:", storage_object.path)
+                print("Image size:", storage_object.size, "bytes")
 
             # YOUTUBE IMAGE
             elif "youtube" in (url or "").lower():
@@ -699,12 +710,18 @@ def edit_lesson(request, lesson_id):
                     str(lesson.uuid)
                 )
 
+                # Remove lesson media storage records
+                StorageManager.delete_lesson_storage(
+                    request.user,
+                    lesson
+                )
+
                 # Delete image
-                if (
-                    image_name
-                    and image_name != 'images/default-01.jpg'
-                ):
+                if ( image_name and image_name != 'images/default-01.jpg' ):
+                    StorageManager.delete_image_storage( request.user, lesson.image )
                     lesson.image.delete(save=False)
+
+                
 
                 # Delete lesson folder
                 if os.path.isdir(lesson_folder):
@@ -712,6 +729,17 @@ def edit_lesson(request, lesson_id):
 
                 # Delete database record
                 lesson.delete()
+
+
+                # Recalculate aggregate sentence storage
+                StorageManager.recalculate_sentence_storage(
+                    request.user
+                )
+
+                # Recalculate profile.used_storage from StorageObjects
+                StorageManager.recalculate(
+                    request.user
+                )
 
             return Response(
                 {'message': 'Lesson deleted successfully'},
@@ -961,11 +989,15 @@ def account(request):
     user = request.user
 
     if request.method == 'GET':
+        profile, created = Profile.objects.get_or_create(user=user)
+
         data = {
             'username': user.username,
             'email': user.email,
-            # Do not include password or sensitive info
+            'storage_used': profile.used_storage // (1024 * 1024),
+            'storage_total': profile.total_storage // (1024 * 1024),
         }
+
         return Response(data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
@@ -977,15 +1009,19 @@ def account(request):
 
         if username:
             user.username = username
+
         if email:
             user.email = email
+
         if password:
             user.password = make_password(password)
 
         user.save()
-        return Response({'message': 'Account updated successfully.'}, status=status.HTTP_200_OK)
 
-
+        return Response(
+            {'message': 'Account updated successfully.'},
+            status=status.HTTP_200_OK
+        )
 
 @api_view(['POST', 'GET'])
 @authentication_classes([JWTAuthentication])  # Don't leave this empty

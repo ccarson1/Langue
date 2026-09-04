@@ -234,6 +234,8 @@ class Profile(models.Model):
     graph_type = models.CharField(max_length=20, blank=True, null=True)
     native_language = models.ForeignKey(Language, db_column='native_id', on_delete=models.SET_NULL, null=True, related_name='users_native')
     current_lesson = models.ForeignKey(UserLessonsProgress, db_column='lesson_progress', on_delete=models.SET_NULL, blank=True, null=True)
+    used_storage = models.BigIntegerField(default=0)
+    total_storage = models.BigIntegerField(default=0)
 
     # For languages field:
     # If you use PostgreSQL, you can use JSONField as below.
@@ -314,4 +316,17 @@ class Recording(models.Model):
             pass
 
         super().delete(*args, **kwargs)
+
+class StorageObject(models.Model):
+    user = models.ForeignKey( User, on_delete=models.CASCADE, related_name='storage_objects' )
+    path = models.CharField(max_length=500)
+    size = models.BigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [ models.UniqueConstraint( fields=['user', 'path'], name='unique_user_storage_path' ) ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.path} ({self.size} bytes)"
 

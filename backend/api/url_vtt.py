@@ -10,6 +10,7 @@ from .w_translate import load_user_model, translate_word
 from django.conf import settings
 import uuid
 from django.core.files import File
+from .utils.storage import StorageManager
 
 class URL_VTT():
     
@@ -56,58 +57,53 @@ class URL_VTT():
         print(f"Lesson language: {self.yt_dlp_lang}")
         print(f"Translate language: {self.yt_dlp_tar_lang}")
 
+    def delete_caption_files(self):
+        caption_files = [
+            self.NATIVE_CAPTIONS_FILE,
+            self.TARGET_CAPTIONS_FILE,
+        ]
+
+        for caption_file in caption_files:
+            if os.path.exists(caption_file):
+                try:
+                    os.remove(caption_file)
+                    print(f"Deleted temporary VTT: {caption_file}")
+                except OSError as e:
+                    print(
+                        f"WARNING: Could not delete temporary VTT "
+                        f"{caption_file}: {e}"
+                    )
 
     def download_media_and_captions(self, url, videoFormat):
 
+        # --------------------------------------------------
+        # 1. Download media ONLY
+        # --------------------------------------------------
+
         if videoFormat:
-            ydl_opts = {
+            media_opts = {
                 "format": "bv*+ba/b",
                 "merge_output_format": "mp4",
                 "outtmpl": self.VIDEO_FILE,
                 "quiet": True,
-
-                "writesubtitles": True,
-                "writeautomaticsub": True,
-
-                "subtitleslangs": [
-                    self.yt_dlp_lang,
-                    self.yt_dlp_tar_lang
-                ],
-
-                "subtitlesformat": "vtt",
-                "skip_download": False,
-                "paths": {
-                    "subtitle": self.OUTPUT_DIR
-                },
             }
-
         else:
-            ydl_opts = {
+            media_opts = {
                 "format": "bestaudio/best",
                 "outtmpl": self.AUDIO_FILE,
                 "quiet": True,
-
-                "writesubtitles": True,
-                "writeautomaticsub": True,
-
-                "subtitleslangs": [
-                    self.yt_dlp_lang,
-                    self.yt_dlp_tar_lang
-                ],
-
-                "subtitlesformat": "vtt",
-                "skip_download": False,
-                "paths": {
-                    "subtitle": self.OUTPUT_DIR
-                },
             }
 
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            with yt_dlp.YoutubeDL(media_opts) as ydl:
                 info_dict = ydl.extract_info(url, download=True)
 
             title = info_dict.get("title", "unknown_title")
             print(f"Video title: {title}")
+
+            media_file = ( self.VIDEO_FILE if videoFormat else self.AUDIO_FILE )
+
+            StorageManager.add_file( self.lesson.user, media_file )
 
         except DownloadError as e:
             return {
@@ -127,10 +123,80 @@ class URL_VTT():
 
         self.lesson_import_progress[self.user_id] = 15
 
+        # --------------------------------------------------
+        # 2. Download subtitles independently
+        # --------------------------------------------------
+
         native_found = False
         target_found = False
 
-        # Look through downloaded VTT files
+        subtitle_languages = []
+
+        if self.yt_dlp_lang:
+            subtitle_languages.append(
+                ("native", self.yt_dlp_lang)
+            )
+
+        if (
+            self.yt_dlp_tar_lang
+            and self.yt_dlp_tar_lang != self.yt_dlp_lang
+        ):
+            subtitle_languages.append(
+                ("target", self.yt_dlp_tar_lang)
+            )
+
+        for subtitle_type, language in subtitle_languages:
+
+            print(
+                f"Attempting {subtitle_type} subtitles: {language}"
+            )
+
+            subtitle_opts = {
+                "skip_download": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": [language],
+                "subtitlesformat": "vtt",
+                "outtmpl": os.path.join(
+                    self.OUTPUT_DIR,
+                    "%(id)s.%(language)s.%(ext)s"
+                ),
+                "quiet": True,
+            }
+
+            try:
+                with yt_dlp.YoutubeDL(subtitle_opts) as ydl:
+                    ydl.download([url])
+
+                print(
+                    f"Successfully downloaded "
+                    f"{subtitle_type} subtitles: {language}"
+                )
+
+            except DownloadError as e:
+                print(
+                    f"WARNING: Could not download "
+                    f"{subtitle_type} subtitles "
+                    f"({language}): {e}"
+                )
+                print(
+                    f"Continuing without {subtitle_type} subtitles..."
+                )
+
+            except Exception as e:
+                print(
+                    f"WARNING: Unexpected error downloading "
+                    f"{subtitle_type} subtitles "
+                    f"({language}): {e}"
+                )
+                print(
+                    f"Continuing without {subtitle_type} subtitles..."
+                )
+
+        # --------------------------------------------------
+        # 3. Find downloaded VTT files
+        # --------------------------------------------------
+
         for filename in os.listdir(self.OUTPUT_DIR):
 
             if not filename.lower().endswith(".vtt"):
@@ -143,7 +209,10 @@ class URL_VTT():
 
             filename_lower = filename.lower()
 
+            # --------------------------------------------------
             # Native subtitle
+            # --------------------------------------------------
+
             if (
                 not native_found
                 and (
@@ -153,6 +222,7 @@ class URL_VTT():
                     )
                 )
             ):
+
                 os.replace(
                     source_path,
                     self.NATIVE_CAPTIONS_FILE
@@ -164,7 +234,10 @@ class URL_VTT():
                     f"Native subtitles found: {filename}"
                 )
 
+            # --------------------------------------------------
             # Target subtitle
+            # --------------------------------------------------
+
             elif (
                 not target_found
                 and (
@@ -174,6 +247,7 @@ class URL_VTT():
                     )
                 )
             ):
+
                 os.replace(
                     source_path,
                     self.TARGET_CAPTIONS_FILE
@@ -198,7 +272,7 @@ class URL_VTT():
             "native_subtitle": native_found,
             "target_subtitle": target_found
         }
-    
+
     def parse_vtt_to_segments(self, vtt_path):
         segments = []
         for caption in webvtt.read(vtt_path):
@@ -218,6 +292,8 @@ class URL_VTT():
 
         load_user_model(self.user_id)
 
+        total_sentence_storage = 0
+
         for idx, seg in enumerate(segments):
 
             start_ms = int(seg["start"] * 1000)
@@ -225,7 +301,6 @@ class URL_VTT():
 
             text = seg["text"]
 
-            # Default if target subtitles aren't available
             translated_text = ""
 
             # --------------------------------------------------
@@ -293,22 +368,18 @@ class URL_VTT():
                 lesson=self.lesson
             )
 
-            sentence.save()
+            # Calculate storage used by this sentence
+            total_sentence_storage += ( len(text.encode("utf-8")) + len(translated_text.encode("utf-8")) )
 
             # Progress
             if self.translateTarget:
 
-                self.lesson_import_progress[
-                    self.user_id
-                ] += 70 / len(segments)
-
-                print(
-                    f"Progress: "
-                    f"{self.lesson_import_progress[self.user_id]}%"
-                )
+                self.lesson_import_progress[ self.user_id ] += 70 / len(segments)
+                print( f"Progress: " f"{self.lesson_import_progress[self.user_id]}%" )
 
 
-
+        return total_sentence_storage
+    
     def save_to_json(self, data):
         with open(f"{self.OUTPUT_DIR}/{data['title']}.json", 'w', encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -317,190 +388,206 @@ class URL_VTT():
 
     def process_lesson(self):
 
-        print("Downloading audio and captions...")
+        try:
 
-        subtitle_result = self.download_media_and_captions(
-            self.YOUTUBE_URL,
-            self.videoFormat
-        )
+            print("Downloading audio and captions...")
 
-        if not subtitle_result["success"]:
-            raise Exception(
-                subtitle_result["error"]
+            subtitle_result = self.download_media_and_captions(
+                self.YOUTUBE_URL,
+                self.videoFormat
             )
 
-        native_subtitle_found = subtitle_result["native_subtitle"]
-        target_subtitle_found = subtitle_result["target_subtitle"]
-
-        # --------------------------------------------------
-        # Make sure audio exists
-        # --------------------------------------------------
-
-        if self.videoFormat:
-
-            if not os.path.exists(self.VIDEO_FILE):
-                print("ERROR: Video file missing.")
+            if not subtitle_result["success"]:
                 raise Exception(
-                    "Video file missing after download"
+                    subtitle_result["error"]
                 )
 
-            os.makedirs(
-                os.path.dirname(self.AUDIO_FILE),
-                exist_ok=True
+            native_subtitle_found = subtitle_result["native_subtitle"]
+            target_subtitle_found = subtitle_result["target_subtitle"]
+
+            # --------------------------------------------------
+            # Make sure audio exists
+            # --------------------------------------------------
+
+            if self.videoFormat:
+
+                if not os.path.exists(self.VIDEO_FILE):
+                    print("ERROR: Video file missing.")
+                    raise Exception(
+                        "Video file missing after download"
+                    )
+
+                os.makedirs(
+                    os.path.dirname(self.AUDIO_FILE),
+                    exist_ok=True
+                )
+
+                AudioSegment.from_file(
+                    self.VIDEO_FILE
+                ).export(
+                    self.AUDIO_FILE,
+                    format="mp3"
+                )
+
+                StorageManager.add_file(
+                    self.lesson.user,
+                    self.AUDIO_FILE
+                )
+
+            else:
+
+                if not os.path.exists(self.AUDIO_FILE):
+                    print("ERROR: Audio file missing.")
+                    raise Exception(
+                        "Audio file missing after download"
+                    )
+
+            # --------------------------------------------------
+            # Get native/source segments
+            # --------------------------------------------------
+
+            if native_subtitle_found:
+
+                print(
+                    "Using downloaded native subtitles..."
+                )
+
+                segments = self.parse_vtt_to_segments(
+                    self.NATIVE_CAPTIONS_FILE
+                )
+
+            else:
+
+                print(
+                    "Native subtitles unavailable."
+                )
+
+                print(
+                    "Generating native captions with Whisper..."
+                )
+
+                model = whisper.load_model("small")
+
+                result = model.transcribe(
+                    self.AUDIO_FILE
+                )
+
+                segments = [
+                    {
+                        "start": seg["start"],
+                        "end": seg["end"],
+                        "text": seg["text"]
+                    }
+                    for seg in result["segments"]
+                ]
+
+            print(
+                f"Found {len(segments)} native segments."
             )
 
-            AudioSegment.from_file(
+            # --------------------------------------------------
+            # Get target translations
+            # --------------------------------------------------
+
+            target_segments = None
+
+            if target_subtitle_found:
+
+                print(
+                    "Using downloaded target subtitles..."
+                )
+
+                target_segments = self.parse_vtt_to_segments(
+                    self.TARGET_CAPTIONS_FILE
+                )
+
+                print(
+                    f"Found {len(target_segments)} target segments."
+                )
+
+            else:
+
+                print(
+                    "Target subtitles unavailable."
+                )
+
+                print(
+                    "Target language will be generated by translation."
+                )
+
+            # --------------------------------------------------
+            # Create database sentences
+            # --------------------------------------------------
+
+            total_sentence_storage = self.split_segments( segments, target_segments )
+
+            # --------------------------------------------------
+            # Add sentence database storage
+            # --------------------------------------------------
+
+            StorageManager.add_object( self.lesson.user, "database/sentences", total_sentence_storage )
+            # --------------------------------------------------
+            # Save media_file
+            # --------------------------------------------------
+
+            filename = (
                 self.VIDEO_FILE
-            ).export(
-                self.AUDIO_FILE,
-                format="mp3"
+                if self.videoFormat
+                else self.AUDIO_FILE
             )
 
-        else:
+            print("Saving file:", filename)
+            print("Exists:", os.path.exists(filename))
+            print("Lesson ID:", self.lesson.id)
 
-            if not os.path.exists(self.AUDIO_FILE):
-                print("ERROR: Audio file missing.")
-                raise Exception(
-                    "Audio file missing after download"
+            if self.videoFormat:
+                media_name = (
+                    f"lessons/{self.uuid}/{self.uuid}.mp4"
+                )
+            else:
+                media_name = (
+                    f"lessons/{self.uuid}/{self.uuid}.mp3"
                 )
 
-        # --------------------------------------------------
-        # Get native/source segments
-        # --------------------------------------------------
+            print(
+                "BEFORE ASSIGNMENT:",
+                repr(self.lesson.media_file.name)
+            )
 
-        if native_subtitle_found:
+            self.lesson.media_file.name = media_name
 
             print(
-                "Using downloaded native subtitles..."
+                "AFTER ASSIGNMENT:",
+                repr(self.lesson.media_file.name)
             )
 
-            segments = self.parse_vtt_to_segments(
-                self.NATIVE_CAPTIONS_FILE
+            self.lesson.media_folder = (
+                f"lessons/{self.uuid}"
             )
 
-        else:
+            self.lesson.save()
+
+            self.lesson.refresh_from_db()
 
             print(
-                "Native subtitles unavailable."
-            )
-
-            print(
-                "Generating native captions with Whisper..."
-            )
-
-            model = whisper.load_model("small")
-
-            result = model.transcribe(
-                self.AUDIO_FILE
-            )
-
-            segments = [
-                {
-                    "start": seg["start"],
-                    "end": seg["end"],
-                    "text": seg["text"]
-                }
-                for seg in result["segments"]
-            ]
-
-        print(
-            f"Found {len(segments)} native segments."
-        )
-
-        # --------------------------------------------------
-        # Get target translations
-        # --------------------------------------------------
-
-        target_segments = None
-
-        if target_subtitle_found:
-
-            print(
-                "Using downloaded target subtitles..."
-            )
-
-            target_segments = self.parse_vtt_to_segments(
-                self.TARGET_CAPTIONS_FILE
+                "AFTER DATABASE SAVE:",
+                repr(self.lesson.media_file.name)
             )
 
             print(
-                f"Found {len(target_segments)} target segments."
+                "AFTER DATABASE FOLDER:",
+                repr(self.lesson.media_folder)
             )
 
-        else:
+            print("Done!")
+            print("PROCESS COMPLETED SUCCESSFULLY")
 
-            print(
-                "Target subtitles unavailable."
-            )
+            return True
 
-            print(
-                "Target language will be generated by translation."
-            )
+        finally:
 
-        # --------------------------------------------------
-        # Create database sentences
-        # --------------------------------------------------
+            # --------------------------------------------------
+            # ALWAYS clean up temporary VTT files
+            # --------------------------------------------------
 
-        self.split_segments(
-            segments,
-            target_segments
-        )
-
-        # --------------------------------------------------
-        # Save media_file
-        # --------------------------------------------------
-
-        filename = (
-            self.VIDEO_FILE
-            if self.videoFormat
-            else self.AUDIO_FILE
-        )
-
-        print("Saving file:", filename)
-        print("Exists:", os.path.exists(filename))
-        print("Lesson ID:", self.lesson.id)
-
-        if self.videoFormat:
-            media_name = (
-                f"lessons/{self.uuid}/{self.uuid}.mp4"
-            )
-        else:
-            media_name = (
-                f"lessons/{self.uuid}/{self.uuid}.mp3"
-            )
-
-        print(
-            "BEFORE ASSIGNMENT:",
-            repr(self.lesson.media_file.name)
-        )
-
-        self.lesson.media_file.name = media_name
-
-        print(
-            "AFTER ASSIGNMENT:",
-            repr(self.lesson.media_file.name)
-        )
-
-        self.lesson.media_folder = (
-            f"lessons/{self.uuid}"
-        )
-
-        self.lesson.save()
-
-        self.lesson.refresh_from_db()
-
-        print(
-            "AFTER DATABASE SAVE:",
-            repr(self.lesson.media_file.name)
-        )
-
-        print(
-            "AFTER DATABASE FOLDER:",
-            repr(self.lesson.media_folder)
-        )
-
-        print("Done!")
-        print("PROCESS COMPLETED SUCCESSFULLY")
-
-        return True
-
+            self.delete_caption_files()

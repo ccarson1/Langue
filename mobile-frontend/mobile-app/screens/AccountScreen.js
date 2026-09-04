@@ -16,7 +16,7 @@ export default function AccountScreen({ navigation }) {
   
   // Storage state
   const [storageUsed, setStorageUsed] = useState(0);
-  const [storageTotal, setStorageTotal] = useState(1024); // Default: 1GB in MB
+  const [storageTotal, setStorageTotal] = useState(0); // Default: 1GB in MB
 
   useEffect(() => {
     const loadIP = async () => {
@@ -54,8 +54,8 @@ export default function AccountScreen({ navigation }) {
         setEmail(data.email || '');
         
         // Storage data from backend (adjust property names to match your API)
-        setStorageUsed(data.storage_used || 30);
-        setStorageTotal(data.storage_total || 125); // e.g., in MB
+        setStorageUsed(data.storage_used );
+        setStorageTotal(data.storage_total ); // e.g., in MB
 
         console.log('Account info:', data);
       } catch (error) {
