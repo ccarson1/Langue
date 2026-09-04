@@ -1202,6 +1202,44 @@ export default function HomeScreen({ navigation }) {
                         </TouchableOpacity>
                     )}
 
+                    {/* ---------------- Numbers ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            onPress={() => {
+                                
+                            }}
+                        >
+                            <Text style={styles.navText}>
+                                Numbers
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* ---------------- Grammar ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            
+                        >
+                            <Text style={styles.navText}>
+                                Grammar
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* ---------------- Typing ---------------- */}
+
+                    {user && (
+                        <TouchableOpacity
+                            
+                        >
+                            <Text style={styles.navText}>
+                                Typing
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
 
                     {/* ---------------- ACCOUNT / LOGIN ---------------- */}
 
