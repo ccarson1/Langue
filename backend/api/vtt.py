@@ -13,6 +13,7 @@ import os
 import io
 import re
 from .stt import SpeechToText
+from .utils.storage import StorageManager
 
 class VTT():
     
@@ -61,6 +62,8 @@ class VTT():
 
     def create_sentences(self, segments):
         load_user_model(self.user_id)
+        total_sentence_storage = 0
+
         for seg in segments:
             start_ms = int(seg["start"] * 1000)
             end_ms = int(seg["end"] * 1000)
@@ -92,6 +95,11 @@ class VTT():
                 lesson=self.lesson
             )
 
+            # Count UTF-8 bytes
+            total_sentence_storage += ( len((text or "").encode("utf-8")) + len((translated or "").encode("utf-8")) )
+
+        return total_sentence_storage
+
     def process_lesson(self):
 
         stt = SpeechToText()
@@ -101,9 +109,11 @@ class VTT():
 
         if self.media_file:
             if self.videoFormat:
-                self.save_video(self.media_file)
+                if not self.save_video(self.media_file):
+                    raise Exception("Failed to save video")
 
-            self.save_audio(self.media_file)
+            if not self.save_audio(self.media_file):
+                raise Exception("Failed to save audio")
 
         # Load CSV file directly from uploaded file
         if self.lesson_file:
@@ -120,6 +130,8 @@ class VTT():
 
         self.create_sentences(segments)
 
+        StorageManager.recalculate_sentence_storage( self.lesson.user )
+        
         uuid_folder = self.uuid
 
         if self.videoFormat:
@@ -227,6 +239,10 @@ class VTT():
                     destination.write(chunk)
 
             print(f"Video saved: {self.VIDEO_FILE}")
+
+            # Add video to user's storage
+            StorageManager.add_file( self.lesson.user, self.VIDEO_FILE )
+
             return True
 
         except Exception as e:
@@ -248,6 +264,10 @@ class VTT():
             )
 
             print(f"Audio saved: {self.AUDIO_FILE}")
+
+            # Add audio to user's storage
+            StorageManager.add_file( self.lesson.user, self.AUDIO_FILE )
+
             return True
 
         except Exception as e:

@@ -1448,6 +1448,12 @@ def stop_record(request):
 
     video_path = os.path.join(settings.MEDIA_ROOT, relative_path)
 
+    # Add recording video to user's storage
+    StorageManager.add_file( request.user, video_path )
+
+    # Add recording thumbnail to user's storage
+    StorageManager.add_file( request.user, thumbnail_path )
+
     result = subprocess.run(
         [
             "ffprobe",
@@ -1495,12 +1501,76 @@ def delete_recording(request, recording_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    recording.delete()
+    try:
+        with transaction.atomic():
 
-    return Response(
-        {"success": True},
-        status=status.HTTP_200_OK
-    )
+            # Use the same path construction as stop_record()
+            relative_path = f"records/{recording.record_name}.mp4"
+
+            video_path = os.path.join(
+                settings.MEDIA_ROOT,
+                relative_path
+            )
+
+            thumbnail_path = os.path.join(
+                settings.MEDIA_ROOT,
+                "images/record_thumbnails",
+                f"{recording.record_name}.jpg"
+            )
+
+            print("VIDEO PATH:", repr(video_path))
+            print("THUMBNAIL PATH:", repr(thumbnail_path))
+
+            # Remove video from storage accounting
+            video_size = StorageManager.subtract_file(
+                request.user,
+                video_path
+            )
+
+            # Remove thumbnail from storage accounting
+            thumbnail_size = StorageManager.subtract_file(
+                request.user,
+                thumbnail_path
+            )
+
+            print("VIDEO STORAGE REMOVED:", video_size)
+            print("THUMBNAIL STORAGE REMOVED:", thumbnail_size)
+
+            # Delete physical video
+            if os.path.exists(video_path):
+                os.remove(video_path)
+
+            # Delete physical thumbnail
+            if os.path.exists(thumbnail_path):
+                os.remove(thumbnail_path)
+
+            # Delete database record
+            recording.delete()
+
+            # Recalculate total from remaining StorageObjects
+            StorageManager.recalculate(
+                request.user
+            )
+
+        return Response(
+            {
+                "success": True,
+                "video_storage_removed": video_size,
+                "thumbnail_storage_removed": thumbnail_size,
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        print("Error deleting recording:", e)
+
+        return Response(
+            {
+                "error": "Failed to delete recording",
+                "details": str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
