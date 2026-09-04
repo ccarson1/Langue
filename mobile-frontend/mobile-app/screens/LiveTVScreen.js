@@ -363,30 +363,35 @@ export default function LiveTVPlayer({ navigation }) {
 
 
   const loadCurrentTags = async () => {
-    const target = getTagTarget();
+    const target = getCurrentTagTarget();
 
-    if (!target) {
+    if (!target || !token || !serverIP) {
       setTags([]);
       return;
     }
 
     try {
+      const params = new URLSearchParams({
+        tag_type: target.tag_type,
+        object_id: String(target.object_id),
+      });
+
       const res = await fetch(
-        `${API_BASE}/api/tags/?tag_type=${target.tagType}&object_id=${target.objectId}`,
+        `${API_BASE}/api/tags/?${params.toString()}`,
         {
           method: 'GET',
           headers: getAuthHeaders(),
         }
       );
 
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         console.error('Failed to load current tags:', data);
         setTags([]);
         return;
       }
 
+      const data = await res.json();
       setTags(data);
     } catch (error) {
       console.error('Failed to load current tags:', error);
@@ -397,35 +402,28 @@ export default function LiveTVPlayer({ navigation }) {
 
 
   useEffect(() => {
-    if (!selectedChannel?.id || !token || !serverIP) {
-      setTags([]);
-      return;
-    }
-
     loadCurrentTags();
-  }, [selectedChannel, recordingSelected, token, serverIP]);
+  }, [selectedChannel?.id, recordingSelected, token, serverIP,]);
 
   const addTag = async (tag) => {
-    const target = getTagTarget();
+    const target = getCurrentTagTarget();
 
     if (!target) {
+      console.error('No channel or recording selected.');
       return;
     }
 
     try {
       const body = {
-        tag_type: target.tagType,
-        object_id: target.objectId,
+        ...target,
       };
 
-      // Existing tag
       if (tag.id) {
         body.tag_id = tag.id;
-      }
-
-      // New tag
-      else if (tag.name) {
+      } else if (tag.name) {
         body.name = tag.name;
+      } else {
+        return;
       }
 
       const res = await fetch(`${API_BASE}/api/tags/`, {
@@ -444,8 +442,7 @@ export default function LiveTVPlayer({ navigation }) {
       if (data.tag) {
         setTags((currentTags) => {
           const exists = currentTags.some(
-            (existingTag) =>
-              existingTag.id === data.tag.id
+            (existingTag) => existingTag.id === data.tag.id
           );
 
           if (exists) {
@@ -455,11 +452,9 @@ export default function LiveTVPlayer({ navigation }) {
           return [...currentTags, data.tag];
         });
 
-        // Keep the global list of available tags updated.
         setAllTags((currentTags) => {
           const exists = currentTags.some(
-            (existingTag) =>
-              existingTag.id === data.tag.id
+            (existingTag) => existingTag.id === data.tag.id
           );
 
           if (exists) {
@@ -474,9 +469,8 @@ export default function LiveTVPlayer({ navigation }) {
     }
   };
 
-
   const removeTag = async (tag) => {
-    const target = getTagTarget();
+    const target = getCurrentTagTarget();
 
     if (!target || !tag?.id) {
       return;
@@ -487,8 +481,7 @@ export default function LiveTVPlayer({ navigation }) {
         method: 'DELETE',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          tag_type: target.tagType,
-          object_id: target.objectId,
+          ...target,
           tag_id: tag.id,
         }),
       });
@@ -502,8 +495,7 @@ export default function LiveTVPlayer({ navigation }) {
 
       setTags((currentTags) =>
         currentTags.filter(
-          (currentTag) =>
-            currentTag.id !== tag.id
+          (currentTag) => currentTag.id !== tag.id
         )
       );
     } catch (error) {
@@ -587,6 +579,24 @@ export default function LiveTVPlayer({ navigation }) {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   });
+
+  const getCurrentTagTarget = () => {
+    if (!selectedChannel?.id) {
+      return null;
+    }
+
+    if (recordingSelected) {
+      return {
+        tag_type: 'recording',
+        object_id: selectedChannel.id,
+      };
+    }
+
+    return {
+      tag_type: 'channel',
+      object_id: selectedChannel.id,
+    };
+  };
 
   const startRecording = async () => {
     try {

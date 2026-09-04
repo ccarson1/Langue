@@ -126,7 +126,7 @@ class Lesson(models.Model):
     fileUploaded = models.BooleanField(default=False)
     urlReference = models.BooleanField(default=False)
     videoFormat = models.BooleanField(default=False)
-    tags = models.ManyToManyField(Tag, blank=True, related_name='lesson_tags' )
+    tags = models.ManyToManyField(Tag, blank=True, related_name='lesson_tags')
     
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -255,7 +255,7 @@ class Channel(models.Model):
     channel_private = models.BooleanField(default=False)
     is_favorite = models.BooleanField(default=False, db_column='is_favorite')
     created_at = models.DateTimeField(auto_now_add=True)
-    tags = models.ManyToManyField(Tag, blank=True, related_name='channel_tags' )
+    tags = models.ManyToManyField(Tag, blank=True, related_name='channel_tags')
 
 
 class ChannelVote(models.Model):

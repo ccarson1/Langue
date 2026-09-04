@@ -453,11 +453,10 @@ def import_lesson(request):
                         "YouTube processing failed"
                     )
 
-                lesson.media_folder = (
-                    save_lesson_media.AUDIO_DIR
-                )
+                lesson.media_folder = save_lesson_media.AUDIO_DIR
+                lesson.save(update_fields=["media_folder"])
 
-                lesson.save()
+                lesson.refresh_from_db()
 
             # FILE IMPORT
             if (fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference == False:
@@ -465,8 +464,8 @@ def import_lesson(request):
                 # if lesson_file:
                 #     lesson.doc_file = lesson_file
 
-                if media_file:
-                    lesson.media_file = media_file
+                # if media_file:
+                #     lesson.media_file = media_file
 
 
                 lesson.save()
@@ -490,10 +489,10 @@ def import_lesson(request):
                         "YouTube processing failed"
                     )
 
+                #lesson.media_folder = save_lesson_media.AUDIO_DIR
                 lesson.refresh_from_db()
 
-                lesson.media_folder = save_lesson_media.AUDIO_DIR
-                lesson.save()
+                
             else:
                 print("(fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference is false")
 
@@ -2066,24 +2065,16 @@ def tags(request):
     # --------------------------------------------------
 
     if request.method == 'GET':
-
         tag_type = request.query_params.get('tag_type')
         object_id = request.query_params.get('object_id')
 
-        # No object specified:
-        # Return every available tag.
+        # No parameters = return all available tag definitions
         if not tag_type and not object_id:
-            tags = Tag.objects.all().values(
-                'id',
-                'name'
-            )
+            tags = Tag.objects.all().values('id', 'name').order_by('name')
+            return Response(list(tags), status=status.HTTP_200_OK)
 
-            return Response(
-                list(tags),
-                status=status.HTTP_200_OK
-            )
-
-        # If one was provided without the other, reject it.
+        # Both parameters are required when requesting
+        # tags assigned to a specific object.
         if not tag_type or not object_id:
             return Response(
                 {
@@ -2102,24 +2093,15 @@ def tags(request):
 
         if not model:
             return Response(
-                {
-                    'error': 'Invalid tag_type.'
-                },
+                {'error': 'Invalid tag_type.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         obj = get_object_or_404(model, pk=object_id)
 
-        tags = obj.tags.all().values(
-            'id',
-            'name'
-        )
+        tags = obj.tags.all().values('id', 'name')
 
-        return Response(
-            list(tags),
-            status=status.HTTP_200_OK
-        )
-
+        return Response(list(tags), status=status.HTTP_200_OK)
 
 
     # --------------------------------------------------
