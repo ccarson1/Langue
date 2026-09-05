@@ -171,6 +171,102 @@ function ScrollableRow({
   );
 }
 
+const updateChannelPublic = async (value) => {
+  if (!selectedChannel?.id) return;
+
+  // Update UI immediately
+  setIsChannelPublic(value);
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/channels/${selectedChannel.id}/`,
+      {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          is_public: value,
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error('Failed to update channel public status:', data);
+
+      // Revert UI if backend update failed
+      setIsChannelPublic(!value);
+      return;
+    }
+
+    // Update selected channel with backend response
+    setSelectedChannel((current) => ({
+      ...current,
+      ...data,
+    }));
+
+    // Update channel in list
+    setChannels((current) =>
+      current.map((channel) =>
+        channel.id === selectedChannel.id
+          ? { ...channel, ...data }
+          : channel
+      )
+    );
+  } catch (error) {
+    console.error('Update channel public error:', error);
+    setIsChannelPublic(!value);
+  }
+};
+
+const updateRecordingPublic = async (value) => {
+  if (!selectedChannel?.id) return;
+
+  // Update UI immediately
+  setIsRecordingPublic(value);
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/recordings/${selectedChannel.id}/`,
+      {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          record_private: !value,
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error('Failed to update recording public status:', data);
+
+      // Revert UI if backend update failed
+      setIsRecordingPublic(!value);
+      return;
+    }
+
+    // Update selected recording with backend response
+    setSelectedChannel((current) => ({
+      ...current,
+      ...data,
+    }));
+
+    // Update recording in list
+    setRecordings((current) =>
+      current.map((recording) =>
+        recording.id === selectedChannel.id
+          ? { ...recording, ...data }
+          : recording
+      )
+    );
+  } catch (error) {
+    console.error('Update recording public error:', error);
+    setIsRecordingPublic(!value);
+  }
+};
+
 function ChannelCard({ item, active, onPress, imageSource }) {
   return (
     <Pressable
@@ -220,7 +316,8 @@ export default function LiveTVPlayer({ navigation }) {
   const [deleting, setDeleting] = useState(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deletingItem, setDeletingItem] = useState(null);
-  const [isPublic, setIsPublic] = useState(false);
+  const [isChannelPublic, setIsChannelPublic] = useState(false);
+  const [isRecordingPublic, setIsRecordingPublic] = useState(false);
   const [showTagPopup, setShowTagPopup] = useState(false);
 
   const { width } = useWindowDimensions();
@@ -822,14 +919,13 @@ export default function LiveTVPlayer({ navigation }) {
             <VideoReader selectedChannel={selectedChannel} />
           </View>
 
-          <View
-            style={[
-              styles.infoColumn,
-              isWideScreen ? styles.infoColumnWide : styles.infoColumnStacked,
-            ]}
-          >
+          <View style={[styles.infoColumn, isWideScreen ? styles.infoColumnWide : styles.infoColumnStacked,]} >
+
             <View style={styles.actionsBar}>
+
+              {/* LEFT SIDE */}
               <View style={styles.actionsLeft}>
+
                 {!recordingSelected && (
                   <Pressable
                     onPress={recording ? stopRecording : startRecording}
@@ -846,12 +942,19 @@ export default function LiveTVPlayer({ navigation }) {
                         recording && { transform: [{ scale: pulseAnim }] },
                       ]}
                     />
+
                     <Text style={styles.recordText}>
                       {recording ? 'STOP' : 'REC'}
                     </Text>
                   </Pressable>
                 )}
 
+              </View>
+
+              {/* RIGHT SIDE — groups stacked vertically */}
+              <View style={styles.reactionColumn}>
+
+                {/* TOP REACTION GROUP */}
                 <View style={styles.reactionGroup}>
                   <Pressable
                     style={({ hovered }) => [
@@ -861,6 +964,7 @@ export default function LiveTVPlayer({ navigation }) {
                   >
                     <AntDesign name="like" size={16} color={COLORS.text} />
                   </Pressable>
+
                   <Pressable
                     style={({ hovered }) => [
                       styles.iconButton,
@@ -869,6 +973,7 @@ export default function LiveTVPlayer({ navigation }) {
                   >
                     <AntDesign name="dislike" size={16} color={COLORS.text} />
                   </Pressable>
+
                   <Pressable
                     style={({ hovered }) => [
                       styles.iconButton,
@@ -877,68 +982,117 @@ export default function LiveTVPlayer({ navigation }) {
                   >
                     <AntDesign name="star" size={16} color={COLORS.text} />
                   </Pressable>
-                  {console.log("USER:", user.user_id)}
-                  {console.log("SELECTED CHANNEL:", selectedChannel.owner_id)}
-                  {Number(selectedChannel.owner_id) === Number(user.user_id) && (
-                    <View style={styles.toggleCard}>
+                </View>
 
-                      <Text style={styles.label}>Public</Text>
-                      <Switch value={isPublic} onValueChange={setIsPublic} />
+                {/* BOTTOM REACTION GROUP */}
+                <View style={styles.reactionGroup}>
+
+                  {/* CHANNEL PUBLIC / TAG CONTROLS */}
+                  {!recordingSelected &&
+                    Number(selectedChannel?.owner_id) === Number(user?.user_id) && (
+                      <View style={styles.toggleCard}>
+                        <Text style={styles.label}>Public</Text>
+
+                        <Switch
+                          value={isChannelPublic}
+                          onValueChange={updateChannelPublic}
+                        />
+
+                        <Pressable
+                          style={({ hovered }) => [
+                            styles.iconButton,
+                            hovered && styles.iconButtonHovered,
+                          ]}
+                          onPress={() => setShowTagPopup(true)}
+                        >
+                          <AntDesign
+                            name="tags"
+                            size={16}
+                            color={COLORS.text}
+                          />
+                        </Pressable>
+                      </View>
+                    )}
+
+                  {/* RECORDING PUBLIC / TAG CONTROLS */}
+                  {recordingSelected &&
+                    Number(selectedChannel?.user_id) === Number(user?.user_id) && (
+                      <View style={styles.toggleCard}>
+                        <Text style={styles.label}>Public</Text>
+
+                        <Switch
+                          value={isRecordingPublic}
+                          onValueChange={updateRecordingPublic}
+                        />
+
+                        <Pressable
+                          style={({ hovered }) => [
+                            styles.iconButton,
+                            hovered && styles.iconButtonHovered,
+                          ]}
+                          onPress={() => setShowTagPopup(true)}
+                        >
+                          <AntDesign
+                            name="tags"
+                            size={16}
+                            color={COLORS.text}
+                          />
+                        </Pressable>
+                      </View>
+                    )}
+
+                  {recordingSelected && (
+                    <View style={styles.actionsRight}>
 
                       <Pressable
-                        style={({ hovered }) => [styles.iconButton, hovered && styles.iconButtonHovered,]} onPress={() => setShowTagPopup(true)} >
-                        <AntDesign name="tags" size={16} color={COLORS.text} />
+                        style={({ hovered, pressed }) => [
+                          styles.button,
+                          hovered && styles.buttonHovered,
+                          pressed && styles.buttonPressed,
+                        ]}
+                        onPress={() => {
+                          let idToPass = null;
+
+                          if (recordingId) {
+                            idToPass = recordingId;
+                          } else if (selectedChannel?.id) {
+                            idToPass = selectedChannel.id;
+                          }
+
+                          if (!idToPass) {
+                            Alert.alert('Error', 'No recording ID available');
+                            return;
+                          }
+
+                          navigation.navigate('Import', { recordId: idToPass, });
+                        }}
+                      >
+                        <Text style={styles.buttonText}>
+                          Create Lesson
+                        </Text>
                       </Pressable>
+
+                      <Pressable
+                        style={({ hovered, pressed }) => [
+                          styles.buttonSecondary,
+                          hovered && styles.buttonSecondaryHovered,
+                          pressed && styles.buttonPressed,
+                        ]}
+                      >
+                        <Text style={styles.buttonSecondaryText}>
+                          Crop Video
+                        </Text>
+                      </Pressable>
+
                     </View>
                   )}
 
-
-
                 </View>
+
               </View>
 
-              {recordingSelected && (
-                <View style={styles.actionsRight}>
-                  <Pressable
-                    style={({ hovered, pressed }) => [
-                      styles.button,
-                      hovered && styles.buttonHovered,
-                      pressed && styles.buttonPressed,
-                    ]}
-                    onPress={() => {
-                      let idToPass = null;
-
-                      if (recordingId) {
-                        idToPass = recordingId;
-                      } else if (selectedChannel?.id) {
-                        idToPass = selectedChannel.id;
-                      }
-
-                      if (!idToPass) {
-                        Alert.alert('Error', 'No recording ID available');
-                        return;
-                      }
-
-                      navigation.navigate('Import', {
-                        recordId: idToPass,
-                      });
-                    }}
-                  >
-                    <Text style={styles.buttonText}>Create Lesson</Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={({ hovered, pressed }) => [
-                      styles.buttonSecondary,
-                      hovered && styles.buttonSecondaryHovered,
-                      pressed && styles.buttonPressed,
-                    ]}
-                  >
-                    <Text style={styles.buttonSecondaryText}>Crop Video</Text>
-                  </Pressable>
-                </View>
-              )}
             </View>
+
 
             {metadata && (
               <View style={styles.streamInfo}>
@@ -1722,5 +1876,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 4,
     marginRight: 15,
+  },
+  reactionColumn: {
+    flexDirection: 'column',
+    gap: 8,
+    alignItems: 'flex-start',
   },
 });

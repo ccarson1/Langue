@@ -1596,29 +1596,62 @@ def recordings(request):
 
     return Response(serializer.data)
 
-@api_view(['GET'])
+@api_view(['GET', "PATCH"])
 @permission_classes([IsAuthenticated])
 def recording_detail(request, recording_id):   # ← changed from pk to recording_id
-    try:
-        recording = Recording.objects.get(id=recording_id, user=request.user)
 
-        data = {
+    if request.method == "PATCH":
+        try:
+            recording = Recording.objects.get(id=recording_id, user=request.user)
+
+            data = {
+                "id": recording.id,
+                "title": getattr(recording, 'record_name', None) or f"Recording {recording.id}",
+                "record_file": recording.record_file.url if getattr(recording, 'record_file', None) else None,
+                "record_img": getattr(recording, 'record_img', None),
+                "created_at": recording.created_at.isoformat() if hasattr(recording, 'created_at') else None,
+                "duration" : recording.duration
+            }
+
+            return Response(data)
+
+        except Recording.DoesNotExist:
+            return Response({"error": "Recording not found"}, status=404)
+        except Exception as e:
+            print("Recording detail error:", str(e))
+            return Response({"error": str(e)}, status=500)
+
+    # UPDATE RECORDING PUBLIC/PRIVATE
+    if request.method == 'PATCH':
+
+        recording_id = request.data.get('recording_id')
+        is_public = request.data.get('is_public')
+
+        if recording_id is None or is_public is None:
+            return Response(
+                {"error": "recording_id and is_public are required."},
+                status=400
+            )
+
+        try:
+            recording = Recording.objects.get(
+                id=recording_id,
+                user=request.user
+            )
+        except Recording.DoesNotExist:
+            return Response(
+                {"error": "Recording not found."},
+                status=404
+            )
+
+        recording.record_private = not is_public
+        recording.save()
+
+        return Response({
             "id": recording.id,
-            "title": getattr(recording, 'record_name', None) or f"Recording {recording.id}",
-            "record_file": recording.record_file.url if getattr(recording, 'record_file', None) else None,
-            "record_img": getattr(recording, 'record_img', None),
-            "created_at": recording.created_at.isoformat() if hasattr(recording, 'created_at') else None,
-            "duration" : recording.duration
-        }
-
-        return Response(data)
-
-    except Recording.DoesNotExist:
-        return Response({"error": "Recording not found"}, status=404)
-    except Exception as e:
-        print("Recording detail error:", str(e))
-        return Response({"error": str(e)}, status=500)
-
+            "private": recording.record_private,
+            "is_public": not recording.record_private
+        })
 
 
 @api_view(["POST"])
@@ -1940,7 +1973,7 @@ def evaluate_pronunciation_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def channels(request):
 
@@ -2026,6 +2059,38 @@ def channels(request):
             "target_language": user_settings.target_language_id,
             "native_language": user_settings.target_language_id
         }, status=201)
+
+    # UPDATE CHANNEL PUBLIC/PRIVATE
+    if request.method == 'PATCH':
+
+        channel_id = request.data.get('channel_id')
+        is_public = request.data.get('is_public')
+
+        if channel_id is None or is_public is None:
+            return Response(
+                {"error": "channel_id and is_public are required."},
+                status=400
+            )
+
+        try:
+            channel = Channel.objects.get(
+                id=channel_id,
+                user=request.user
+            )
+        except Channel.DoesNotExist:
+            return Response(
+                {"error": "Channel not found."},
+                status=404
+            )
+
+        channel.channel_private = not is_public
+        channel.save()
+
+        return Response({
+            "id": channel.id,
+            "private": channel.channel_private,
+            "is_public": not channel.channel_private
+        })
 
 
     # GET CHANNELS

@@ -145,6 +145,7 @@ class RecordingSerializer(serializers.ModelSerializer):
         model = Recording
         fields = [
             "id",
+            'user_id',
             "record_name",
             "record_img",
             "record_file",
