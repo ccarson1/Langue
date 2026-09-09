@@ -86,8 +86,13 @@ npx expo run:android
 app/build/outputs/apk/release/app-release.apk
 
 
+# Run Android emulator
 
+emulator -list-avds
 
+emulator -avd Pixel_9_Pro
+
+adb devices
 
 # TV Channels
 

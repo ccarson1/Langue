@@ -171,101 +171,6 @@ function ScrollableRow({
   );
 }
 
-const updateChannelPublic = async (value) => {
-  if (!selectedChannel?.id) return;
-
-  // Update UI immediately
-  setIsChannelPublic(value);
-
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/channels/${selectedChannel.id}/`,
-      {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          is_public: value,
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('Failed to update channel public status:', data);
-
-      // Revert UI if backend update failed
-      setIsChannelPublic(!value);
-      return;
-    }
-
-    // Update selected channel with backend response
-    setSelectedChannel((current) => ({
-      ...current,
-      ...data,
-    }));
-
-    // Update channel in list
-    setChannels((current) =>
-      current.map((channel) =>
-        channel.id === selectedChannel.id
-          ? { ...channel, ...data }
-          : channel
-      )
-    );
-  } catch (error) {
-    console.error('Update channel public error:', error);
-    setIsChannelPublic(!value);
-  }
-};
-
-const updateRecordingPublic = async (value) => {
-  if (!selectedChannel?.id) return;
-
-  // Update UI immediately
-  setIsRecordingPublic(value);
-
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/recordings/${selectedChannel.id}/`,
-      {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          record_private: !value,
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('Failed to update recording public status:', data);
-
-      // Revert UI if backend update failed
-      setIsRecordingPublic(!value);
-      return;
-    }
-
-    // Update selected recording with backend response
-    setSelectedChannel((current) => ({
-      ...current,
-      ...data,
-    }));
-
-    // Update recording in list
-    setRecordings((current) =>
-      current.map((recording) =>
-        recording.id === selectedChannel.id
-          ? { ...recording, ...data }
-          : recording
-      )
-    );
-  } catch (error) {
-    console.error('Update recording public error:', error);
-    setIsRecordingPublic(!value);
-  }
-};
 
 function ChannelCard({ item, active, onPress, imageSource }) {
   return (
@@ -304,6 +209,7 @@ export default function LiveTVPlayer({ navigation }) {
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recordings, setRecordings] = useState([]);
+  const [publicRecordings, setPublicRecordings] = useState([]);
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [recordingSelected, setRecordingSelected] = useState(false);
@@ -457,6 +363,101 @@ export default function LiveTVPlayer({ navigation }) {
 
     loadMetadata();
   }, [selectedChannel]);
+
+  const updateChannelPublic = async (value) => {
+    if (!selectedChannel?.id) return;
+
+    // Update UI immediately
+    setIsChannelPublic(value);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/channels/${selectedChannel.id}/`,
+        {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            is_public: value,
+            channel_id: selectedChannel.id,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Failed to update channel public status:', data);
+
+        // Revert UI if backend update failed
+        setIsChannelPublic(!value);
+        return;
+      }
+
+      // Update selected channel with backend response
+      setSelectedChannel((current) => ({
+        ...current,
+        ...data,
+      }));
+
+      // Update channel in list
+      setChannels((current) =>
+        current.map((channel) =>
+          channel.id === selectedChannel.id
+            ? { ...channel, ...data }
+            : channel
+        )
+      );
+    } catch (error) {
+      console.error('Update channel public error:', error);
+      setIsChannelPublic(!value);
+    }
+  };
+
+  const updateRecordingPublic = async (value) => {
+    if (!selectedChannel?.id) return;
+
+    setIsRecordingPublic(value);
+
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/recordings/${selectedChannel.id}/`,
+        {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            is_public: value,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Failed to update recording public status:', data);
+        setIsRecordingPublic(!value);
+        return;
+      }
+
+      setSelectedChannel((current) => ({
+        ...current,
+        ...data,
+      }));
+
+      setRecordings((current) =>
+        current.map((recording) =>
+          recording.id === selectedChannel.id
+            ? { ...recording, ...data }
+            : recording
+        )
+      );
+
+      setPublicRecordings(recordings.filter((item) => item.is_public));
+
+    } catch (error) {
+      console.error('Update recording public error:', error);
+      setIsRecordingPublic(!value);
+    }
+  };
 
 
   const loadCurrentTags = async () => {
@@ -764,6 +765,7 @@ export default function LiveTVPlayer({ navigation }) {
       }
 
       setRecordings((prev) => prev.filter((r) => r.id !== recordingId));
+      setPublicRecordings(recordings.filter((item) => item.is_public));
     } catch (err) {
 
       console.error(err);
@@ -916,7 +918,11 @@ export default function LiveTVPlayer({ navigation }) {
               isWideScreen && styles.videoColumnWide,
             ]}
           >
-            <VideoReader selectedChannel={selectedChannel} />
+            <VideoReader
+              selectedChannel={selectedChannel}
+              recordingSelected={recordingSelected}
+              serverIP={serverIP}
+            />
           </View>
 
           <View style={[styles.infoColumn, isWideScreen ? styles.infoColumnWide : styles.infoColumnStacked,]} >
@@ -1198,16 +1204,18 @@ export default function LiveTVPlayer({ navigation }) {
 
         <ScrollableRow
           title="Channels"
-          data={channels}
+          data={channels.filter((channel) => Number(channel.owner_id) === Number(user?.user_id))}
           keyExtractor={(item) => item.id.toString()}
           emptyText="No channels yet — add one below."
           renderItem={({ item }) => (
+            console.log('Rendering channel:', item),
             <ChannelCard
               item={item}
               active={selectedChannel.id === item.id}
               onPress={() => {
                 setSelectedChannel(item);
                 setRecordingSelected(false);
+                setIsChannelPublic(item.is_public);
               }}
               imageSource={
                 item.image
@@ -1215,6 +1223,32 @@ export default function LiveTVPlayer({ navigation }) {
                   : undefined
               }
             />
+            
+          )}
+        />
+
+        <ScrollableRow
+          title="Public Channels"
+          data={channels.filter(channel => channel.is_public)}
+          keyExtractor={(item) => item.id.toString()}
+          emptyText="No channels yet — add one below."
+          renderItem={({ item }) => (
+            
+            <ChannelCard
+              item={item}
+              active={selectedChannel.id === item.id}
+              onPress={() => {
+                setSelectedChannel(item);
+                setRecordingSelected(false);
+                setIsChannelPublic(item.is_public);
+              }}
+              imageSource={
+                item.image
+                  ? { uri: `${API_BASE}/media/${item.image}` }
+                  : undefined
+              }
+            />
+            
           )}
         />
 
@@ -1230,6 +1264,7 @@ export default function LiveTVPlayer({ navigation }) {
               onPress={() => {
                 setSelectedChannel(item);
                 setRecordingSelected(false);
+                setIsChannelPublic(item.is_public);
               }}
             />
           )}
@@ -1246,13 +1281,14 @@ export default function LiveTVPlayer({ navigation }) {
               onPress={() => {
                 setSelectedChannel(item);
                 setRecordingSelected(false);
+                setIsRecordingPublic(item.is_public);
               }}
             />
           )}
         />
 
         <ScrollableRow
-          title="Newest"
+          title="Newest Channels"
           data={[]}
           keyExtractor={(item) => item.id}
           emptyText="Nothing here yet."
@@ -1263,6 +1299,25 @@ export default function LiveTVPlayer({ navigation }) {
               onPress={() => {
                 setSelectedChannel(item);
                 setRecordingSelected(false);
+                setIsChannelPublic(item.is_public);
+              }}
+            />
+          )}
+        />
+
+        <ScrollableRow
+          title="Newest Recordings"
+          data={[]}
+          keyExtractor={(item) => item.id}
+          emptyText="Nothing here yet."
+          renderItem={({ item }) => (
+            <ChannelCard
+              item={item}
+              active={selectedChannel.id === item.id}
+              onPress={() => {
+                setSelectedChannel(item);
+                setRecordingSelected(false);
+                setIsRecordingPublic(item.is_public);
               }}
             />
           )}
@@ -1274,6 +1329,65 @@ export default function LiveTVPlayer({ navigation }) {
           keyExtractor={(item) => item.id.toString()}
           emptyText="Recordings you make will show up here."
           renderItem={({ item }) => (
+            Number(item.user_id) === Number(user?.user_id) && (
+              <Pressable
+                style={({ hovered, pressed }) => [
+                  styles.card,
+                  hovered && styles.cardHovered,
+                  pressed && styles.cardPressed,
+                ]}
+                onPress={() => {
+                  setSelectedChannel(item);
+                  setRecordingSelected(true);
+                  setIsRecordingPublic(item.is_public);
+                }}
+              >
+
+                <Pressable
+                  style={({ hovered }) => [
+                    styles.deleteButton,
+                    hovered && styles.deleteButtonHovered,
+                  ]}
+                  onPress={() => {
+                    setDeletingItem(item);
+                    confirmDeleteRecording();
+                  }}
+                >
+                  <AntDesign name="delete" size={13} color={COLORS.text} />
+                </Pressable>
+
+
+
+                <ImageBackground
+                  source={{ uri: `http://${serverIP}:8000${item.record_img}` }}
+                  style={styles.cardBackground}
+                  imageStyle={styles.cardImage}
+                >
+                  <View style={styles.cardOverlay} />
+                </ImageBackground>
+
+                <View style={styles.recordingMeta}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={styles.recordingSubtext}>
+                    {new Date(item.created_at).toLocaleDateString()} •{' '}
+                    {formatDuration(item.duration)}
+                  </Text>
+                </View>
+              </Pressable>
+            )
+          )}
+        />
+
+
+        <ScrollableRow
+          title="Public Recordings"
+          data={recordings.filter((item) => item.is_public)}
+          keyExtractor={(item) => item.id.toString()}
+          emptyText="Recordings you make will show up here."
+          renderItem={({ item }) => (
+
             <Pressable
               style={({ hovered, pressed }) => [
                 styles.card,
@@ -1283,21 +1397,24 @@ export default function LiveTVPlayer({ navigation }) {
               onPress={() => {
                 setSelectedChannel(item);
                 setRecordingSelected(true);
+                setIsRecordingPublic(item.is_public);
               }}
             >
-              <Pressable
-                style={({ hovered }) => [
-                  styles.deleteButton,
-                  hovered && styles.deleteButtonHovered,
-                ]}
-                onPress={() => {
-                  setDeletingItem(item);
-                  confirmDeleteRecording();
-                }}
-              >
-                <AntDesign name="delete" size={13} color={COLORS.text} />
-              </Pressable>
 
+              {Number(item.user_id) === Number(user?.user_id) && (
+                <Pressable
+                  style={({ hovered }) => [
+                    styles.deleteButton,
+                    hovered && styles.deleteButtonHovered,
+                  ]}
+                  onPress={() => {
+                    setDeletingItem(item);
+                    confirmDeleteRecording();
+                  }}
+                >
+                  <AntDesign name="delete" size={13} color={COLORS.text} />
+                </Pressable>
+              )}
               <ImageBackground
                 source={{ uri: `http://${serverIP}:8000${item.record_img}` }}
                 style={styles.cardBackground}
@@ -1316,23 +1433,7 @@ export default function LiveTVPlayer({ navigation }) {
                 </Text>
               </View>
             </Pressable>
-          )}
-        />
 
-        <ScrollableRow
-          title="Public Recordings"
-          data={[]}
-          keyExtractor={(item) => item.id}
-          emptyText="Nothing here yet."
-          renderItem={({ item }) => (
-            <ChannelCard
-              item={item}
-              active={selectedChannel.id === item.id}
-              onPress={() => {
-                setSelectedChannel(item);
-                setRecordingSelected(false);
-              }}
-            />
           )}
         />
 

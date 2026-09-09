@@ -5,6 +5,7 @@ import {
     StyleSheet,
     Platform,
     Pressable,
+    PanResponder,
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvent } from 'expo';
@@ -13,6 +14,12 @@ function Player({ source }) {
     const [volume, setVolume] = useState(1);
     const [muted, setMuted] = useState(false);
     const barWidthRef = useRef(0);
+    const barXRef = useRef(0);
+
+    const progressWidthRef = useRef(0);
+    const progressXRef = useRef(0);
+    const progressDraggingRef = useRef(false);
+    const progressPointerIdRef = useRef(null);
 
     // Measured explicitly via onLayout rather than relying on CSS
     // aspect-ratio — on web, expo-video's underlying <video> element can
@@ -46,13 +53,55 @@ function Player({ source }) {
         currentTime: 0,
     });
 
-    const duration = player.duration || 0;
+    const rawDuration = player.duration;
+    const duration = Number.isFinite(rawDuration) && rawDuration > 0
+        ? rawDuration
+        : 0;
 
     const formatTime = (seconds = 0) => {
         if (!isFinite(seconds) || seconds < 0) return '0:00';
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleProgressBarLayout = (event) => {
+        const { width, x } = event.nativeEvent.layout;
+
+        progressWidthRef.current = width;
+        progressXRef.current = x;
+    };
+
+    const seekFromX = (x, width = progressWidthRef.current) => {
+        if (!Number.isFinite(x)) return;
+        if (!Number.isFinite(width) || width <= 0) return;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+
+        const ratio = Math.min(
+            Math.max(x / width, 0),
+            1
+        );
+
+        const newTime = ratio * duration;
+
+        if (!Number.isFinite(newTime)) return;
+
+        try {
+            player.currentTime = newTime;
+        } catch (error) {
+            console.warn('Seek failed:', error);
+        }
+    };
+
+    const handleProgressGesture = (pageX) => {
+        const width = progressWidthRef.current;
+        const barX = progressXRef.current;
+
+        if (!width || !duration) return;
+
+        const x = pageX - barX;
+
+        seekFromX(x);
     };
 
     const handlePlayPause = async () => {
@@ -74,26 +123,165 @@ function Player({ source }) {
     };
 
     const handleVolumeBarLayout = (event) => {
-        barWidthRef.current = event.nativeEvent.layout.width;
+        const { width, x } = event.nativeEvent.layout;
+
+        barWidthRef.current = width;
+        barXRef.current = x;
     };
 
-    const handleVolumeChange = (event) => {
+    const setVolumeFromX = (x) => {
         const width = barWidthRef.current;
+
         if (!width) return;
 
-        const x = event.nativeEvent.locationX;
-        const ratio = Math.min(Math.max(x / width, 0), 1);
+        const ratio = Math.min(
+            Math.max(x / width, 0),
+            1
+        );
 
         setVolume(ratio);
         player.volume = ratio;
 
-        // Unmute automatically if user drags volume up from 0
+        // Automatically unmute when volume is raised
         if (ratio > 0 && muted) {
             setMuted(false);
             player.muted = false;
         }
     };
 
+    const handleVolumeGesture = (pageX) => {
+        const width = barWidthRef.current;
+        const barX = barXRef.current;
+
+        if (!width) return;
+
+        const x = pageX - barX;
+
+        setVolumeFromX(x);
+    };
+
+    const volumePanResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+
+            onMoveShouldSetPanResponder: () => true,
+
+            onPanResponderGrant: (event) => {
+                handleVolumeGesture(event.nativeEvent.pageX);
+            },
+
+            onPanResponderMove: (event) => {
+                handleVolumeGesture(event.nativeEvent.pageX);
+            },
+        })
+    ).current;
+
+    const progressPanResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+
+            onMoveShouldSetPanResponder: () => true,
+
+            onPanResponderGrant: (event) => {
+                handleProgressGesture(
+                    event.nativeEvent.pageX
+                );
+            },
+
+            onPanResponderMove: (event) => {
+                handleProgressGesture(
+                    event.nativeEvent.pageX
+                );
+            },
+        })
+    ).current;
+
+    const handleVolumePointerDown = (event) => {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+
+        const rect = event.currentTarget.getBoundingClientRect();
+
+        const x = event.clientX - rect.left;
+
+        setVolumeFromX(x);
+    };
+
+    const handleVolumePointerMove = (event) => {
+        if (event.buttons !== 1) return;
+
+        const rect = event.currentTarget.getBoundingClientRect();
+
+        const x = event.clientX - rect.left;
+
+        setVolumeFromX(x);
+    };
+
+    const handleVolumePointerUp = (event) => {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+    };
+
+    const handleProgressPointerDown = (event) => {
+        const element = event.currentTarget;
+        const rect = element.getBoundingClientRect();
+
+        const width = rect.width;
+
+        if (!Number.isFinite(width) || width <= 0) return;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+
+        progressDraggingRef.current = true;
+        progressPointerIdRef.current = event.pointerId;
+
+        element.setPointerCapture?.(event.pointerId);
+
+        const x = event.clientX - rect.left;
+
+        seekFromX(x, width);
+    };
+
+    const handleProgressPointerMove = (event) => {
+        if (!progressDraggingRef.current) return;
+
+        if (
+            progressPointerIdRef.current !== null &&
+            event.pointerId !== progressPointerIdRef.current
+        ) {
+            return;
+        }
+
+        const element = event.currentTarget;
+        const rect = element.getBoundingClientRect();
+
+        const width = rect.width;
+
+        if (!Number.isFinite(width) || width <= 0) return;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+
+        const x = event.clientX - rect.left;
+
+        seekFromX(x, width);
+    };
+
+    const handleProgressPointerUp = (event) => {
+        const element = event.currentTarget;
+
+        progressDraggingRef.current = false;
+
+        try {
+            if (
+                progressPointerIdRef.current !== null &&
+                element.hasPointerCapture?.(progressPointerIdRef.current)
+            ) {
+                element.releasePointerCapture(
+                    progressPointerIdRef.current
+                );
+            }
+        } catch (error) {
+            // Pointer may already have been released.
+        }
+
+        progressPointerIdRef.current = null;
+    };
     const effectiveVolume = muted ? 0 : volume;
 
     return (
@@ -147,54 +335,154 @@ function Player({ source }) {
                 above it and intercept their own touches first. */}
             <View style={styles.scrim} pointerEvents="none" />
 
-            <View style={styles.overlay}>
-                <View style={styles.timeBadge}>
-                    <Text style={styles.time}>
-                        {formatTime(currentTime)}
-                        {duration > 0 ? ` / ${formatTime(duration)}` : ''}
-                    </Text>
+
+            <View style={styles.controls}>
+                <View
+                    style={styles.progressBarTrack}
+                    onLayout={handleProgressBarLayout}
+                    {...(Platform.OS === 'web'
+                        ? {
+                            onPointerDown: handleProgressPointerDown,
+                            onPointerMove: handleProgressPointerMove,
+                            onPointerUp: handleProgressPointerUp,
+                        }
+                        : progressPanResponder.panHandlers
+                    )}
+                >
+                    <View style={styles.progressBarBackground} />
+
+                    <View
+                        style={[
+                            styles.progressBarFill,
+                            {
+                                width:
+                                    Number.isFinite(duration) && duration > 0 && Number.isFinite(currentTime)
+                                        ? `${Math.min((currentTime / duration) * 100, 100)}%`
+                                        : '0%',
+                            },
+                        ]}
+                    />
+
+                    <View
+                        style={[
+                            styles.progressBarThumb,
+                            {
+                                left:
+                                    Number.isFinite(duration) && duration > 0 && Number.isFinite(currentTime)
+                                        ? `${Math.min((currentTime / duration) * 100, 100)}%`
+                                        : '0%',
+                            },
+                        ]}
+                    />
                 </View>
 
-                <View style={styles.volumeControl}>
-                    <Pressable style={styles.volumeIconButton} onPress={handleToggleMute}>
-                        <Text style={styles.volumeIcon}>
-                            {effectiveVolume === 0 ? '🔇' : effectiveVolume < 0.5 ? '🔉' : '🔊'}
+                <View style={styles.controlRow}>
+                    <View style={styles.timeBadge}>
+                        <Text style={styles.time}>
+                            {formatTime(currentTime)}
+                            {duration > 0
+                                ? ` / ${formatTime(duration)}`
+                                : ''}
                         </Text>
-                    </Pressable>
+                    </View>
 
-                    <Pressable
-                        style={styles.volumeBarTrack}
-                        onLayout={handleVolumeBarLayout}
-                        onPress={handleVolumeChange}
-                    >
-                        <View style={styles.volumeBarBackground} />
-                        <View
-                            style={[
-                                styles.volumeBarFill,
-                                { width: `${effectiveVolume * 100}%` },
-                            ]}
-                        />
-                        <View
-                            style={[
-                                styles.volumeBarThumb,
-                                { left: `${effectiveVolume * 100}%` },
-                            ]}
-                        />
-                    </Pressable>
+                    <View style={styles.volumeControl}>
+                        <Pressable style={styles.volumeIconButton} onPress={handleToggleMute}>
+                            <Text style={styles.volumeIcon}>
+                                {effectiveVolume === 0 ? '🔇' : effectiveVolume < 0.5 ? '🔉' : '🔊'}
+                            </Text>
+                        </Pressable>
+
+                        {Platform.OS === 'web' ? (
+                            <View
+                                style={styles.volumeBarTrack}
+                                onLayout={handleVolumeBarLayout}
+                                onPointerDown={handleVolumePointerDown}
+                                onPointerMove={handleVolumePointerMove}
+                                onPointerUp={handleVolumePointerUp}
+                            >
+                                <View style={styles.volumeBarBackground} />
+
+                                <View
+                                    style={[
+                                        styles.volumeBarFill,
+                                        {
+                                            width: `${effectiveVolume * 100}%`,
+                                        },
+                                    ]}
+                                />
+
+                                <View
+                                    style={[
+                                        styles.volumeBarThumb,
+                                        {
+                                            left: `${effectiveVolume * 100}%`,
+                                        },
+                                    ]}
+                                />
+                            </View>
+                        ) : (
+                            <View
+                                style={styles.volumeBarTrack}
+                                onLayout={handleVolumeBarLayout}
+                                {...volumePanResponder.panHandlers}
+                            >
+                                <View style={styles.volumeBarBackground} />
+
+                                <View
+                                    style={[
+                                        styles.volumeBarFill,
+                                        {
+                                            width: `${effectiveVolume * 100}%`,
+                                        },
+                                    ]}
+                                />
+
+                                <View
+                                    style={[
+                                        styles.volumeBarThumb,
+                                        {
+                                            left: `${effectiveVolume * 100}%`,
+                                        },
+                                    ]}
+                                />
+                            </View>
+                        )}
+                    </View>
                 </View>
             </View>
+
         </View>
     );
 }
 
-export default function VideoReader({ selectedChannel }) {
-    if (!selectedChannel?.url) {
+export default function VideoReader({
+    selectedChannel,
+    recordingSelected,
+    serverIP,
+}) {
+    if (!selectedChannel) {
+        return null;
+    }
+
+    const API_BASE = `http://${serverIP}:8000`;
+
+    const source = recordingSelected
+        ? selectedChannel.record_file?.startsWith('http')
+            ? selectedChannel.record_file
+            : `${API_BASE}${selectedChannel.record_file}`
+        : selectedChannel.url;
+
+    if (!source) {
         return null;
     }
 
     return (
         <View style={styles.container}>
-            <Player key={selectedChannel.url} source={selectedChannel.url} />
+            <Player
+                key={source}
+                source={source}
+            />
         </View>
     );
 }
@@ -273,8 +561,8 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        height: 56,
-        backgroundColor: 'rgba(10, 12, 18, 0.55)',
+        height: 82,
+        backgroundColor: 'rgba(10, 12, 18, 0.65)',
     },
 
     overlay: {
@@ -325,10 +613,14 @@ const styles = StyleSheet.create({
 
     volumeBarTrack: {
         width: 80,
-        height: 20,
+        height: 30,
         justifyContent: 'center',
+
         ...Platform.select({
-            web: { cursor: 'pointer' },
+            web: {
+                cursor: 'pointer',
+                touchAction: 'none',
+            },
         }),
     },
 
@@ -362,4 +654,62 @@ const styles = StyleSheet.create({
             },
         }),
     },
+    controls: {
+        position: 'absolute',
+        bottom: 12,
+        left: 12,
+        right: 12,
+    },
+    progressBarTrack: {
+        width: '100%',
+        height: 24,
+        justifyContent: 'center',
+
+        ...Platform.select({
+            web: {
+                cursor: 'pointer',
+                touchAction: 'none',
+                userSelect: 'none',
+            },
+        }),
+    },
+
+    progressBarBackground: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    },
+
+    progressBarFill: {
+        position: 'absolute',
+        left: 0,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: COLORS.accent,
+    },
+
+    progressBarThumb: {
+        position: 'absolute',
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: COLORS.text,
+        marginLeft: -6,
+
+        ...Platform.select({
+            web: {
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.4)',
+            },
+        }),
+    },
+
+    controlRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+
 });

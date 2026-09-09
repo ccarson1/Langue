@@ -165,7 +165,7 @@ export default function ImportScreen({ navigation, route }) {
       console.log(`Fetching recording ${recordId} from ${ip}...`);
 
       const res = await fetch(
-        `http://${ip}:8000/api/recording-detail/${recordId}/`,
+        `http://${ip}:8000/api/recordings/${recordId}/`,
         {
           headers: { Authorization: `Bearer ${storedToken}` },
         }

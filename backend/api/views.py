@@ -1476,7 +1476,7 @@ def stop_record(request):
         record_folder="records",
         record_channel=Channel.objects.get(pk=request.data["channel_id"]),
         native_language = Language.objects.get(lang_name=language_name),
-        record_private=False,
+        is_public=False,
         duration=duration,
     )
 
@@ -1487,150 +1487,132 @@ def stop_record(request):
         "file_url": file_url,
     })
 
-@api_view(["DELETE"])
+
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_recording(request, recording_id):
-    try:
-        recording = Recording.objects.get(
-            id=recording_id,
-            user=request.user
-        )
-    except Recording.DoesNotExist:
-        return Response(
-            {"error": "Recording not found"},
-            status=status.HTTP_404_NOT_FOUND
-        )
+def recordings(request, recording_id=None):
 
-    try:
-        with transaction.atomic():
+    # ============================================================
+    # GET
+    # ============================================================
+    if request.method == "GET":
 
-            # Use the same path construction as stop_record()
-            relative_path = f"records/{recording.record_name}.mp4"
+        # --------------------------------------------------------
+        # GET ONE RECORDING
+        # /api/recordings/<id>/
+        # --------------------------------------------------------
+        if recording_id is not None:
 
-            video_path = os.path.join(
-                settings.MEDIA_ROOT,
-                relative_path
-            )
+            try:
+                recording = Recording.objects.get(
+                    id=recording_id,
+                    user=request.user
+                )
+            except Recording.DoesNotExist:
+                return Response(
+                    {"error": "Recording not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-            thumbnail_path = os.path.join(
-                settings.MEDIA_ROOT,
-                "images/record_thumbnails",
-                f"{recording.record_name}.jpg"
-            )
-
-            print("VIDEO PATH:", repr(video_path))
-            print("THUMBNAIL PATH:", repr(thumbnail_path))
-
-            # Remove video from storage accounting
-            video_size = StorageManager.subtract_file(
-                request.user,
-                video_path
-            )
-
-            # Remove thumbnail from storage accounting
-            thumbnail_size = StorageManager.subtract_file(
-                request.user,
-                thumbnail_path
-            )
-
-            print("VIDEO STORAGE REMOVED:", video_size)
-            print("THUMBNAIL STORAGE REMOVED:", thumbnail_size)
-
-            # Delete physical video
-            if os.path.exists(video_path):
-                os.remove(video_path)
-
-            # Delete physical thumbnail
-            if os.path.exists(thumbnail_path):
-                os.remove(thumbnail_path)
-
-            # Delete database record
-            recording.delete()
-
-            # Recalculate total from remaining StorageObjects
-            StorageManager.recalculate(
-                request.user
-            )
-
-        return Response(
-            {
-                "success": True,
-                "video_storage_removed": video_size,
-                "thumbnail_storage_removed": thumbnail_size,
-            },
-            status=status.HTTP_200_OK
-        )
-
-    except Exception as e:
-        print("Error deleting recording:", e)
-
-        return Response(
-            {
-                "error": "Failed to delete recording",
-                "details": str(e)
-            },
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def recordings(request):
-
-    try:
-        user_settings = UserSetting.objects.get(user=request.user)
-
-    except UserSetting.DoesNotExist:
-        return Response( {"error": "User settings not found"}, status=404 )
-
-    recordings = (
-        Recording.objects
-        .filter(user=request.user, native_language=user_settings.target_language)
-        .order_by("-created_at")
-    )
-
-    serializer = RecordingSerializer(
-        recordings,
-        many=True,
-        context={"request": request}
-    )
-
-    return Response(serializer.data)
-
-@api_view(['GET', "PATCH"])
-@permission_classes([IsAuthenticated])
-def recording_detail(request, recording_id):   # ← changed from pk to recording_id
-
-    if request.method == "PATCH":
-        try:
-            recording = Recording.objects.get(id=recording_id, user=request.user)
-
-            data = {
+            return Response({
                 "id": recording.id,
-                "title": getattr(recording, 'record_name', None) or f"Recording {recording.id}",
-                "record_file": recording.record_file.url if getattr(recording, 'record_file', None) else None,
-                "record_img": getattr(recording, 'record_img', None),
-                "created_at": recording.created_at.isoformat() if hasattr(recording, 'created_at') else None,
-                "duration" : recording.duration
-            }
+                "user_id": recording.user.id,
+                "title": (
+                    getattr(recording, "record_name", None)
+                    or f"Recording {recording.id}"
+                ),
+                "record_file": (
+                    recording.record_file.url
+                    if getattr(recording, "record_file", None)
+                    else None
+                ),
+                "record_img": getattr(
+                    recording,
+                    "record_img",
+                    None
+                ),
+                "created_at": (
+                    recording.created_at.isoformat()
+                    if hasattr(recording, "created_at")
+                    else None
+                ),
+                "is_public": recording.is_public,
+                "duration": recording.duration,
+            })
 
-            return Response(data)
+        # --------------------------------------------------------
+        # GET ALL RECORDINGS
+        # /api/recordings/
+        # --------------------------------------------------------
 
-        except Recording.DoesNotExist:
-            return Response({"error": "Recording not found"}, status=404)
-        except Exception as e:
-            print("Recording detail error:", str(e))
-            return Response({"error": str(e)}, status=500)
-
-    # UPDATE RECORDING PUBLIC/PRIVATE
-    if request.method == 'PATCH':
-
-        recording_id = request.data.get('recording_id')
-        is_public = request.data.get('is_public')
-
-        if recording_id is None or is_public is None:
+        try:
+            user_settings = UserSetting.objects.get(
+                user=request.user
+            )
+        except UserSetting.DoesNotExist:
             return Response(
-                {"error": "recording_id and is_public are required."},
-                status=400
+                {"error": "User settings not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        recording_queryset = (
+            Recording.objects
+            .filter(
+                Q(user=request.user) | Q(is_public=True),
+                native_language=user_settings.target_language
+            )
+            .order_by("-created_at")
+        )
+
+        data = []
+
+        for recording in recording_queryset:
+
+            data.append({
+                "id": recording.id,
+                "user_id": recording.user.id,
+                "title": (
+                    getattr(recording, "record_name", None)
+                    or f"Recording {recording.id}"
+                ),
+                "record_file": (
+                    recording.record_file.url
+                    if getattr(recording, "record_file", None)
+                    else None
+                ),
+                "record_img": getattr(
+                    recording,
+                    "record_img",
+                    None
+                ),
+                "created_at": (
+                    recording.created_at.isoformat()
+                    if hasattr(recording, "created_at")
+                    else None
+                ),
+                "is_public": recording.is_public,
+                "duration": recording.duration,
+            })
+
+        return Response(data)
+
+    # ============================================================
+    # PATCH
+    # ============================================================
+    if request.method == "PATCH":
+
+        if recording_id is None:
+            return Response(
+                {"error": "Recording ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        is_public = request.data.get("is_public")
+
+        if is_public is None:
+            return Response(
+                {"error": "is_public is required."},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
@@ -1641,17 +1623,144 @@ def recording_detail(request, recording_id):   # ← changed from pk to recordin
         except Recording.DoesNotExist:
             return Response(
                 {"error": "Recording not found."},
-                status=404
+                status=status.HTTP_404_NOT_FOUND
             )
 
-        recording.record_private = not is_public
-        recording.save()
+        recording.is_public = bool(is_public)
+
+        recording.save(
+            update_fields=["is_public"]
+        )
 
         return Response({
             "id": recording.id,
-            "private": recording.record_private,
-            "is_public": not recording.record_private
+            "is_public": recording.is_public,
         })
+
+    # ============================================================
+    # DELETE
+    # ============================================================
+    if request.method == "DELETE":
+
+        if recording_id is None:
+            return Response(
+                {"error": "Recording ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            recording = Recording.objects.get(
+                id=recording_id,
+                user=request.user
+            )
+        except Recording.DoesNotExist:
+            return Response(
+                {"error": "Recording not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            with transaction.atomic():
+
+                # ------------------------------------------------
+                # VIDEO
+                # ------------------------------------------------
+                relative_path = (
+                    f"records/{recording.record_name}.mp4"
+                )
+
+                video_path = os.path.join(
+                    settings.MEDIA_ROOT,
+                    relative_path
+                )
+
+                # ------------------------------------------------
+                # THUMBNAIL
+                # ------------------------------------------------
+                thumbnail_path = os.path.join(
+                    settings.MEDIA_ROOT,
+                    "images",
+                    "record_thumbnails",
+                    f"{recording.record_name}.jpg"
+                )
+
+                print(
+                    "VIDEO PATH:",
+                    repr(video_path)
+                )
+
+                print(
+                    "THUMBNAIL PATH:",
+                    repr(thumbnail_path)
+                )
+
+                # ------------------------------------------------
+                # STORAGE ACCOUNTING
+                # ------------------------------------------------
+                video_size = StorageManager.subtract_file(
+                    request.user,
+                    video_path
+                )
+
+                thumbnail_size = StorageManager.subtract_file(
+                    request.user,
+                    thumbnail_path
+                )
+
+                print(
+                    "VIDEO STORAGE REMOVED:",
+                    video_size
+                )
+
+                print(
+                    "THUMBNAIL STORAGE REMOVED:",
+                    thumbnail_size
+                )
+
+                # ------------------------------------------------
+                # DELETE PHYSICAL FILES
+                # ------------------------------------------------
+                if os.path.exists(video_path):
+                    os.remove(video_path)
+
+                if os.path.exists(thumbnail_path):
+                    os.remove(thumbnail_path)
+
+                # ------------------------------------------------
+                # DELETE DATABASE RECORD
+                # ------------------------------------------------
+                recording.delete()
+
+                # ------------------------------------------------
+                # RECALCULATE STORAGE
+                # ------------------------------------------------
+                StorageManager.recalculate(
+                    request.user
+                )
+
+            return Response(
+                {
+                    "success": True,
+                    "video_storage_removed": video_size,
+                    "thumbnail_storage_removed": thumbnail_size,
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+
+            print(
+                "Error deleting recording:",
+                e
+            )
+
+            return Response(
+                {
+                    "error": "Failed to delete recording",
+                    "details": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @api_view(["POST"])
@@ -1975,7 +2084,7 @@ def evaluate_pronunciation_view(request):
 
 @api_view(['GET', 'POST', 'PATCH'])
 @permission_classes([IsAuthenticated])
-def channels(request):
+def channels(request, channel_id=None):
 
     user_settings = UserSetting.objects.get(user=request.user)
 
@@ -2001,7 +2110,7 @@ def channels(request):
             channel_name=channel_name,
             channel_url=channel_url,
             native_language_id=user_settings.target_language_id,
-            channel_private=False,
+            is_public=False,
             is_favorite=False
         )
 
@@ -2054,17 +2163,19 @@ def channels(request):
             "image": channel.channel_img,
             "owner": channel.user.username,
             "owner_id": channel.user.id,
-            "private": channel.channel_private,
+            "is_public": channel.is_public,
             "is_favorite": channel.is_favorite,
             "target_language": user_settings.target_language_id,
             "native_language": user_settings.target_language_id
         }, status=201)
 
-    # UPDATE CHANNEL PUBLIC/PRIVATE
+    # UPDATE CHANNEL PUBLIC/is_public
     if request.method == 'PATCH':
 
         channel_id = request.data.get('channel_id')
         is_public = request.data.get('is_public')
+
+        print("PATCH channel_id:", channel_id, "is_public:", is_public)
 
         if channel_id is None or is_public is None:
             return Response(
@@ -2083,21 +2194,19 @@ def channels(request):
                 status=404
             )
 
-        channel.channel_private = not is_public
+        channel.is_public = is_public
         channel.save()
 
         return Response({
             "id": channel.id,
-            "private": channel.channel_private,
-            "is_public": not channel.channel_private
+            "is_public": channel.is_public,
+            "is_public": not channel.is_public
         })
 
 
     # GET CHANNELS
     channels = Channel.objects.filter(
-        native_language_id=user_settings.target_language_id,
-        channel_private=False
-    ) & Channel.objects.filter(
+        native_language_id=user_settings.target_language_id
     )
 
     for c in channels:
@@ -2116,7 +2225,7 @@ def channels(request):
             "image": c.channel_img,
             "owner": c.user.username,
             "owner_id": c.user.id,
-            "private": c.channel_private,
+            "is_public": c.is_public,
             "is_favorite": c.is_favorite,
             "target_language": user_settings.target_language_id,
             "native_language": user_settings.target_language_id

@@ -151,6 +151,7 @@ class RecordingSerializer(serializers.ModelSerializer):
             "record_file",
             "url",
             "created_at",
+            "is_public",
             "is_favorite",
             "duration"
         ]
