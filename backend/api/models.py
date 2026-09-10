@@ -330,3 +330,53 @@ class StorageObject(models.Model):
     def __str__(self):
         return f"{self.user.username}: {self.path} ({self.size} bytes)"
 
+
+    
+
+
+class Dictionary(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    name = models.CharField(max_length=100, unique=True)
+    target_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_target' )
+    native_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_native' )
+    url = models.URLField(max_length=500, blank=True)
+    user = models.ForeignKey( User, on_delete=models.CASCADE, related_name='dictionary' )
+    path = models.CharField(max_length=500, blank=True)
+    dic_type = models.CharField(max_length=50, choices=[('website', 'Website'), ('pdf', 'PDF')], default='website')
+    is_public = models.BooleanField(default=False)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_edited = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Dictionary'
+
+    def __str__(self):
+        return self.name
+
+
+
+class DictionaryEntry(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    word = models.ForeignKey( Word, on_delete=models.CASCADE, related_name='dictionary_entries' )
+    dictionary = models.ForeignKey( Dictionary, on_delete=models.CASCADE, related_name='dictionary_entries' )
+    data = models.JSONField( default=dict, blank=True)
+    date_created = models.DateTimeField( auto_now_add=True )
+    date_edited = models.DateTimeField( auto_now=True )
+
+    class Meta:
+        db_table = 'DictionaryEntries'
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'word',
+                    'dictionary',
+
+                ],
+                name='unique_dictionary_entry'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.word} - {self.dictionary}"
+

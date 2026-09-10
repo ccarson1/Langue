@@ -8,7 +8,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, authentication_classes, parser_classes
-from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
@@ -19,6 +18,7 @@ from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, TranslationModelSerializer
 from django.views.generic import TemplateView
 from .w_translate import load_user_model, translate_word
+from.dictionary_lookup import DictionaryLookup
 from django.core.files.storage import default_storage
 
 from django.http import FileResponse, Http404, JsonResponse
@@ -81,6 +81,7 @@ def translate(request):
     tar_id = request.data.get('target_id', {}).get('id')
 
 
+    
     print(f"Text: {text}")
     print(f"Native: {nat_id}")
     print(f"Target: {tar_id}")
@@ -138,55 +139,23 @@ def translate(request):
         dictionary_name = user_setting.dictionary_name
 
     if dictionary_name:
+        
+        dictionary_lookup = DictionaryLookup(target_language, dictionary_name, text, user=request.user)
+        
 
         try:
+            
+            translated_text = dictionary_lookup.dic_json_lookup()
 
-
-            lang_code = target_language.yt_dlp_lang
-
-
-            dictionary_path = os.path.join(
-                settings.BASE_DIR,
-                'dictionaries',
-                lang_code,
-                dictionary_name
-            )
-
-            print(dictionary_path)
-
-            with open(dictionary_path, 'r', encoding='utf-8') as f:
-                dictionary_data = json.load(f)
-
-            search_word = text.strip().lower()
-
-            for entry in dictionary_data:
-
-                dict_word = entry.get(
-                    'word',
-                    ''
-                ).strip().lower()
-
-                if dict_word == search_word:
-
-                    definition = entry.get(
-                        'definition',
-                        ''
-                    ).strip()
-                    print(f"Found in dictionary: {dict_word} -> {definition}")
-                    if definition:
-
-                        return Response({
-                            'translated': [definition],
-                            'inDatabase': 0,
-                            'fromDictionary': 1
-                        })
-
+            
         except Exception as e:
 
             print('Dictionary lookup error:', e)
 
-    # Replace with your translation function:
-    translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang  )
+    else:
+
+        # Replace with your translation function:
+        translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang  )
 
     return Response({'translated': translated_text, 'inDatabase': 0})
 
