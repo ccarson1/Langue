@@ -175,6 +175,55 @@ class TranslationModel(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.source_language} → {self.target_language})"
+
+
+class Dictionary(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    name = models.CharField(max_length=100, unique=True)
+    target_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_target', blank=True, null=True)
+    native_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_native', blank=True, null=True)
+    url = models.URLField(max_length=500, blank=True)
+    user = models.ForeignKey( User, on_delete=models.CASCADE, related_name='dictionary' )
+    path = models.CharField(max_length=500, blank=True)
+    dic_type = models.CharField(max_length=50, choices=[('website', 'Website'), ('pdf', 'PDF'), ('ai', 'AI')], default='website')
+    is_public = models.BooleanField(default=False)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_edited = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Dictionary'
+
+    def __str__(self):
+        return self.name
+
+
+
+class DictionaryEntry(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    word = models.ForeignKey( Word, on_delete=models.CASCADE, related_name='dictionary_entries' )
+    dictionary = models.ForeignKey( Dictionary, on_delete=models.CASCADE, related_name='dictionary_entries' )
+    data = models.JSONField( default=dict, blank=True)
+    date_created = models.DateTimeField( auto_now_add=True )
+    date_edited = models.DateTimeField( auto_now=True )
+
+    class Meta:
+        db_table = 'DictionaryEntries'
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'word',
+                    'dictionary',
+
+                ],
+                name='unique_dictionary_entry'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.word} - {self.dictionary}"
+
+
         
 class UserSetting(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -183,6 +232,7 @@ class UserSetting(models.Model):
     target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='settings_translations_target')
     notifications = models.BooleanField(default=True, db_column='notifications')
     dictionary_name = models.CharField( max_length=255, blank=True, null=True )
+    user_dictionary = models.ForeignKey( Dictionary, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_settings' )
     user_set_volume = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
     user_set_speed = models.DecimalField(max_digits=4, decimal_places=2, default=1.00)
     repeat_audio = models.BooleanField(default=False, db_column='repeat_audio')
@@ -333,50 +383,4 @@ class StorageObject(models.Model):
 
     
 
-
-class Dictionary(models.Model):
-    id = models.AutoField(primary_key=True, db_column='ID')
-    name = models.CharField(max_length=100, unique=True)
-    target_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_target' )
-    native_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_native' )
-    url = models.URLField(max_length=500, blank=True)
-    user = models.ForeignKey( User, on_delete=models.CASCADE, related_name='dictionary' )
-    path = models.CharField(max_length=500, blank=True)
-    dic_type = models.CharField(max_length=50, choices=[('website', 'Website'), ('pdf', 'PDF')], default='website')
-    is_public = models.BooleanField(default=False)
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_edited = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'Dictionary'
-
-    def __str__(self):
-        return self.name
-
-
-
-class DictionaryEntry(models.Model):
-    id = models.AutoField(primary_key=True, db_column='ID')
-    word = models.ForeignKey( Word, on_delete=models.CASCADE, related_name='dictionary_entries' )
-    dictionary = models.ForeignKey( Dictionary, on_delete=models.CASCADE, related_name='dictionary_entries' )
-    data = models.JSONField( default=dict, blank=True)
-    date_created = models.DateTimeField( auto_now_add=True )
-    date_edited = models.DateTimeField( auto_now=True )
-
-    class Meta:
-        db_table = 'DictionaryEntries'
-
-        constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    'word',
-                    'dictionary',
-
-                ],
-                name='unique_dictionary_entry'
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.word} - {self.dictionary}"
 
