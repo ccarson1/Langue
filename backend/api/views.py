@@ -829,61 +829,70 @@ def get_languages(request):
 def user_settings(request):
     user = request.user
 
+    try:
+        settings = UserSetting.objects.get(user=user)
+    except UserSetting.DoesNotExist:
+        return Response(
+            {'error': 'Settings not found'},
+            status=404
+        )
+
     if request.method == 'GET':
-        try:
-            public_dictionaries = Dictionary.objects.filter(
-                is_public=True
-            ).values(
-                'id',
-                'name',
-                'target_language',
-                'native_language',
-                'url',
-                'user',
-                'path',
-                'dic_type',
-                'is_public',
+
+        public_dictionaries = Dictionary.objects.filter(
+            is_public=True
+        ).filter(
+            Q(
+                native_language=settings.native_language,
+                target_language=settings.target_language
             )
-
-            settings = UserSetting.objects.get(user=user)
-
-            data = {
-                'native_language': settings.native_language.lang_name,
-                'target_language': settings.target_language.lang_name,
-                'notifications': settings.notifications,
-                'user_dictionary': settings.user_dictionary,
-
-                'public_dictionaries': list(public_dictionaries),
-
-                'user_dictionary': (
-                    settings.user_dictionary.id
-                    if settings.user_dictionary
-                    else None
-                ),
-
-                'user_set_volume': settings.user_set_volume,
-                'user_set_speed': settings.user_set_speed,
-                'repeat_audio': settings.repeat_audio,
-                'repeat_audio_all': settings.repeat_audio_all,
-                'shuffle_audio': settings.shuffle_audio,
-                'showVideoCaptions': settings.showVideoCaptions,
-                'showVideoView': settings.showVideoView,
-                'continuousPlay': settings.continuousPlay,
-                'translation_model': (
-                    settings.translationModel.id
-                    if settings.translationModel
-                    else None
-                ),
-            }
-
-            return Response(data)
-
-        except UserSetting.DoesNotExist:
-            return Response(
-                {'error': 'Settings not found'},
-                status=404
+            |
+            Q(
+                native_language__isnull=True,
+                target_language__isnull=True
             )
+        ).values(
+            'id',
+            'name',
+            'target_language',
+            'native_language',
+            'url',
+            'user',
+            'path',
+            'dic_type',
+            'is_public',
+        )
 
+        data = {
+            'native_language': settings.native_language.lang_name,
+            'target_language': settings.target_language.lang_name,
+            'notifications': settings.notifications,
+
+            'public_dictionaries': list(public_dictionaries),
+
+            'user_dictionary': (
+                settings.user_dictionary.id
+                if settings.user_dictionary
+                else None
+            ),
+
+            'user_set_volume': settings.user_set_volume,
+            'user_set_speed': settings.user_set_speed,
+            'repeat_audio': settings.repeat_audio,
+            'repeat_audio_all': settings.repeat_audio_all,
+            'shuffle_audio': settings.shuffle_audio,
+            'showVideoCaptions': settings.showVideoCaptions,
+            'showVideoView': settings.showVideoView,
+            'continuousPlay': settings.continuousPlay,
+
+            'translation_model': (
+                settings.translationModel.id
+                if settings.translationModel
+                else None
+            ),
+        }
+
+        return Response(data)
     elif request.method == 'PUT':
         native_id = request.data.get('native_language')
         target_id = request.data.get('target_language')
