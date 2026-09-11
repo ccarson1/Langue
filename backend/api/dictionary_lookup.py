@@ -6,13 +6,14 @@ from django.conf import settings
 
 class DictionaryLookup():
 
-    def __init__(self, target_language, dictionary_name, text, user):
+    def __init__(self, target_language, user_dictionary, text, user):
 
-        self.dictionary_name = dictionary_name
+        self.user_dictionary = user_dictionary
         self.text = text
         user_settings = UserSetting.objects.get(user=user)
         lang_code = user_settings.target_language.yt_dlp_lang
-        self.dictionary_path = os.path.join(settings.BASE_DIR, 'dictionaries', lang_code, dictionary_name)
+        print('Settings BASE_DIR', settings.BASE_DIR)
+        self.dictionary_path = os.path.join(user_dictionary.path)
         
 
 
@@ -42,5 +43,6 @@ class DictionaryLookup():
                     if definition:
 
                         return [definition]
+
 
 

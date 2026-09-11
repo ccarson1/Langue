@@ -12,7 +12,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel, Tag
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel, Tag, Dictionary, DictionaryEntry
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, TranslationModelSerializer
@@ -132,15 +132,15 @@ def translate(request):
         user=request.user
     ).first()
 
-    dictionary_name = None
+    user_dictionary = None
     load_user_model(request.user)
 
     if user_setting:
-        dictionary_name = user_setting.dictionary_name
+        user_dictionary = user_setting.user_dictionary
 
-    if dictionary_name:
-        
-        dictionary_lookup = DictionaryLookup(target_language, dictionary_name, text, user=request.user)
+    if user_dictionary:
+        print(user_dictionary.name)
+        dictionary_lookup = DictionaryLookup(target_language, user_dictionary, text, user=request.user)
         
 
         try:
@@ -149,13 +149,14 @@ def translate(request):
 
             
         except Exception as e:
-
+            translated_text = ''
             print('Dictionary lookup error:', e)
 
     else:
 
+
         # Replace with your translation function:
-        translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang  )
+        translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang)
 
     return Response({'translated': translated_text, 'inDatabase': 0})
 
@@ -830,12 +831,36 @@ def user_settings(request):
 
     if request.method == 'GET':
         try:
+            public_dictionaries = Dictionary.objects.filter(
+                is_public=True
+            ).values(
+                'id',
+                'name',
+                'target_language',
+                'native_language',
+                'url',
+                'user',
+                'path',
+                'dic_type',
+                'is_public',
+            )
+
             settings = UserSetting.objects.get(user=user)
+
             data = {
-                'native_language': settings.native_language.lang_name,  # or id if you prefer
+                'native_language': settings.native_language.lang_name,
                 'target_language': settings.target_language.lang_name,
                 'notifications': settings.notifications,
-                'dictionary_name': settings.dictionary_name,
+                'user_dictionary': settings.user_dictionary,
+
+                'public_dictionaries': list(public_dictionaries),
+
+                'user_dictionary': (
+                    settings.user_dictionary.id
+                    if settings.user_dictionary
+                    else None
+                ),
+
                 'user_set_volume': settings.user_set_volume,
                 'user_set_speed': settings.user_set_speed,
                 'repeat_audio': settings.repeat_audio,
@@ -844,19 +869,27 @@ def user_settings(request):
                 'showVideoCaptions': settings.showVideoCaptions,
                 'showVideoView': settings.showVideoView,
                 'continuousPlay': settings.continuousPlay,
-                'translation_model': ( settings.translationModel.id if settings.translationModel else None ),
+                'translation_model': (
+                    settings.translationModel.id
+                    if settings.translationModel
+                    else None
+                ),
             }
+
             return Response(data)
 
         except UserSetting.DoesNotExist:
-            return Response({'error': 'Settings not found'}, status=404)
+            return Response(
+                {'error': 'Settings not found'},
+                status=404
+            )
 
     elif request.method == 'PUT':
         native_id = request.data.get('native_language')
         target_id = request.data.get('target_language')
         translation_model_id = request.data.get( 'translation_model' )
         notifications = request.data.get('notifications')
-        dictionary_name = request.data.get('dictionary_name')
+        user_dictionary_id = request.data.get('user_dictionary')
         user_set_volume = request.data.get('user_set_volume')
         user_set_speed = request.data.get('user_set_speed')
         repeat_audio = request.data.get('repeat_audio')
@@ -878,8 +911,12 @@ def user_settings(request):
             native_lang = get_object_or_404(Language, lang_name=native_id)
             target_lang = get_object_or_404(Language, lang_name=target_id)
             settings, _ = UserSetting.objects.get_or_create(user=user)
-            translation_model = None
 
+            user_dictionary = None
+            if user_dictionary_id is not None:
+                user_dictionary = get_object_or_404( Dictionary, id=user_dictionary_id )
+
+            translation_model = None
             if translation_model_id:
                 translation_model = get_object_or_404( TranslationModel, id=translation_model_id, is_active=True )
 
@@ -890,7 +927,8 @@ def user_settings(request):
             settings.native_language = native_lang
             settings.target_language = target_lang
             settings.notifications = bool(notifications)
-            settings.dictionary_name = dictionary_name
+            if user_dictionary_id is not None:
+                settings.user_dictionary = user_dictionary
             settings.user_set_volume = float(user_set_volume) if user_set_volume is not None else settings.user_set_volume
             settings.user_set_speed = float(user_set_speed) if user_set_speed is not None else settings.user_set_speed
             settings.repeat_audio = repeat_audio if repeat_audio is not None else settings.repeat_audio
@@ -909,47 +947,6 @@ def user_settings(request):
             return Response( { 'error': 'Invalid translation model.' }, status=status.HTTP_400_BAD_REQUEST )
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-def get_dictionaries(request):
-
-    language = request.GET.get('language')
-
-    if not language:
-        return Response([])
-
-    # convert language name to folder code
-    lang_map = {
-        'Lithuanian': 'lt',
-        'Russian': 'ru',
-    }
-
-    lang_code = lang_map.get(language)
-
-    if not lang_code:
-        return Response([])
-
-    dictionary_dir = os.path.join(
-        settings.BASE_DIR,
-        'dictionaries',
-        lang_code
-    )
-
-    if not os.path.exists(dictionary_dir):
-        return Response([])
-
-    dictionaries = []
-
-    for file in os.listdir(dictionary_dir):
-
-        if file.endswith('.json'):
-
-            dictionaries.append({
-                'label': file.replace('.json', ''),
-                'value': file
-            })
-
-    return Response(dictionaries)
 
 @csrf_exempt
 @api_view(['GET', 'PUT'])

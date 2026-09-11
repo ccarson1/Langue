@@ -202,6 +202,8 @@ class DictionaryEntry(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     word = models.ForeignKey( Word, on_delete=models.CASCADE, related_name='dictionary_entries' )
     dictionary = models.ForeignKey( Dictionary, on_delete=models.CASCADE, related_name='dictionary_entries' )
+    target_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_entry_target', blank=True, null=True)
+    native_language = models.ForeignKey( Language, on_delete=models.CASCADE, related_name='dictionary_entry_native', blank=True, null=True)
     data = models.JSONField( default=dict, blank=True)
     date_created = models.DateTimeField( auto_now_add=True )
     date_edited = models.DateTimeField( auto_now=True )

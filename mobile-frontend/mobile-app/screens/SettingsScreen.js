@@ -14,6 +14,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SettingsStyles';
 import { getServerIP } from '../utils/config';
+import LoadingOverlay from './components/LoadingOverlay';
 
 
 export default function SettingsScreen({ navigation }) {
@@ -28,6 +29,7 @@ export default function SettingsScreen({ navigation }) {
   const [token, setToken] = useState(null);
   const [languages, setLanguages] = useState([]);
   const [serverIP, setServerIP] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const fetchLanguages = async () => {
     if (!serverIP) return;
@@ -79,37 +81,7 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
-  const fetchDictionaries = async (language) => {
 
-    try {
-
-      const token = await AsyncStorage.getItem(
-        'accessToken'
-      );
-
-      const res = await fetch(
-        `http://${serverIP}:8000/api/dictionaries/?language=${language}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      const data = await res.json();
-
-      setDictionaries(data);
-
-    } catch (err) {
-
-      console.error(err);
-
-      Alert.alert(
-        'Error',
-        'Failed to load dictionaries'
-      );
-    }
-  };
 
   useEffect(() => {
     const loadIP = async () => {
@@ -154,13 +126,14 @@ export default function SettingsScreen({ navigation }) {
         );
 
         const settings = await response.json();
-
+        console.log(settings);
         setNativeLanguage(settings.native_language);
         setTargetLanguage(settings.target_language);
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
-        setSelectedDictionary(settings.dictionary_name || '');
-
+        setSelectedDictionary(settings.user_dictionary || '');
+        setDictionaries(settings.public_dictionaries);
+        console.log(dictionaries);
       } catch (err) {
 
         Alert.alert(
@@ -176,14 +149,7 @@ export default function SettingsScreen({ navigation }) {
 
   }, [serverIP]);
 
-  useEffect(() => {
 
-    if (targetLanguage) {
-
-      fetchDictionaries(targetLanguage);
-    }
-
-  }, [targetLanguage]);
 
   const handleSave = async () => {
     if (!token) {
@@ -191,37 +157,68 @@ export default function SettingsScreen({ navigation }) {
       return;
     }
 
+    console.log('Saving settings...');
+    setLoading(true);
+
     try {
-      const response = await fetch(`http://${serverIP}:8000/api/settings/`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          native_language: nativeLanguage,
-          target_language: targetLanguage,
-          notifications: notificationsEnabled,
-          dictionary_name: selectedDictionary,
-          privacy: profilePrivate,
-          translation_model: selectedModel,
-        }),
-      });
+      const response = await fetch(
+        `http://${serverIP}:8000/api/settings/`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            native_language: nativeLanguage,
+            target_language: targetLanguage,
+            notifications: notificationsEnabled,
+            user_dictionary: selectedDictionary,
+            privacy: profilePrivate,
+            translation_model: selectedModel,
+          }),
+        }
+      );
+
+      console.log('PUT status:', response.status);
 
       const data = await response.json();
 
+      console.log('PUT response:', data);
+
       if (!response.ok) {
-        Alert.alert('Save Failed', data.error || 'Unknown error');
-      } else {
-        Alert.alert('Success', 'Settings saved successfully.');
+        setLoading(false);
+
+        Alert.alert(
+          'Save Failed',
+          data.error || 'Unknown error'
+        );
+
+        return;
       }
+
+      console.log('Settings saved successfully');
+      console.log('Navigating to Home');
+
+      setLoading(false);
+
+      navigation.navigate('Home');
+
     } catch (err) {
-      Alert.alert('Error', err.message);
+      console.error('Save settings error:', err);
+
+      setLoading(false);
+
+      Alert.alert(
+        'Error',
+        err.message
+      );
     }
   };
 
   return (
     <View style={styles.container}>
+      <LoadingOverlay visible={loading} />
       <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
         <AntDesign name="left" size={22} color="white" />
       </TouchableOpacity>
@@ -281,17 +278,14 @@ export default function SettingsScreen({ navigation }) {
             style={styles.picker}
             dropdownIconColor="white"
           >
-            <Picker.Item
-              label="AI Dictionary"
-              value=""
-            />
+
 
             {dictionaries.map((dict) => (
 
               <Picker.Item
-                key={dict.value}
-                label={dict.label}
-                value={dict.value}
+                key={dict.id}
+                label={dict.name}
+                value={dict.id}
               />
             ))}
 

@@ -81,12 +81,28 @@ export const createStyles = (insets) =>
         // It contains middleColumns.
         // ============================================================
 
-        middleSection: {
-            width: '100%',
-            alignItems: 'center',
-            paddingHorizontal: 15,
-            paddingBottom: 10,
-        },
+
+
+        ...Platform.select({
+            web: {
+                middleSection: {
+                    width: '100%',
+                    alignItems: 'center',
+                    paddingHorizontal: 15,
+                    paddingBottom: 15,
+
+                },
+            },
+            default: {
+                middleSection: {
+                    width: '100%',
+
+                    alignItems: 'center',
+                    paddingHorizontal: 15,
+
+                },
+            },
+        }),
 
 
         // ============================================================

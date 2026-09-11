@@ -71,6 +71,8 @@ export default function HomeScreen({ navigation }) {
     const [ShowVideoView, setShowVideoView] = useState(false);
     const [settingsLoaded, setSettingsLoaded] = useState(false);
     const [continuousPlay, setContinuousPlay] = useState(false);
+    const [publicDictionaries, setPublicDictionaries] = useState([]);
+    const [userDictionary, setUserDictionary] = useState(0);
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
@@ -131,6 +133,7 @@ export default function HomeScreen({ navigation }) {
 
     const refreshTranslation = async (word) => {
         const translation = await translateWord(word);
+        console.log('Translation Text', translation)
         setTranslatedText(translation);
     };
 
@@ -337,7 +340,12 @@ export default function HomeScreen({ navigation }) {
         } catch (err) {
             console.error(err);
             setLoading(false);
-            return 'Error connecting to API';
+            console.log(publicDictionaries)
+            console.log(publicDictionaries[userDictionary].name)
+            console.log(userDictionary)
+            // dictionary = public_dictionaries.find(item => item.id === 2)
+            // console.log(dictionary)
+            return f`No defintion in ${publicDictionaries[userDictionary].name}`;
         }
     };
 
@@ -472,12 +480,15 @@ export default function HomeScreen({ navigation }) {
                     console.log("Settings data from backend:", data)
                     console.log("Video Captions:", data.showVideoCaptions)
                     console.log("Video view: ", data.showVideoView)
+                    console.log("User Dictionary ", data.user_dictionary)
 
                     setVolume(data.user_set_volume ?? 1.0);
                     setPlaybackRate(data.user_set_speed ?? 1.0);
                     setShowVideoCaptions(data.showVideoCaptions);
                     setShowVideoView(data.showVideoView);
                     setContinuousPlay(data.continuousPlay);
+                    setPublicDictionaries(data.public_dictionaries);
+                    setUserDictionary(data.user_dictionary);
                     setSettingsLoaded(true);
 
                     console.log("Captions after load: ", ShowVideoCaptions);
@@ -776,6 +787,7 @@ export default function HomeScreen({ navigation }) {
                 contentContainerStyle={styles.middleSection}
                 showsVerticalScrollIndicator={false}
                 showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
             >
 
                 {/* ========================================================

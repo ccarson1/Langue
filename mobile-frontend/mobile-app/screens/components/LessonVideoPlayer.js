@@ -308,70 +308,121 @@ export default LessonVideoPlayer;
 
 const styles = StyleSheet.create({
 
-    container: {
-        width: "100%",
-        height: "100%",
-        borderRadius: 15,
-        overflow: "hidden",
-        backgroundColor: "#222",
 
-        ...Platform.select({
-            web: {
+    ...Platform.select({
+        web: {
+            video: {
+
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+
+                width: "100%",
+                height: "100%",
+            },
+            container: {
+                width: "100%",
+                height: "100%",
+                borderRadius: 15,
+                overflow: "hidden",
+                backgroundColor: "#222",
                 boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
             },
-            default: {
+            overlay: {
+                position: "absolute",
+
+                bottom: 20,
+                left: 10,
+                right: 10,
+
+                backgroundColor: "rgba(0,0,0,.55)",
+                borderRadius: 12,
+                padding: 5,
+            },
+
+            wordRow: {
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+            },
+
+            word: {
+                color: "white",
+                fontSize: 20,
+                paddingHorizontal: 2,
+                lineHeight: 32,
+            },
+
+            selectedWord: {
+                backgroundColor: "#FFCC00",
+                color: "black",
+                borderRadius: 4,
+                overflow: "hidden",
+            },
+
+            loading: {
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+            },
+        },
+        default: {
+            video: {
+                width: "100%",
+                height: "100%",
+            },
+
+            container: {
+                width: "100%",
+                aspectRatio: 16 / 9,
+                borderRadius: 15,
+                overflow: "hidden",
+                backgroundColor: "#222",
                 elevation: 5,
             },
-        }),
-    },
+            overlay: {
+                position: "absolute",
 
-    video: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+                bottom: 20,
+                left: 10,
+                right: 10,
 
-        width: "100%",
-        height: "100%",
-    },
+                backgroundColor: "rgba(0,0,0,.55)",
+                borderRadius: 12,
+                padding: 5,
+            },
 
-    overlay: {
-        position: "absolute",
+            wordRow: {
+                flexDirection: "row",
+                flexWrap: "wrap",
+                justifyContent: "center",
+            },
 
-        bottom: 20,
-        left: 10,
-        right: 10,
+            word: {
+                color: "white",
+                fontSize: 14,
+                paddingHorizontal: 2,
+                lineHeight: 32,
+            },
 
-        backgroundColor: "rgba(0,0,0,.55)",
-        borderRadius: 12,
-        padding: 5,
-    },
+            selectedWord: {
+                backgroundColor: "#FFCC00",
+                color: "black",
+                borderRadius: 4,
+                overflow: "hidden",
+            },
 
-    wordRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "center",
-    },
+            loading: {
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+            },
+        },
+    }),
 
-    word: {
-        color: "white",
-        fontSize: 20,
-        paddingHorizontal: 2,
-        lineHeight: 32,
-    },
 
-    selectedWord: {
-        backgroundColor: "#FFCC00",
-        color: "black",
-        borderRadius: 4,
-        overflow: "hidden",
-    },
 
-    loading: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-    },
+
 
 });
