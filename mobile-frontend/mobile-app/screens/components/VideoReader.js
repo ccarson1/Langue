@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -6,6 +6,7 @@ import {
     Platform,
     Pressable,
     PanResponder,
+    ActivityIndicator,
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvent } from 'expo';
@@ -13,8 +14,11 @@ import { useEvent } from 'expo';
 function Player({ source }) {
     const [volume, setVolume] = useState(1);
     const [muted, setMuted] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const barWidthRef = useRef(0);
     const barXRef = useRef(0);
+    const shouldAutoPlayRef = useRef(false);
+
 
     const progressWidthRef = useRef(0);
     const progressXRef = useRef(0);
@@ -29,6 +33,9 @@ function Player({ source }) {
     // onLayout callback keeps them in sync on every resize event.
     const [containerWidth, setContainerWidth] = useState(0);
     const containerHeight = containerWidth * (9 / 16);
+    const MIN_BUFFER_SECONDS = 6;
+    const [hasRetried, setHasRetried] = useState(false);
+
 
     const handleWrapperLayout = (event) => {
         const { width: measuredWidth } = event.nativeEvent.layout;
@@ -49,9 +56,121 @@ function Player({ source }) {
         }
     );
 
+
+    const { status } = useEvent(player, 'statusChange', {
+        status: 'loading',
+    });
+
     const { currentTime = 0 } = useEvent(player, 'timeUpdate', {
         currentTime: 0,
     });
+
+    useEffect(() => {
+        console.log('Video status:', status);
+
+        if (status === 'loading') {
+            console.log('Video is loading');
+
+            // Do not show the loading overlay if playback is already running.
+            if (!player.playing) {
+                setIsLoading(true);
+            }
+
+            return;
+        }
+
+        if (status === 'error') {
+            console.error('VIDEO ERROR:', player.error);
+            console.error('VIDEO ERROR JSON:', JSON.stringify(player.error));
+            console.error('VIDEO ERROR MESSAGE:', player.error?.message);
+            console.error('VIDEO ERROR CODE:', player.error?.code);
+            console.error('VIDEO SOURCE:', source);
+
+            if (!hasRetried) {
+                console.log('VIDEO ERROR - RETRYING STREAM');
+
+                setHasRetried(true);
+                setIsLoading(true);
+
+                player.pause();
+
+                player.replace({
+                    uri: source,
+                    ...(isHLS ? { contentType: 'hls' } : {}),
+                });
+
+                return;
+            }
+
+            console.error('VIDEO ERROR - RETRY FAILED');
+
+            setIsLoading(false);
+            return;
+        }
+
+        if (status === 'readyToPlay') {
+            console.log('Video is ready');
+
+            // If playback is already running, the stream is already usable.
+            if (player.playing) {
+                setIsLoading(false);
+                return;
+            }
+
+            setIsLoading(true);
+
+            let timer = null;
+
+            const checkBuffer = async () => {
+                const buffered = player.bufferedPosition;
+                const current = player.currentTime;
+
+                console.log(
+                    'BUFFER CHECK:',
+                    'current =', current,
+                    'buffered =', buffered,
+                    'ahead =', buffered - current
+                );
+
+                if (
+                    Number.isFinite(buffered) &&
+                    Number.isFinite(current) &&
+                    buffered - current >= MIN_BUFFER_SECONDS
+                ) {
+                    console.log(
+                        'BUFFER READY:',
+                        buffered - current,
+                        'seconds'
+                    );
+
+                    setIsLoading(false);
+                    if (shouldAutoPlayRef.current && !player.playing) {
+                        console.log('BUFFER READY - AUTO PLAYING');
+
+                        try {
+                            await player.play();
+                            console.log('AUTO PLAY COMPLETED');
+                        } catch (error) {
+                            console.error('AUTO PLAY ERROR:', error);
+                        }
+                    }
+                    return;
+                }
+
+                timer = setTimeout(checkBuffer, 250);
+            };
+
+            checkBuffer();
+
+            return () => {
+                if (timer !== null) {
+                    clearTimeout(timer);
+                }
+            };
+        }
+    }, [status, player, source]);
+
+
 
     const rawDuration = player.duration;
     const duration = Number.isFinite(rawDuration) && rawDuration > 0
@@ -105,11 +224,20 @@ function Player({ source }) {
     };
 
     const handlePlayPause = async () => {
+        console.log('PLAY BUTTON PRESSED');
+        console.log('Status at play:', status);
+        console.log('Player playing:', player.playing);
+
         try {
             if (player.playing) {
+                shouldAutoPlayRef.current = false;
                 player.pause();
             } else {
+                shouldAutoPlayRef.current = true;
+
+                console.log('Calling player.play()...');
                 await player.play();
+                console.log('player.play() completed');
             }
         } catch (error) {
             console.error('Video playback error:', error);
@@ -312,6 +440,15 @@ function Player({ source }) {
                 pointerEvents="none"
             />
 
+            {isLoading && (
+                <View style={styles.loadingOverlay} pointerEvents="auto">
+                    <ActivityIndicator size="large" color="#ffffff" />
+                    <Text style={styles.loadingText}>
+                        Loading stream...
+                    </Text>
+                </View>
+            )}
+
             {/*
               Dedicated tap-to-toggle layer, rendered as a sibling ON TOP
               of the video rather than wrapping it. Being a plain RN
@@ -322,7 +459,7 @@ function Player({ source }) {
                 style={styles.tapLayer}
                 onPress={handlePlayPause}
             >
-                {!player.playing && (
+                {!player.playing && !isLoading && (
                     <View style={styles.centerIconWrapper} pointerEvents="none">
                         <View style={styles.centerIconCircle}>
                             <Text style={styles.centerIcon}>▶</Text>
@@ -710,6 +847,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+
+    loadingText: {
+        color: COLORS.text,
+        fontSize: 14,
+        marginTop: 10,
     },
 
 });

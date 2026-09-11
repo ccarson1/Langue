@@ -343,9 +343,9 @@ export default function HomeScreen({ navigation }) {
             console.log(publicDictionaries)
             console.log(publicDictionaries[userDictionary].name)
             console.log(userDictionary)
-            // dictionary = public_dictionaries.find(item => item.id === 2)
-            // console.log(dictionary)
-            return f`No defintion in ${publicDictionaries[userDictionary].name}`;
+            var dictionary = publicDictionaries.find(item => item.id === 2)
+            console.log(dictionary)
+            return `No defintion in ${dictionary.name}`;
         }
     };
 

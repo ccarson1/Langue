@@ -53,9 +53,13 @@ const LessonVideoPlayer = forwardRef(({
 
     useImperativeHandle(ref, () => ({
         play() {
+            if (!videoUri || !player) {
+                console.log("Video is not ready to play");
+                return;
+            }
+
             player.play();
             onPlaybackFinished?.();
-
         },
 
         pause() {
