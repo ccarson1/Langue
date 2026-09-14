@@ -16,12 +16,10 @@ function Player({ source }) {
     const [muted, setMuted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const barWidthRef = useRef(0);
-    const barXRef = useRef(0);
     const shouldAutoPlayRef = useRef(false);
 
 
     const progressWidthRef = useRef(0);
-    const progressXRef = useRef(0);
     const progressDraggingRef = useRef(false);
     const progressPointerIdRef = useRef(null);
 
@@ -86,32 +84,51 @@ function Player({ source }) {
             console.error('VIDEO ERROR CODE:', player.error?.code);
             console.error('VIDEO SOURCE:', source);
 
-            if (!hasRetried) {
-                console.log('VIDEO ERROR - RETRYING STREAM');
-
+            // Don't nuke the whole player over a seek-triggered buffering error.
+            // Only auto-retry if we're not in the middle of a user seek.
+            if (!hasRetried && pendingSeekRef.current === null) {
                 setHasRetried(true);
                 setIsLoading(true);
-
                 player.pause();
-
                 player.replace({
                     uri: source,
                     ...(isHLS ? { contentType: 'hls' } : {}),
                 });
-
                 return;
             }
 
-            console.error('VIDEO ERROR - RETRY FAILED');
-
+            console.error('VIDEO ERROR - not retrying (seek in progress or already retried)');
             setIsLoading(false);
             return;
         }
 
         if (status === 'readyToPlay') {
+            if (pendingSeekRef.current !== null) {
+                applySeek(pendingSeekRef.current);
+                pendingSeekRef.current = null;
+            }
             console.log('Video is ready');
 
-            // If playback is already running, the stream is already usable.
+            // Recordings don't need the HLS buffer check.
+            if (!isHLS) {
+                setIsLoading(false);
+
+                if (shouldAutoPlayRef.current && !player.playing) {
+                    console.log('RECORDING READY - AUTO PLAYING');
+
+                    Promise.resolve(player.play())
+                        .then(() => {
+                            console.log('AUTO PLAY COMPLETED');
+                        })
+                        .catch((error) => {
+                            console.error('AUTO PLAY ERROR:', error);
+                        });
+                }
+
+                return;
+            }
+
+            // HLS streams keep the existing buffer system.
             if (player.playing) {
                 setIsLoading(false);
                 return;
@@ -144,6 +161,7 @@ function Player({ source }) {
                     );
 
                     setIsLoading(false);
+
                     if (shouldAutoPlayRef.current && !player.playing) {
                         console.log('BUFFER READY - AUTO PLAYING');
 
@@ -154,6 +172,7 @@ function Player({ source }) {
                             console.error('AUTO PLAY ERROR:', error);
                         }
                     }
+
                     return;
                 }
 
@@ -185,42 +204,72 @@ function Player({ source }) {
     };
 
     const handleProgressBarLayout = (event) => {
-        const { width, x } = event.nativeEvent.layout;
+        const { width } = event.nativeEvent.layout;
 
         progressWidthRef.current = width;
-        progressXRef.current = x;
     };
+
+    const pendingSeekRef = useRef(null);
 
     const seekFromX = (x, width = progressWidthRef.current) => {
         if (!Number.isFinite(x)) return;
         if (!Number.isFinite(width) || width <= 0) return;
         if (!Number.isFinite(duration) || duration <= 0) return;
 
-        const ratio = Math.min(
-            Math.max(x / width, 0),
-            1
-        );
-
+        const ratio = Math.min(Math.max(x / width, 0), 1);
         const newTime = ratio * duration;
 
         if (!Number.isFinite(newTime)) return;
 
+        // Video isn't ready to accept a seek yet (MSE/HLS not attached,
+        // or readyState too low) — remember it and apply once ready.
+        if (status !== 'readyToPlay' || isLoading) {
+            console.log('SEEK DEFERRED (not ready):', { status, isLoading, newTime });
+            pendingSeekRef.current = newTime;
+            return;
+        }
+
+        applySeek(newTime);
+    };
+
+    const applySeek = (newTime) => {
+        console.log('APPLY SEEK:', {
+            newTime,
+            currentTimeBefore: player.currentTime,
+            hasSeekBy: typeof player.seekBy === 'function',
+        });
+
         try {
-            player.currentTime = newTime;
+            const delta = newTime - (player.currentTime ?? 0);
+
+            if (typeof player.seekBy === 'function') {
+                player.seekBy(delta);
+            } else {
+                player.currentTime = newTime;
+            }
+
+            console.log('APPLY SEEK RESULT (sync):', {
+                requested: newTime,
+                actual: player.currentTime,
+            });
+
+            setTimeout(() => {
+                console.log('APPLY SEEK RESULT (500ms):', {
+                    requested: newTime,
+                    actual: player.currentTime,
+                });
+            }, 500);
         } catch (error) {
             console.warn('Seek failed:', error);
         }
     };
 
-    const handleProgressGesture = (pageX) => {
+    const handleProgressGesture = (locationX) => {
         const width = progressWidthRef.current;
-        const barX = progressXRef.current;
 
         if (!width || !duration) return;
 
-        const x = pageX - barX;
-
-        seekFromX(x);
+        seekFromX(locationX, width);
     };
 
     const handlePlayPause = async () => {
@@ -254,7 +303,6 @@ function Player({ source }) {
         const { width, x } = event.nativeEvent.layout;
 
         barWidthRef.current = width;
-        barXRef.current = x;
     };
 
     const setVolumeFromX = (x) => {
@@ -277,52 +325,35 @@ function Player({ source }) {
         }
     };
 
-    const handleVolumeGesture = (pageX) => {
+    const handleVolumeGesture = (locationX) => {
         const width = barWidthRef.current;
-        const barX = barXRef.current;
 
         if (!width) return;
 
-        const x = pageX - barX;
-
-        setVolumeFromX(x);
+        setVolumeFromX(locationX);
     };
 
-    const volumePanResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
+    const volumePanResponder = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+            handleVolumeGesture(event.nativeEvent.locationX);
+        },
+        onPanResponderMove: (event) => {
+            handleVolumeGesture(event.nativeEvent.locationX);
+        },
+    });
 
-            onMoveShouldSetPanResponder: () => true,
-
-            onPanResponderGrant: (event) => {
-                handleVolumeGesture(event.nativeEvent.pageX);
-            },
-
-            onPanResponderMove: (event) => {
-                handleVolumeGesture(event.nativeEvent.pageX);
-            },
-        })
-    ).current;
-
-    const progressPanResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-
-            onMoveShouldSetPanResponder: () => true,
-
-            onPanResponderGrant: (event) => {
-                handleProgressGesture(
-                    event.nativeEvent.pageX
-                );
-            },
-
-            onPanResponderMove: (event) => {
-                handleProgressGesture(
-                    event.nativeEvent.pageX
-                );
-            },
-        })
-    ).current;
+    const progressPanResponder = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+            handleProgressGesture(event.nativeEvent.locationX);
+        },
+        onPanResponderMove: (event) => {
+            handleProgressGesture(event.nativeEvent.locationX);
+        },
+    });
 
     const handleVolumePointerDown = (event) => {
         event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -352,9 +383,18 @@ function Player({ source }) {
         const element = event.currentTarget;
         const rect = element.getBoundingClientRect();
 
-        const width = rect.width;
+        const x = event.clientX - rect.left;
 
-        if (!Number.isFinite(width) || width <= 0) return;
+        console.log('SEEK BAR CLICK:', {
+            clientX: event.clientX,
+            rectLeft: rect.left,
+            rectWidth: rect.width,
+            x: x,
+            duration: duration,
+            currentTime: player.currentTime,
+        });
+
+        if (!Number.isFinite(rect.width) || rect.width <= 0) return;
         if (!Number.isFinite(duration) || duration <= 0) return;
 
         progressDraggingRef.current = true;
@@ -362,9 +402,7 @@ function Player({ source }) {
 
         element.setPointerCapture?.(event.pointerId);
 
-        const x = event.clientX - rect.left;
-
-        seekFromX(x, width);
+        seekFromX(x, rect.width);
     };
 
     const handleProgressPointerMove = (event) => {
@@ -380,18 +418,36 @@ function Player({ source }) {
         const element = event.currentTarget;
         const rect = element.getBoundingClientRect();
 
-        const width = rect.width;
-
-        if (!Number.isFinite(width) || width <= 0) return;
+        if (!Number.isFinite(rect.width) || rect.width <= 0) return;
         if (!Number.isFinite(duration) || duration <= 0) return;
 
         const x = event.clientX - rect.left;
 
-        seekFromX(x, width);
+        seekFromX(x, rect.width);
     };
 
     const handleProgressPointerUp = (event) => {
         const element = event.currentTarget;
+
+        if (
+            progressPointerIdRef.current !== null &&
+            event.pointerId !== progressPointerIdRef.current
+        ) {
+            return;
+        }
+
+        const rect = element.getBoundingClientRect();
+
+        if (
+            Number.isFinite(rect.width) &&
+            rect.width > 0 &&
+            Number.isFinite(duration) &&
+            duration > 0
+        ) {
+            const x = event.clientX - rect.left;
+
+            seekFromX(x, rect.width);
+        }
 
         progressDraggingRef.current = false;
 
@@ -410,6 +466,7 @@ function Player({ source }) {
 
         progressPointerIdRef.current = null;
     };
+
     const effectiveVolume = muted ? 0 : volume;
 
     return (
@@ -796,11 +853,13 @@ const styles = StyleSheet.create({
         bottom: 12,
         left: 12,
         right: 12,
+        zIndex: 20,
     },
     progressBarTrack: {
         width: '100%',
         height: 24,
         justifyContent: 'center',
+        position: 'relative',
 
         ...Platform.select({
             web: {
