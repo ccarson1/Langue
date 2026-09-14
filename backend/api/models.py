@@ -185,7 +185,7 @@ class Dictionary(models.Model):
     url = models.URLField(max_length=500, blank=True)
     user = models.ForeignKey( User, on_delete=models.CASCADE, related_name='dictionary' )
     path = models.CharField(max_length=500, blank=True)
-    dic_type = models.CharField(max_length=50, choices=[('website', 'Website'), ('pdf', 'PDF'), ('ai', 'AI')], default='website')
+    dic_type = models.CharField(max_length=50, choices=[('website', 'Website'), ('file', 'File'), ('ai', 'AI')], default='website')
     is_public = models.BooleanField(default=False)
     date_created = models.DateTimeField(auto_now_add=True)
     date_edited = models.DateTimeField(auto_now=True)

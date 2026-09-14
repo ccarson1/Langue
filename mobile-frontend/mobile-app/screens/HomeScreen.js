@@ -324,14 +324,22 @@ export default function HomeScreen({ navigation }) {
             setLoading(false);
 
             if (response.ok) {
-                if (data.translated.length > 1 && Array.isArray(data.translated)) {
-                    setMultiDefinition(true);
-                    setMultiDefDisplay(data.translated[0]);
-                } else {
-                    setMultiDefinition(false);
+                console.log(data)
+                if (data.inDatabase) {
+                    if (data.translated.length > 1 && Array.isArray(data.translated)) {
+                        setMultiDefinition(true);
+                        setMultiDefDisplay(data.translated[0]);
+                    } else {
+                        setMultiDefinition(false);
+                    }
+                    setTranslationIDs(data.translation_ids || []);
+                    console.log("Translation response:", data.translated[0].definition);
                 }
-                setTranslationIDs(data.translation_ids || []);
-                console.log("Translation response:", data.translated[0].definition);
+                else if (data.webScraped) {
+                    console.log(data);
+                }
+
+
                 return data.translated;
             } else {
                 showError('Translation API error');
@@ -343,7 +351,7 @@ export default function HomeScreen({ navigation }) {
             console.log(publicDictionaries)
             console.log(publicDictionaries[userDictionary].name)
             console.log(userDictionary)
-            var dictionary = publicDictionaries.find(item => item.id === 2)
+            var dictionary = publicDictionaries.find(item => item.id === userDictionary)
             console.log(dictionary)
             return `No defintion in ${dictionary.name}`;
         }
@@ -756,7 +764,7 @@ export default function HomeScreen({ navigation }) {
             {/* ============================================================
         USER GREETING
     ============================================================ */}
-{/* 
+            {/* 
             {user && (
                 <View
                     style={{
@@ -1219,7 +1227,7 @@ export default function HomeScreen({ navigation }) {
                     {user && (
                         <TouchableOpacity
                             onPress={() => {
-                                
+
                             }}
                         >
                             <Text style={styles.navText}>
@@ -1232,7 +1240,7 @@ export default function HomeScreen({ navigation }) {
 
                     {user && (
                         <TouchableOpacity
-                            
+
                         >
                             <Text style={styles.navText}>
                                 Grammar
@@ -1244,7 +1252,7 @@ export default function HomeScreen({ navigation }) {
 
                     {user && (
                         <TouchableOpacity
-                            
+
                         >
                             <Text style={styles.navText}>
                                 Typing

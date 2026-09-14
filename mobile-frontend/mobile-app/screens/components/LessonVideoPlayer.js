@@ -316,18 +316,15 @@ const styles = StyleSheet.create({
     ...Platform.select({
         web: {
             video: {
-
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-
                 width: "100%",
                 height: "100%",
+                objectFit: "contain",
             },
+
             container: {
                 width: "100%",
-                height: "100%",
+                height: "min(70vh, 500px)",
+                maxHeight: 500,
                 borderRadius: 15,
                 overflow: "hidden",
                 backgroundColor: "#222",

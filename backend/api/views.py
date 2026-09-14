@@ -19,6 +19,7 @@ from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, L
 from django.views.generic import TemplateView
 from .w_translate import load_user_model, translate_word
 from.dictionary_lookup import DictionaryLookup
+from.dictionary_scraper import DictionaryScraper
 from django.core.files.storage import default_storage
 
 from django.http import FileResponse, Http404, JsonResponse
@@ -56,6 +57,7 @@ RECORDINGS = {}
 
 BASE_NEW_WORD_FREQUENCY = 5.0
 WORD_INCREASE_FREQUENCY = 0.5
+DICT_TYPES = ['file', 'website', 'ai']
 
 
 
@@ -112,7 +114,7 @@ def translate(request):
         definitions = [t.definition for t in translations]
         print(f"Definitions from DB: {definitions}")
         print(f"Definitions IDs: {[t.id for t in translations]}")
-        response_data = { 'translated': definitions, 'inDatabase': 1, 'translation_ids': [t.id for t in translations]}
+        response_data = { 'translated': definitions, 'inDatabase': 1, 'webScraped': 0, 'translation_ids': [t.id for t in translations]}
         print(f"Response data: {response_data}")
         return Response(response_data)
 
@@ -138,27 +140,34 @@ def translate(request):
     if user_setting:
         user_dictionary = user_setting.user_dictionary
 
-    if user_dictionary:
-        print(user_dictionary.name)
+    print(user_dictionary.name)
+    print("Dictionary Type:", user_dictionary.dic_type)
+    print(DICT_TYPES[0], DICT_TYPES[0] == 'file')
+    print(DICT_TYPES[1], DICT_TYPES[1] == 'website')
+    from pprint import pprint
+
+    if user_dictionary.dic_type == DICT_TYPES[0]:
         dictionary_lookup = DictionaryLookup(target_language, user_dictionary, text, user=request.user)
-        
-
         try:
-            
             translated_text = dictionary_lookup.dic_json_lookup()
-
-            
+            if not translated_text:
+                translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang)
         except Exception as e:
-            translated_text = ''
             print('Dictionary lookup error:', e)
 
+    elif user_dictionary.dic_type == DICT_TYPES[1]:
+        print("Current Word: ", text)
+        dictionary_scraper = DictionaryScraper(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
+        response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
+        pprint(response_data)
+        response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
+        print(f"Response data: {response_data}")
+        return Response(response_data)
+
     else:
-
-
-        # Replace with your translation function:
         translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang)
 
-    return Response({'translated': translated_text, 'inDatabase': 0})
+    return Response({'translated': translated_text, 'inDatabase': 0, 'webScraped': 0})
 
 
 
@@ -1479,9 +1488,9 @@ def recordings(request, recording_id=None):
         if recording_id is not None:
 
             try:
-                recording = Recording.objects.get(
-                    id=recording_id,
-                    user=request.user
+                 recording = Recording.objects.get(
+                    Q(user=request.user) | Q(is_public=True),
+                    id=recording_id
                 )
             except Recording.DoesNotExist:
                 return Response(
