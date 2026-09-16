@@ -139,8 +139,16 @@ class DictionaryScraper():
             "User-Agent": "curl/8.0.1",
         }
 
+        encoded_word = quote(word, safe="")
+
+        url = (
+            f"https://dict.com/"
+            f"{target_language}-{native_language}/"
+            f"{encoded_word}"
+        )
+
         response = requests.get(
-            "https://dict.com/lithuanian-english/i%C5%A1kiosi",
+            url,
             headers=headers,
             timeout=15
         )
