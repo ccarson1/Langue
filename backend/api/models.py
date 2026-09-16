@@ -232,6 +232,7 @@ class UserSetting(models.Model):
     user = models.ForeignKey(User, db_column='user_ID', on_delete=models.CASCADE)
     native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='settings_translations_native')
     target_language = models.ForeignKey(Language, db_column='tar_id', on_delete=models.CASCADE, related_name='settings_translations_target')
+    offline_mode = models.BooleanField(default=False, db_column='offline_mode')
     notifications = models.BooleanField(default=True, db_column='notifications')
     dictionary_name = models.CharField( max_length=255, blank=True, null=True )
     user_dictionary = models.ForeignKey( Dictionary, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_settings' )

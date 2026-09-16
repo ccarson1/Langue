@@ -1,0 +1,796 @@
+{
+    "numbers": [
+    {
+        "name": "0",
+        "lithuanian": "nulis",
+        "audio_link": "backend/api/numbers/lt_numbers/0.mp3",
+        "audio": "0"
+    },
+    {
+        "name": "1",
+        "lithuanian": "vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/1.mp3",
+        "audio": "1"
+    },
+    {
+        "name": "2",
+        "lithuanian": "du",
+        "audio_link": "backend/api/numbers/lt_numbers/2.mp3",
+        "audio": "2"
+    },
+    {
+        "name": "3",
+        "lithuanian": "trys",
+        "audio_link": "backend/api/numbers/lt_numbers/3.mp3",
+        "audio": "3"
+    },
+    {
+        "name": "4",
+        "lithuanian": "keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/4.mp3",
+        "audio": "4"
+    },
+    {
+        "name": "5",
+        "lithuanian": "penki",
+        "audio_link": "backend/api/numbers/lt_numbers/5.mp3",
+        "audio": "5"
+    },
+    {
+        "name": "6",
+        "lithuanian": "šeši",
+        "audio_link": "backend/api/numbers/lt_numbers/6.mp3",
+        "audio": "6"
+    },
+    {
+        "name": "7",
+        "lithuanian": "septyni",
+        "audio_link": "backend/api/numbers/lt_numbers/7.mp3",
+        "audio": "7"
+    },
+    {
+        "name": "8",
+        "lithuanian": "aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/8.mp3",
+        "audio": "8"
+    },
+    {
+        "name": "9",
+        "lithuanian": "devyni",
+        "audio_link": "backend/api/numbers/lt_numbers/9.mp3",
+        "audio": "9"
+    },
+    {
+        "name": "10",
+        "lithuanian": "dešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/10.mp3",
+        "audio": "10"
+    },
+    {
+        "name": "11",
+        "lithuanian": "vienuolika",
+        "audio_link": "backend/api/numbers/lt_numbers/11.mp3",
+        "audio": "11"
+    },
+    {
+        "name": "12",
+        "lithuanian": "dvylika",
+        "audio_link": "backend/api/numbers/lt_numbers/12.mp3",
+        "audio": "12"
+    },
+    {
+        "name": "13",
+        "lithuanian": "trylika",
+        "audio_link": "backend/api/numbers/lt_numbers/13.mp3",
+        "audio": "13"
+    },
+    {
+        "name": "14",
+        "lithuanian": "keturiolika",
+        "audio_link": "backend/api/numbers/lt_numbers/14.mp3",
+        "audio": "14"
+    },
+    {
+        "name": "15",
+        "lithuanian": "penkiolika",
+        "audio_link": "backend/api/numbers/lt_numbers/15.mp3",
+        "audio": "15"
+    },
+    {
+        "name": "16",
+        "lithuanian": "šešiolika",
+        "audio_link": "backend/api/numbers/lt_numbers/16.mp3",
+        "audio": "16"
+    },
+    {
+        "name": "17",
+        "lithuanian": "septyniolika",
+        "audio_link": "backend/api/numbers/lt_numbers/17.mp3",
+        "audio": "17"
+    },
+    {
+        "name": "18",
+        "lithuanian": "aštuoniolika",
+        "audio_link": "backend/api/numbers/lt_numbers/18.mp3",
+        "audio": "18"
+    },
+    {
+        "name": "19",
+        "lithuanian": "devyniolika",
+        "audio_link": "backend/api/numbers/lt_numbers/19.mp3",
+        "audio": "19"
+    },
+    {
+        "name": "20",
+        "lithuanian": "dvaudioešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/20.mp3",
+        "audio": "20"
+    },
+    {
+        "name": "21",
+        "lithuanian": "dvaudioešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/21.mp3",
+        "audio": "21"
+    },
+    {
+        "name": "22",
+        "lithuanian": "dvaudioešimt du",
+        "audio_link": "backend/api/numbers/lt_numbers/22.mp3",
+        "audio": "22"
+    },
+    {
+        "name": "26",
+        "lithuanian": "dvaudioešimt šeši",
+        "audio_link": "backend/api/numbers/lt_numbers/26.mp3",
+        "audio": "26"
+    },
+    {
+        "name": "30",
+        "lithuanian": "trisdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/30.mp3",
+        "audio": "30"
+    },
+    {
+        "name": "31",
+        "lithuanian": "trisdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/31.mp3",
+        "audio": "31"
+    },
+    {
+        "name": "33",
+        "lithuanian": "trisdešimt trys",
+        "audio_link": "backend/api/numbers/lt_numbers/33.mp3",
+        "audio": "33"
+    },
+    {
+        "name": "37",
+        "lithuanian": "trisdešimt septyni",
+        "audio_link": "backend/api/numbers/lt_numbers/37.mp3",
+        "audio": "37"
+    },
+    {
+        "name": "40",
+        "lithuanian": "keturiasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/40.mp3",
+        "audio": "40"
+    },
+    {
+        "name": "41",
+        "lithuanian": "keturiasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/41.mp3",
+        "audio": "41"
+    },
+    {
+        "name": "44",
+        "lithuanian": "keturiasdešimt keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/44.mp3",
+        "audio": "44"
+    },
+    {
+        "name": "48",
+        "lithuanian": "keturiasdešimt aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/48.mp3",
+        "audio": "48"
+    },
+    {
+        "name": "50",
+        "lithuanian": "penkiasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/50.mp3",
+        "audio": "50"
+    },
+    {
+        "name": "51",
+        "lithuanian": "penkiasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/51.mp3",
+        "audio": "51"
+    },
+    {
+        "name": "55",
+        "lithuanian": "penkiasdešimt penki",
+        "audio_link": "backend/api/numbers/lt_numbers/55.mp3",
+        "audio": "55"
+    },
+    {
+        "name": "59",
+        "lithuanian": "penkiasdešimt devyni",
+        "audio_link": "backend/api/numbers/lt_numbers/59.mp3",
+        "audio": "59"
+    },
+    {
+        "name": "60",
+        "lithuanian": "šešiasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/60.mp3",
+        "audio": "60"
+    },
+    {
+        "name": "61",
+        "lithuanian": "šešiasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/61.mp3",
+        "audio": "61"
+    },
+    {
+        "name": "62",
+        "lithuanian": "šešiasdešimt du",
+        "audio_link": "backend/api/numbers/lt_numbers/62.mp3",
+        "audio": "62"
+    },
+    {
+        "name": "66",
+        "lithuanian": "šešiasdešimt šeši",
+        "audio_link": "backend/api/numbers/lt_numbers/66.mp3",
+        "audio": "66"
+    },
+    {
+        "name": "70",
+        "lithuanian": "septyniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/70.mp3",
+        "audio": "70"
+    },
+    {
+        "name": "71",
+        "lithuanian": "septyniasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/71.mp3",
+        "audio": "71"
+    },
+    {
+        "name": "73",
+        "lithuanian": "septyniasdešimt trys",
+        "audio_link": "backend/api/numbers/lt_numbers/73.mp3",
+        "audio": "73"
+    },
+    {
+        "name": "77",
+        "lithuanian": "septyniasdešimt septyni",
+        "audio_link": "backend/api/numbers/lt_numbers/77.mp3",
+        "audio": "77"
+    },
+    {
+        "name": "80",
+        "lithuanian": "aštuoniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/80.mp3",
+        "audio": "80"
+    },
+    {
+        "name": "81",
+        "lithuanian": "aštuoniasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/81.mp3",
+        "audio": "81"
+    },
+    {
+        "name": "84",
+        "lithuanian": "aštuoniasdešimt keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/84.mp3",
+        "audio": "84"
+    },
+    {
+        "name": "88",
+        "lithuanian": "aštuoniasdešimt aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/88.mp3",
+        "audio": "88"
+    },
+    {
+        "name": "90",
+        "lithuanian": "devyniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/90.mp3",
+        "audio": "90"
+    },
+    {
+        "name": "91",
+        "lithuanian": "devyniasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/91.mp3",
+        "audio": "91"
+    },
+    {
+        "name": "95",
+        "lithuanian": "devyniasdešimt penki",
+        "audio_link": "backend/api/numbers/lt_numbers/95.mp3",
+        "audio": "95"
+    },
+    {
+        "name": "99",
+        "lithuanian": "devyniasdešimt devyni",
+        "audio_link": "backend/api/numbers/lt_numbers/99.mp3",
+        "audio": "99"
+    },
+    {
+        "name": "100",
+        "lithuanian": "šimtas",
+        "audio_link": "backend/api/numbers/lt_numbers/100.mp3",
+        "audio": "100"
+    },
+    {
+        "name": "101",
+        "lithuanian": "šimtas vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/101.mp3",
+        "audio": "101"
+    },
+    {
+        "name": "105",
+        "lithuanian": "šimtas penki",
+        "audio_link": "backend/api/numbers/lt_numbers/105.mp3",
+        "audio": "105"
+    },
+    {
+        "name": "110",
+        "lithuanian": "šimtas dešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/110.mp3",
+        "audio": "110"
+    },
+    {
+        "name": "151",
+        "lithuanian": "šimtas penkiasdešimt vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/151.mp3",
+        "audio": "151"
+    },
+    {
+        "name": "200",
+        "lithuanian": "du šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/200.mp3",
+        "audio": "200"
+    },
+    {
+        "name": "202",
+        "lithuanian": "du šimtai du",
+        "audio_link": "backend/api/numbers/lt_numbers/202.mp3",
+        "audio": "202"
+    },
+    {
+        "name": "206",
+        "lithuanian": "du šimtai šeši",
+        "audio_link": "backend/api/numbers/lt_numbers/206.mp3",
+        "audio": "206"
+    },
+    {
+        "name": "220",
+        "lithuanian": "du šimtai dvaudioešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/220.mp3",
+        "audio": "220"
+    },
+    {
+        "name": "262",
+        "lithuanian": "du šimtai šešiasdešimt du",
+        "audio_link": "backend/api/numbers/lt_numbers/262.mp3",
+        "audio": "262"
+    },
+    {
+        "name": "300",
+        "lithuanian": "trys šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/300.mp3",
+        "audio": "300"
+    },
+    {
+        "name": "303",
+        "lithuanian": "trys šimtai trys",
+        "audio_link": "backend/api/numbers/lt_numbers/303.mp3",
+        "audio": "303"
+    },
+    {
+        "name": "307",
+        "lithuanian": "trys šimtai septyni",
+        "audio_link": "backend/api/numbers/lt_numbers/307.mp3",
+        "audio": "307"
+    },
+    {
+        "name": "330",
+        "lithuanian": "trys šimtai trisdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/330.mp3",
+        "audio": "330"
+    },
+    {
+        "name": "373",
+        "lithuanian": "trys šimtai septyniasdešimt trys",
+        "audio_link": "backend/api/numbers/lt_numbers/373.mp3",
+        "audio": "373"
+    },
+    {
+        "name": "400",
+        "lithuanian": "keturi šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/400.mp3",
+        "audio": "400"
+    },
+    {
+        "name": "404",
+        "lithuanian": "keturi šimtai keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/404.mp3",
+        "audio": "404"
+    },
+    {
+        "name": "408",
+        "lithuanian": "keturi šimtai aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/408.mp3",
+        "audio": "408"
+    },
+    {
+        "name": "440",
+        "lithuanian": "keturi šimtai keturiasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/440.mp3",
+        "audio": "440"
+    },
+    {
+        "name": "484",
+        "lithuanian": "keturi šimtai aštuoniasdešimt keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/484.mp3",
+        "audio": "484"
+    },
+    {
+        "name": "500",
+        "lithuanian": "penki šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/500.mp3",
+        "audio": "500"
+    },
+    {
+        "name": "505",
+        "lithuanian": "penki šimtai penki",
+        "audio_link": "backend/api/numbers/lt_numbers/505.mp3",
+        "audio": "505"
+    },
+    {
+        "name": "509",
+        "lithuanian": "penki šimtai devyni",
+        "audio_link": "backend/api/numbers/lt_numbers/509.mp3",
+        "audio": "509"
+    },
+    {
+        "name": "550",
+        "lithuanian": "penki šimtai penkiasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/550.mp3",
+        "audio": "550"
+    },
+    {
+        "name": "595",
+        "lithuanian": "penki šimtai devyniasdešimt penki",
+        "audio_link": "backend/api/numbers/lt_numbers/595.mp3",
+        "audio": "595"
+    },
+    {
+        "name": "600",
+        "lithuanian": "šeši šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/600.mp3",
+        "audio": "600"
+    },
+    {
+        "name": "601",
+        "lithuanian": "šeši šimtai vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/601.mp3",
+        "audio": "601"
+    },
+    {
+        "name": "606",
+        "lithuanian": "šeši šimtai šeši",
+        "audio_link": "backend/api/numbers/lt_numbers/606.mp3",
+        "audio": "606"
+    },
+    {
+        "name": "616",
+        "lithuanian": "šeši šimtai šešiolika",
+        "audio_link": "backend/api/numbers/lt_numbers/616.mp3",
+        "audio": "616"
+    },
+    {
+        "name": "660",
+        "lithuanian": "šeši šimtai šešiasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/660.mp3",
+        "audio": "660"
+    },
+    {
+        "name": "700",
+        "lithuanian": "septyni šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/700.mp3",
+        "audio": "700"
+    },
+    {
+        "name": "702",
+        "lithuanian": "septyni šimtai du",
+        "audio_link": "backend/api/numbers/lt_numbers/702.mp3",
+        "audio": "702"
+    },
+    {
+        "name": "707",
+        "lithuanian": "septyni šimtai septyni",
+        "audio_link": "backend/api/numbers/lt_numbers/707.mp3",
+        "audio": "707"
+    },
+    {
+        "name": "727",
+        "lithuanian": "septyni šimtai dvaudioešimt septyni",
+        "audio_link": "backend/api/numbers/lt_numbers/727.mp3",
+        "audio": "727"
+    },
+    {
+        "name": "770",
+        "lithuanian": "septyni šimtai septyniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/770.mp3",
+        "audio": "770"
+    },
+    {
+        "name": "800",
+        "lithuanian": "aštuoni šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/800.mp3",
+        "audio": "800"
+    },
+    {
+        "name": "803",
+        "lithuanian": "aštuoni šimtai trys",
+        "audio_link": "backend/api/numbers/lt_numbers/803.mp3",
+        "audio": "803"
+    },
+    {
+        "name": "808",
+        "lithuanian": "aštuoni šimtai aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/808.mp3",
+        "audio": "808"
+    },
+    {
+        "name": "838",
+        "lithuanian": "aštuoni šimtai trisdešimt aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/838.mp3",
+        "audio": "838"
+    },
+    {
+        "name": "880",
+        "lithuanian": "aštuoni šimtai aštuoniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/880.mp3",
+        "audio": "880"
+    },
+    {
+        "name": "900",
+        "lithuanian": "devyni šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/900.mp3",
+        "audio": "900"
+    },
+    {
+        "name": "904",
+        "lithuanian": "devyni šimtai keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/904.mp3",
+        "audio": "904"
+    },
+    {
+        "name": "909",
+        "lithuanian": "devyni šimtai devyni",
+        "audio_link": "backend/api/numbers/lt_numbers/909.mp3",
+        "audio": "909"
+    },
+    {
+        "name": "949",
+        "lithuanian": "devyni šimtai keturiasdešimt devyni",
+        "audio_link": "backend/api/numbers/lt_numbers/949.mp3",
+        "audio": "949"
+    },
+    {
+        "name": "990",
+        "lithuanian": "devyni šimtai devyniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/990.mp3",
+        "audio": "990"
+    },
+    {
+        "name": "1000",
+        "lithuanian": "tūkstantis",
+        "audio_link": "backend/api/numbers/lt_numbers/1000.mp3",
+        "audio": "1000"
+    },
+    {
+        "name": "1001",
+        "lithuanian": "tūkstantis vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/1001.mp3",
+        "audio": "1001"
+    },
+    {
+        "name": "1012",
+        "lithuanian": "tūkstantis dvylika",
+        "audio_link": "backend/api/numbers/lt_numbers/1012.mp3",
+        "audio": "1012"
+    },
+    {
+        "name": "1234",
+        "lithuanian": "tūkstantis du šimtai trisdešimt keturi",
+        "audio_link": "backend/api/numbers/lt_numbers/1234.mp3",
+        "audio": "1234"
+    },
+    {
+        "name": "2000",
+        "lithuanian": "du tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/2000.mp3",
+        "audio": "2000"
+    },
+    {
+        "name": "2002",
+        "lithuanian": "du tūkstančiai du",
+        "audio_link": "backend/api/numbers/lt_numbers/2002.mp3",
+        "audio": "2002"
+    },
+    {
+        "name": "2023",
+        "lithuanian": "du tūkstančiai dvaudioešimt trys",
+        "audio_link": "backend/api/numbers/lt_numbers/2023.mp3",
+        "audio": "2023"
+    },
+    {
+        "name": "2345",
+        "lithuanian": "du tūkstančiai trys šimtai keturiasdešimt penki",
+        "audio_link": "backend/api/numbers/lt_numbers/2345.mp3",
+        "audio": "2345"
+    },
+    {
+        "name": "3000",
+        "lithuanian": "trys tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/3000.mp3",
+        "audio": "3000"
+    },
+    {
+        "name": "3003",
+        "lithuanian": "trys tūkstančiai trys",
+        "audio_link": "backend/api/numbers/lt_numbers/3003.mp3",
+        "audio": "3003"
+    },
+    {
+        "name": "4000",
+        "lithuanian": "keturi tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/4000.mp3",
+        "audio": "4000"
+    },
+    {
+        "name": "4045",
+        "lithuanian": "keturi tūkstančiai keturiasdešimt penki",
+        "audio_link": "backend/api/numbers/lt_numbers/4045.mp3",
+        "audio": "4045"
+    },
+    {
+        "name": "5000",
+        "lithuanian": "penki tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/5000.mp3",
+        "audio": "5000"
+    },
+    {
+        "name": "5678",
+        "lithuanian": "penki tūkstančiai šeši šimtai septyniasdešimt aštuoni",
+        "audio_link": "backend/api/numbers/lt_numbers/5678.mp3",
+        "audio": "5678"
+    },
+    {
+        "name": "6000",
+        "lithuanian": "šeši tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/6000.mp3",
+        "audio": "6000"
+    },
+    {
+        "name": "7000",
+        "lithuanian": "septyni tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/7000.mp3",
+        "audio": "7000"
+    },
+    {
+        "name": "7890",
+        "lithuanian": "septyni tūkstančiai aštuoni šimtai devyniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/7890.mp3",
+        "audio": "7890"
+    },
+    {
+        "name": "8000",
+        "lithuanian": "aštuoni tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/8000.mp3",
+        "audio": "8000"
+    },
+    {
+        "name": "8901",
+        "lithuanian": "aštuoni tūkstančiai devyni šimtai vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/8901.mp3",
+        "audio": "8901"
+    },
+    {
+        "name": "9000",
+        "lithuanian": "devyni tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/9000.mp3",
+        "audio": "9000"
+    },
+    {
+        "name": "9090",
+        "lithuanian": "devyni tūkstančiai devyniasdešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/9090.mp3",
+        "audio": "9090"
+    },
+    {
+        "name": "10.000",
+        "lithuanian": "dešimt tūkstančių",
+        "audio_link": "backend/api/numbers/lt_numbers/10.000.mp3",
+        "audio": "10000"
+    },
+    {
+        "name": "10.001",
+        "lithuanian": "dešimt tūkstančių vienas",
+        "audio_link": "backend/api/numbers/lt_numbers/10.001.mp3",
+        "audio": "10001"
+    },
+    {
+        "name": "20.020",
+        "lithuanian": "dvaudioešimt tūkstančių dvaudioešimt",
+        "audio_link": "backend/api/numbers/lt_numbers/20.020.mp3",
+        "audio": "20020"
+    },
+    {
+        "name": "30.300",
+        "lithuanian": "trisdešimt tūkstančių trys šimtai",
+        "audio_link": "backend/api/numbers/lt_numbers/30.300.mp3",
+        "audio": "30300"
+    },
+    {
+        "name": "44.000",
+        "lithuanian": "keturiasdešimt keturi tūkstančiai",
+        "audio_link": "backend/api/numbers/lt_numbers/44.000.mp3",
+        "audio": "44000"
+    },
+    {
+        "name": "100.000",
+        "lithuanian": "šimtas tūkstančių",
+        "audio_link": "backend/api/numbers/lt_numbers/100.000.mp3",
+        "audio": "100000"
+    },
+    {
+        "name": "500.000",
+        "lithuanian": "penki šimtai tūkstančių",
+        "audio_link": "backend/api/numbers/lt_numbers/500.000.mp3",
+        "audio": "500000"
+    },
+    {
+        "name": "1.000.000",
+        "lithuanian": "vienas milijonas",
+        "audio_link": "backend/api/numbers/lt_numbers/1.000.000.mp3",
+        "audio": "1000000"
+    },
+    {
+        "name": "6.000.000",
+        "lithuanian": "šeši milijonai",
+        "audio_link": "backend/api/numbers/lt_numbers/6.000.000.mp3",
+        "audio": "6000000"
+    },
+    {
+        "name": "10.000.000",
+        "lithuanian": "dešimt milijonų",
+        "audio_link": "backend/api/numbers/lt_numbers/10.000.000.mp3",
+        "audio": "10000000"
+    },
+    {
+        "name": "70.000.000",
+        "lithuanian": "septyniasdešimt milijonų",
+        "audio_link": "backend/api/numbers/lt_numbers/70.000.000.mp3",
+        "audio": "70000000"
+    },
+    {
+        "name": "100.000.000",
+        "lithuanian": "šimtas milijonų",
+        "audio_link": "backend/api/numbers/lt_numbers/100.000.000.mp3",
+        "audio": "100000000"
+    },
+    {
+        "name": "800.000.000",
+        "lithuanian": "aštuoni šimtai milijonų",
+        "audio_link": "backend/api/numbers/lt_numbers/800.000.000.mp3",
+        "audio": "800000000"
+    },
+    {
+        "name": "1.000.000.000",
+        "lithuanian": "vienas milijardas",
+        "audio_link": "backend/api/numbers/lt_numbers/1.000.000.000.mp3",
+        "audio": "1000000000"
+    }
+    ]
+}

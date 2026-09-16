@@ -20,6 +20,7 @@ import LoadingOverlay from './components/LoadingOverlay';
 export default function SettingsScreen({ navigation }) {
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
+  const [offlineMode, setOfflineMode] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [dictionaries, setDictionaries] = useState([]);
   const [selectedDictionary, setSelectedDictionary] = useState('');
@@ -30,6 +31,7 @@ export default function SettingsScreen({ navigation }) {
   const [languages, setLanguages] = useState([]);
   const [serverIP, setServerIP] = useState('');
   const [loading, setLoading] = useState(false);
+
 
   const fetchLanguages = async () => {
     if (!serverIP) return;
@@ -129,6 +131,7 @@ export default function SettingsScreen({ navigation }) {
         console.log(settings);
         setNativeLanguage(settings.native_language);
         setTargetLanguage(settings.target_language);
+        setOfflineMode(settings.offline_mode ?? false);
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
         setSelectedDictionary(settings.user_dictionary || '');
@@ -172,6 +175,7 @@ export default function SettingsScreen({ navigation }) {
           body: JSON.stringify({
             native_language: nativeLanguage,
             target_language: targetLanguage,
+            offline_mode: offlineMode,
             notifications: notificationsEnabled,
             user_dictionary: selectedDictionary,
             privacy: profilePrivate,
@@ -314,6 +318,16 @@ export default function SettingsScreen({ navigation }) {
             ))}
 
           </Picker>
+        </View>
+
+        <View style={styles.checkboxRow}>
+          <Switch
+            value={offlineMode}
+            onValueChange={setOfflineMode}
+            trackColor={{ false: '#777', true: '#00adb5' }}
+            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+          />
+          <Text style={styles.checkboxLabel}>Offline Mode</Text>
         </View>
 
         <View style={styles.checkboxRow}>

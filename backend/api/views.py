@@ -875,6 +875,7 @@ def user_settings(request):
         data = {
             'native_language': settings.native_language.lang_name,
             'target_language': settings.target_language.lang_name,
+            'offline_mode': settings.offline_mode,
             'notifications': settings.notifications,
 
             'public_dictionaries': list(public_dictionaries),
@@ -903,9 +904,11 @@ def user_settings(request):
 
         return Response(data)
     elif request.method == 'PUT':
+        
         native_id = request.data.get('native_language')
         target_id = request.data.get('target_language')
         translation_model_id = request.data.get( 'translation_model' )
+        offline_mode = request.data.get('offline_mode')
         notifications = request.data.get('notifications')
         user_dictionary_id = request.data.get('user_dictionary')
         user_set_volume = request.data.get('user_set_volume')
@@ -916,6 +919,8 @@ def user_settings(request):
         showVideoCaptions = request.data.get('showVideoCaptions')
         showVideoView = request.data.get('showVideoView')
         continuousPlay = request.data.get('continuousPlay')
+
+        print('offline mode', offline_mode)
 
         if native_id is None or target_id is None:
             return Response(
@@ -944,6 +949,7 @@ def user_settings(request):
 
             settings.native_language = native_lang
             settings.target_language = target_lang
+            settings.offline_mode = bool(offline_mode)
             settings.notifications = bool(notifications)
             if user_dictionary_id is not None:
                 settings.user_dictionary = user_dictionary
@@ -1915,32 +1921,53 @@ def ocr_image(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def alphabet(request):
-
+def language_items(request, item_type):
     user_settings = UserSetting.objects.select_related(
         'target_language'
     ).get(user=request.user)
 
     lang_code = user_settings.target_language.yt_dlp_lang
 
-    alphabet_dir = (
+    # Example:
+    # alphabet -> api/alphabets/lt_alphabet/lt_alphabet.json
+    # numbers  -> api/numbers/lt_numbers/lt_numbers.json
+
+    if item_type == 'alphabet':
+        folder_name = f'{lang_code}_alphabet'
+        json_name = f'{lang_code}_alphabet.json'
+        base_folder = 'alphabets'
+        json_key = 'alphabet'
+
+    elif item_type == 'numbers':
+        folder_name = f'{lang_code}_numbers'
+        json_name = f'{lang_code}_numbers.json'
+        base_folder = 'numbers'
+        json_key = 'numbers'
+
+    else:
+        return JsonResponse(
+            {'error': 'Invalid item type'},
+            status=400
+        )
+
+    item_dir = (
         Path(settings.BASE_DIR)
         / 'api'
-        / 'alphabets'
-        / f'{lang_code}_alphabet'
+        / base_folder
+        / folder_name
     )
 
-    json_file = alphabet_dir / f'{lang_code}_alphabet.json'
+    json_file = item_dir / json_name
 
     print("BASE_DIR:", settings.BASE_DIR)
-    print("alphabet_dir:", alphabet_dir)
+    print("item_dir:", item_dir)
     print("json_file:", json_file)
     print("exists:", json_file.exists())
 
     if not json_file.exists():
         return JsonResponse(
             {
-                'error': f'Alphabet not found for language {lang_code}'
+                'error': f'{item_type.title()} not found for language {lang_code}'
             },
             status=404
         )
@@ -1948,30 +1975,54 @@ def alphabet(request):
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    audio_base_url = request.build_absolute_uri(
-        '/api/alphabets/audio/'
-    )
+    if isinstance(data, list):
+        items = data
+    else:
+        items = data.get(json_key, [])
 
-    for item in data.get('alphabet', []):
-        filename = item['audio']
+    for item in items:
+        if 'audio' not in item:
+            print("Missing audio field:", item)
+            continue
+        
+        filename = Path(item['audio']).name
 
-        # ensure extension only added once
         if not filename.endswith('.mp3'):
             filename = f"{filename}.mp3"
 
-        item['audio'] = request.build_absolute_uri(
-            f"/api/alphabets/audio/{lang_code}/{filename}"
+        audio_url = request.build_absolute_uri(
+            f"/api/{item_type}/audio/{lang_code}/{filename}"
         )
 
-    return JsonResponse(data)
+        print("Audio filename:", filename)
+        print("Audio URL:", audio_url)
+
+        item['audio'] = audio_url
+
+    return JsonResponse(
+        data,
+        safe=False if isinstance(data, list) else True
+    )
 
 
-def alphabet_audio(request, lang_code, filename):
+def language_item_audio(request, item_type, lang_code, filename):
+
+    if item_type == 'alphabet':
+        base_folder = 'alphabets'
+        folder_name = f'{lang_code}_alphabet'
+
+    elif item_type == 'numbers':
+        base_folder = 'numbers'
+        folder_name = f'{lang_code}_numbers'
+
+    else:
+        raise Http404("Invalid item type")
+
     audio_file = (
         Path(settings.BASE_DIR)
         / 'api'
-        / 'alphabets'
-        / f'{lang_code}_alphabet'
+        / base_folder
+        / folder_name
         / filename
     )
 
@@ -1980,7 +2031,10 @@ def alphabet_audio(request, lang_code, filename):
     if not audio_file.exists():
         raise Http404("Audio file not found")
 
-    response = FileResponse(open(audio_file, 'rb'), content_type='audio/mpeg')
+    response = FileResponse(
+        open(audio_file, 'rb'),
+        content_type='audio/mpeg'
+    )
 
     response["Access-Control-Allow-Origin"] = "*"
     response["Accept-Ranges"] = "bytes"

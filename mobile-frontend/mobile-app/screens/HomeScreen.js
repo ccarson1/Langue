@@ -1207,46 +1207,22 @@ export default function HomeScreen({ navigation }) {
                     )}
 
 
-                    {/* ---------------- ALPHABET ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Alphabet');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Alphabet
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* ---------------- Numbers ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Numbers
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
                     {/* ---------------- Grammar ---------------- */}
 
                     {user && (
                         <TouchableOpacity
-
+                            onPress={() => {
+                                navigation.navigate('Grammar');
+                                setMenuOpen(false);
+                            }}
                         >
                             <Text style={styles.navText}>
                                 Grammar
                             </Text>
                         </TouchableOpacity>
                     )}
+
+
 
                     {/* ---------------- Typing ---------------- */}
 
