@@ -47,8 +47,16 @@ export default function SettingsScreen({ navigation }) {
 
   const fetchTranslationModels = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem(
-        'accessToken'
+      const storedToken = await AsyncStorage.getItem('accessToken');
+
+      console.log(
+        'Fetching translation models:',
+        `http://${serverIP}:8000/api/translation-models/`
+      );
+
+      console.log(
+        'Token exists:',
+        !!storedToken
       );
 
       const res = await fetch(
@@ -60,13 +68,25 @@ export default function SettingsScreen({ navigation }) {
         }
       );
 
-      const data = await res.json();
+      console.log(
+        'Translation models status:',
+        res.status
+      );
+
+      const responseText = await res.text();
+
+      console.log(
+        'Translation models response:',
+        responseText
+      );
 
       if (!res.ok) {
         throw new Error(
-          data.detail || 'Failed to load translation models'
+          `HTTP ${res.status}: ${responseText}`
         );
       }
+
+      const data = JSON.parse(responseText);
 
       setLoadedModels(data);
 

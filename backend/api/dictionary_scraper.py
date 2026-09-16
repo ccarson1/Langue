@@ -135,8 +135,33 @@ class DictionaryScraper():
         # Download page
         # --------------------------------------------------
 
-        response = requests.get( url, headers=headers, timeout=15 )
-        response.raise_for_status()
+        headers = {
+            "User-Agent": "curl/8.0.1",
+        }
+
+        response = requests.get(
+            "https://dict.com/lithuanian-english/i%C5%A1kiosi",
+            headers=headers,
+            timeout=15
+        )
+
+        print("STATUS:", response.status_code)
+        print("URL:", response.url)
+        print("LENGTH:", len(response.text))
+        print("lex_ful_entr:", "lex_ful_entr" in response.text)
+
+        position = response.text.find("lex_ful_entr")
+
+        if position != -1:
+            print(response.text[position - 500:position + 1000])
+
+        print("ENTRY HEADER:")
+        entry_header = BeautifulSoup(response.text, "html.parser").select_one("#entry-header")
+
+        if entry_header:
+            print(entry_header)
+        else:
+            print("NOT FOUND")
 
         # --------------------------------------------------
         # Parse HTML
@@ -175,7 +200,52 @@ class DictionaryScraper():
         # Find main dictionary body
         # --------------------------------------------------
 
+        entry_rest = soup.select_one("#entry-rest")
+
+        if entry_rest:
+            morf = entry_rest.select_one(".lex_ful_morf")
+            pos_element = morf.select_one(".adv-exp") if morf else None
+
+            if pos_element:
+                tooltip = pos_element.select_one(".ex-tooltip")
+
+                full_name = tooltip.get_text(" ", strip=True) if tooltip else None
+
+                abbreviation = ""
+
+                for child in pos_element.children:
+                    if getattr(child, "name", None) == "span":
+                        continue
+
+                    text = getattr(
+                        child,
+                        "get_text",
+                        lambda **kwargs: str(child)
+                    )(strip=True)
+
+                    if text:
+                        abbreviation += text
+
+                abbreviation = abbreviation.strip()
+
+                current_part_of_speech = {
+                    "part_of_speech": full_name,
+                    "abbreviation": abbreviation,
+                    "definitions": []
+                }
+
+                result["parts_of_speech"].append(current_part_of_speech)
+            else:
+                current_part_of_speech = None
+        else:
+            current_part_of_speech = None
+
         main_body = soup.select_one( "section.main-body" )
+
+        print("MAIN BODY:", main_body)
+
+        if main_body:
+            print("SENSES:", main_body.find_all("sense", recursive=False))
 
         if not main_body:
             return result
@@ -184,7 +254,7 @@ class DictionaryScraper():
         # Track the current part of speech
         # --------------------------------------------------
 
-        current_part_of_speech = None
+        #current_part_of_speech = None
 
         # --------------------------------------------------
         # Process dictionary groups and senses

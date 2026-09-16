@@ -160,7 +160,18 @@ def translate(request):
         dictionary_scraper = DictionaryScraper(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
         response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
         pprint(response_data)
-        response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
+        #response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
+        definitions = []
+
+        for part_of_speech in response_data.get('parts_of_speech', []):
+            definitions.extend(part_of_speech.get('definitions', []))
+
+        response_data = {
+            'translated': definitions,
+            'dictionary_entry': response_data,
+            'inDatabase': 0,
+            'webScraped': 1
+        }
         print(f"Response data: {response_data}")
         return Response(response_data)
 
@@ -1984,7 +1995,7 @@ def language_items(request, item_type):
         if 'audio' not in item:
             print("Missing audio field:", item)
             continue
-        
+
         filename = Path(item['audio']).name
 
         if not filename.endswith('.mp3'):
