@@ -10,11 +10,17 @@ class DictionaryLookup():
 
         self.user_dictionary = user_dictionary
         self.text = text
+
         user_settings = UserSetting.objects.get(user=user)
         lang_code = user_settings.target_language.yt_dlp_lang
+
         print('Settings BASE_DIR', settings.BASE_DIR)
-        self.dictionary_path = os.path.join(user_dictionary.path)
-        
+        print('Dictionary name:', user_dictionary.name)
+        print('Dictionary path:', repr(user_dictionary.path))
+        print('Dictionary type:', user_dictionary.dic_type)
+
+        self.dictionary_path = user_dictionary.path
+            
 
 
     def dic_json_lookup(self):
