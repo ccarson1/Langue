@@ -31,6 +31,8 @@ export default function BottomAudioMenu({
     setShowVideoView,
     continuousPlay,
     setContinuousPlay,
+    setIsScraperEnabled,
+    isScraperEnabled,
     showToggles = true,
     showAudioVisualizer = false,
     videoFormat = false,
@@ -155,6 +157,10 @@ export default function BottomAudioMenu({
                             <View style={styles.toggleCard}>
                                 <Text style={styles.label}>Continuous Play</Text>
                                 <Switch value={continuousPlay} onValueChange={setContinuousPlay} />
+                            </View>
+                            <View style={styles.toggleCard}>
+                                <Text style={styles.label}>Enable Scraper</Text>
+                                <Switch value={isScraperEnabled} onValueChange={setIsScraperEnabled} />
                             </View>
 
                             {targetText && (

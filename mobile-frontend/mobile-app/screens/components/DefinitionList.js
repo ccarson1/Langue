@@ -20,13 +20,18 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
 
 
     const editClickedDefinition = (definition, translationID) => {
-        const definitionAsString = Array.isArray(definition) ? definition.join(", ") : String(definition);
+        const definitionAsString =
+            typeof definition === 'object' && definition !== null
+                ? definition.definition
+                : Array.isArray(definition)
+                    ? definition.join(", ")
+                    : String(definition);
+
         console.log(`Clicked definition: ${definitionAsString}, Translation ID: ${translationID}`);
         setWordCursor(definitionAsString);
         setTranslationID(translationID);
         setEditVisible(true);
     };
-
 
 
 
@@ -41,11 +46,17 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
                     <TouchableOpacity
                         key={index}
                         onPress={() => editClickedDefinition(definition, translationIDs[index])}
-                        style={styles.wordWrapper}
-
+                        style={[
+                            styles.wordWrapper,
+                            definition.isScraped && styles.scrapedWordWrapper,
+                        ]}
                     >
                         <Text style={styles.wordText}>
-                            {Array.isArray(definition) ? definition.join(", ") : definition}
+                            {Array.isArray(definition)
+                                ? definition.join(", ")
+                                : typeof definition === 'object'
+                                    ? definition.definition
+                                    : definition}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -116,6 +127,9 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         width: '100%',
         alignSelf: 'stretch',
+    },
+    scrapedWordWrapper: {
+        backgroundColor: '#d95f39',
     },
     wordText: {
         color: 'white',

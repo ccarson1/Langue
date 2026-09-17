@@ -94,6 +94,17 @@ emulator -avd Pixel_9_Pro
 
 adb devices
 
+# Run on physical phone
+adb devices
+## If you see
+List of devices attached
+R5CW12B7H8H    device
+
+## Run this
+adb kill-server
+adb start-server
+adb devices
+
 # TV Channels
 
 // const CHANNELS = [

@@ -2,7 +2,7 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote
-
+import time
 
 
 
@@ -15,74 +15,6 @@ class DictionaryScraper():
 
 
     def scrape_lingea_dict(self, word, target_language, native_language):
-        """
-        Scrape dictionary information from dict.com.
-
-        Parameters:
-            target_language (str):
-                Language being looked up.
-                Example: "lithuanian"
-
-            native_language (str):
-                Translation language.
-                Example: "english"
-
-            word (str):
-                Word to look up.
-                Example: "prieš"
-
-        Example:
-
-            result = scrape_dict(
-                "lithuanian",
-                "english",
-                "prieš"
-            )
-
-        Returns:
-
-            {
-                "word": "prieš",
-                "pronunciation": "[priéš]",
-                "parts_of_speech": [
-                    {
-                        "part_of_speech": "Preposition",
-                        "abbreviation": "prep",
-                        "definitions": [
-                            "opposite sb/sth, across from sb/sth",
-                            "against sb/sth (act, go etc.)",
-                            "before sth (a point in time), ago",
-                            "in front of sb/sth"
-                        ]
-                    },
-                    {
-                        "part_of_speech": "Adverb",
-                        "abbreviation": "adv",
-                        "definitions": [
-                            "opposite, across the street (located etc.)"
-                        ]
-                    }
-                ],
-                "phrases": [
-                    {
-                        "source": "prieš Kristų",
-                        "translation": "before Christ"
-                    },
-                    {
-                        "source": "prieš tai",
-                        "translation": "before (that), previously"
-                    }
-                ],
-                "examples": [
-                    {
-                        "source": "prieš pusvalandį",
-                        "translation": "half an hour ago"
-                    }
-                ]
-            }
-
-        Returns None if the dictionary entry cannot be found.
-        """
 
         # --------------------------------------------------
         # Clean input
@@ -91,6 +23,12 @@ class DictionaryScraper():
         target_language = target_language.strip().lower()
         native_language = native_language.strip().lower()
         word = word.strip()
+
+        print("REQUESTED WORD:", self.text)
+        print("SCRAPED WORD:", word)
+
+        if word.lower() != self.text.lower():
+            print("WARNING: SCRAPED WORD DOES NOT MATCH REQUESTED WORD")
 
         if not target_language:
             raise ValueError("target_language cannot be empty")
@@ -101,15 +39,10 @@ class DictionaryScraper():
         if not word:
             raise ValueError("word cannot be empty")
 
-        # --------------------------------------------------
-        # Build URL
-        #
-        # Example:
-        #
-        # https://dict.com/lithuanian-english/prie%C5%A1
-        # --------------------------------------------------
+
 
         encoded_word = quote(word, safe="")
+        print("Encoded Word:", encoded_word)
 
         url = ( f"https://dict.com/" f"{target_language}-{native_language}/" f"{encoded_word}" )
 
@@ -128,16 +61,16 @@ class DictionaryScraper():
                 "application/xml;q=0.9,image/avif,image/webp,"
                 "image/apng,*/*;q=0.8"
             ),
-            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Language": "lt,en-US;q=0.9,en;q=0.8",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Referer": "https://dict.com/",
         }
 
         # --------------------------------------------------
         # Download page
         # --------------------------------------------------
 
-        headers = {
-            "User-Agent": "curl/8.0.1",
-        }
 
         encoded_word = quote(word, safe="")
 
@@ -150,13 +83,32 @@ class DictionaryScraper():
         response = requests.get(
             url,
             headers=headers,
-            timeout=15
+            timeout=15,
+            allow_redirects=True,
         )
 
+        print(response)
+        print("COOKIES SENT:", response.request.headers.get("Cookie"))
+        print("COOKIES RECEIVED:", response.cookies.get_dict())
         print("STATUS:", response.status_code)
         print("URL:", response.url)
         print("LENGTH:", len(response.text))
-        print("lex_ful_entr:", "lex_ful_entr" in response.text)
+        print("REQUESTED URL:", url)
+        print("FINAL URL:", response.url)
+        print("REDIRECT HISTORY:", response.history)
+
+        print("REQUEST HEADERS:")
+        print(response.request.headers)
+
+        print("RESPONSE HEADERS:")
+        print(response.headers)
+
+        print("\n--- RESPONSE START ---")
+        print(response.text[:5000])
+        print("--- RESPONSE END ---")
+
+        print("Contains savo:", "savo" in response.text.lower())
+        print("Contains lang:", "lt-en" in response.text.lower())
 
         position = response.text.find("lex_ful_entr")
 
@@ -176,6 +128,12 @@ class DictionaryScraper():
         # --------------------------------------------------
 
         soup = BeautifulSoup( response.text, "html.parser" )
+
+
+        print("TITLE:", soup.title.get_text(strip=True) if soup.title else None)
+
+        print("\nTEXT:")
+        print(soup)
 
         # --------------------------------------------------
         # Find dictionary entry
@@ -258,48 +216,6 @@ class DictionaryScraper():
         if not main_body:
             return result
 
-        # --------------------------------------------------
-        # Track the current part of speech
-        # --------------------------------------------------
-
-        #current_part_of_speech = None
-
-        # --------------------------------------------------
-        # Process dictionary groups and senses
-        #
-        # HTML structure:
-        #
-        # <group>
-        #     prep
-        #     Preposition
-        # </group>
-        #
-        # <sense>
-        #     definition
-        # </sense>
-        #
-        # <sense>
-        #     definition
-        # </sense>
-        #
-        # <group>
-        #     adv
-        #     Adverb
-        # </group>
-        #
-        # <sense>
-        #     definition
-        # </sense>
-        #
-        # <group>
-        #     phr
-        #     Entries
-        # </group>
-        #
-        # <sense>
-        #     phrases/examples
-        # </sense>
-        # --------------------------------------------------
 
         for element in main_body.find_all( ["group", "sense"], recursive=False ):
 

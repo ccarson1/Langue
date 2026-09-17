@@ -82,7 +82,14 @@ def translate(request):
     nat_id = request.data.get('native_id', {}).get('id')
     tar_id = request.data.get('target_id', {}).get('id')
 
+    user_setting = UserSetting.objects.filter(
+        user=request.user
+    ).first()
 
+    user_dictionary = None
+
+    if user_setting:
+        user_dictionary = user_setting.user_dictionary
     
     print(f"Text: {text}")
     print(f"Native: {nat_id}")
@@ -112,9 +119,21 @@ def translate(request):
 
         # Return an array of definitions
         definitions = [t.definition for t in translations]
+        scraped_definitions = []
         print(f"Definitions from DB: {definitions}")
         print(f"Definitions IDs: {[t.id for t in translations]}")
-        response_data = { 'translated': definitions, 'inDatabase': 1, 'webScraped': 0, 'translation_ids': [t.id for t in translations]}
+
+        if user_dictionary.dic_type == DICT_TYPES[1] and user_setting.isScraperEnabled:
+            print("Current Word: ", text)
+            dictionary_scraper = DictionaryScraper(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
+            response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.lang_name, native_language.lang_name)
+            #response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
+            
+    
+            for part_of_speech in response_data.get('parts_of_speech', []):
+                scraped_definitions.extend(part_of_speech.get('definitions', []))
+
+        response_data = { 'translated': definitions, 'scraped_definitions': scraped_definitions, 'inDatabase': 1, 'webScraped': 0, 'translation_ids': [t.id for t in translations]}
         print(f"Response data: {response_data}")
         return Response(response_data)
 
@@ -130,15 +149,10 @@ def translate(request):
     # DICTIONARY FALLBACK
     # -----------------------------------
 
-    user_setting = UserSetting.objects.filter(
-        user=request.user
-    ).first()
-
-    user_dictionary = None
+    
     load_user_model(request.user)
 
-    if user_setting:
-        user_dictionary = user_setting.user_dictionary
+    
 
     print(user_dictionary.name)
     print("Dictionary Type:", user_dictionary.dic_type)
@@ -155,19 +169,21 @@ def translate(request):
         except Exception as e:
             print('Dictionary lookup error:', e)
 
-    elif user_dictionary.dic_type == DICT_TYPES[1]:
+    elif user_dictionary.dic_type == DICT_TYPES[1] and user_setting.isScraperEnabled:
         print("Current Word: ", text)
         dictionary_scraper = DictionaryScraper(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
-        response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
+        response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.lang_name, native_language.lang_name)
         pprint(response_data)
         #response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
         definitions = []
+        scraped_definitions = []
 
         for part_of_speech in response_data.get('parts_of_speech', []):
-            definitions.extend(part_of_speech.get('definitions', []))
+            scraped_definitions.extend(part_of_speech.get('definitions', []))
 
         response_data = {
             'translated': definitions,
+            'scraped_definitions': scraped_definitions,
             'dictionary_entry': response_data,
             'inDatabase': 0,
             'webScraped': 1
@@ -905,6 +921,7 @@ def user_settings(request):
             'showVideoCaptions': settings.showVideoCaptions,
             'showVideoView': settings.showVideoView,
             'continuousPlay': settings.continuousPlay,
+            'isScraperEnabled': settings.isScraperEnabled,
 
             'translation_model': (
                 settings.translationModel.id
@@ -930,6 +947,7 @@ def user_settings(request):
         showVideoCaptions = request.data.get('showVideoCaptions')
         showVideoView = request.data.get('showVideoView')
         continuousPlay = request.data.get('continuousPlay')
+        isScraperEnabled = request.data.get('isScraperEnabled')
 
         print('offline mode', offline_mode)
 
@@ -972,6 +990,7 @@ def user_settings(request):
             settings.showVideoCaptions = showVideoCaptions if showVideoCaptions is not None else settings.showVideoCaptions
             settings.showVideoView = showVideoView if showVideoView is not None else settings.showVideoView
             settings.continuousPlay = continuousPlay if continuousPlay is not None else settings.continuousPlay
+            settings.isScraperEnabled = isScraperEnabled if isScraperEnabled is not None else settings.isScraperEnabled
             settings.save()
 
             return Response({'message': 'Settings updated successfully'})

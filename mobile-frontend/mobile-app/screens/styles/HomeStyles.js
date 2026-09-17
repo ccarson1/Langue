@@ -292,6 +292,62 @@ export const createStyles = (insets) =>
             fontFamily: 'serif',
         },
 
+        // ============================================================
+        // DEFINITION TABS
+        // ============================================================
+
+        defTabs: {
+            flexDirection: 'row',
+            width: '100%',
+            borderBottomWidth: 1,
+            borderBottomColor: '#888',
+            marginBottom: 15,
+        },
+
+        defTab: {
+            flex: 1,
+            paddingVertical: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+
+        defTabActive: {
+            backgroundColor: '#00adb5',
+            borderRadius: 5,
+        },
+
+        defTabText: {
+            color: '#aaa',
+            fontSize: 16,
+            fontWeight: 'bold',
+        },
+
+        defTabTextActive: {
+            color: 'black',
+        },
+
+
+        // ============================================================
+        // SCRAPER
+        // ============================================================
+
+        scraperContainer: {
+            width: '100%',
+            padding: 10,
+        },
+
+        scraperHeader: {
+            fontSize: 25,
+            fontWeight: 'bold',
+            color: 'white',
+            marginBottom: 20,
+        },
+
+        scraperText: {
+            fontSize: 16,
+            color: 'white',
+        },
+
 
         // ============================================================
         // TRANSLATE BUTTON

@@ -244,6 +244,7 @@ class UserSetting(models.Model):
     showVideoCaptions = models.BooleanField(default=False)
     showVideoView = models.BooleanField(default=False)
     continuousPlay = models.BooleanField(default=False)
+    isScraperEnabled = models.BooleanField(default=False)
     translationModel = models.ForeignKey(TranslationModel,on_delete=models.CASCADE, related_name='settings_translation_model', null=True, blank=True)
     
 class Sentence(models.Model):

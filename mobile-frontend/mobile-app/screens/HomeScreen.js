@@ -71,8 +71,11 @@ export default function HomeScreen({ navigation }) {
     const [ShowVideoView, setShowVideoView] = useState(false);
     const [settingsLoaded, setSettingsLoaded] = useState(false);
     const [continuousPlay, setContinuousPlay] = useState(false);
+    const [isScraperEnabled, setIsScraperEnabled] = useState(false);
     const [publicDictionaries, setPublicDictionaries] = useState([]);
     const [userDictionary, setUserDictionary] = useState(0);
+    const [selectedDefTab, setSelectedDefTab] = useState('definition');
+    const [scrapedDefinitions, setScrapedDefintions] = useState([]);
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
@@ -339,6 +342,8 @@ export default function HomeScreen({ navigation }) {
                     console.log(data);
                 }
 
+                setScrapedDefintions(data.scraped_definitions);
+                console.log("Scraped Definitions: ", data.scraped_definitions);
 
                 return data.translated;
             } else {
@@ -438,7 +443,8 @@ export default function HomeScreen({ navigation }) {
                 playbackRate,
                 ShowVideoCaptions,
                 ShowVideoView,
-                continuousPlay
+                continuousPlay,
+                isScraperEnabled
             });
             const response = await fetch(
                 `http://${serverIP}:8000/api/settings/`,
@@ -455,7 +461,9 @@ export default function HomeScreen({ navigation }) {
                         target_language: targetLanguage.lang_name,
                         showVideoCaptions: ShowVideoCaptions,
                         showVideoView: ShowVideoView,
-                        continuousPlay: continuousPlay
+                        continuousPlay: continuousPlay,
+                        isScraperEnabled: isScraperEnabled
+
                     }),
                 }
             );
@@ -495,6 +503,7 @@ export default function HomeScreen({ navigation }) {
                     setShowVideoCaptions(data.showVideoCaptions);
                     setShowVideoView(data.showVideoView);
                     setContinuousPlay(data.continuousPlay);
+                    setIsScraperEnabled(data.isScraperEnabled);
                     setPublicDictionaries(data.public_dictionaries);
                     setUserDictionary(data.user_dictionary);
                     setSettingsLoaded(true);
@@ -696,7 +705,8 @@ export default function HomeScreen({ navigation }) {
         playbackRate,
         ShowVideoCaptions,
         ShowVideoView,
-        continuousPlay
+        continuousPlay,
+        isScraperEnabled
     ]);
 
 
@@ -726,8 +736,40 @@ export default function HomeScreen({ navigation }) {
         playbackRate,
         ShowVideoCaptions,
         ShowVideoView,
-        continuousPlay
+        continuousPlay,
+        isScraperEnabled
     ]);
+
+    const combinedDefinitions = [
+        ...(Array.isArray(translatedText) ? translatedText : []),
+        ...(Array.isArray(scrapedDefinitions)
+            ? scrapedDefinitions
+                .filter(scraped => {
+                    const scrapedDefinition =
+                        typeof scraped === 'string'
+                            ? scraped
+                            : scraped.definition;
+
+                    return !translatedText.some(item => {
+                        const translatedDefinition =
+                            typeof item === 'string'
+                                ? item
+                                : item.definition;
+
+                        return (
+                            translatedDefinition?.trim().toLowerCase() ===
+                            scrapedDefinition?.trim().toLowerCase()
+                        );
+                    });
+                })
+                .map(scraped => ({
+                    ...(typeof scraped === 'string'
+                        ? { definition: scraped }
+                        : scraped),
+                    isScraped: true,
+                }))
+            : [])
+    ];
 
     // --- Render ---
     if (!appIsReady) return null; // splash screen remains
@@ -937,153 +979,226 @@ export default function HomeScreen({ navigation }) {
                             showsVerticalScrollIndicator={true}
                         >
 
-                            {/* ---------------- HEADER ---------------- */}
+                            {/* ============================================================
+    DEFINITION TABS
+============================================================ */}
 
-                            <View>
-                                <Text style={styles.defHeader}>
-                                    Definition
-                                </Text>
-                            </View>
-
-
-                            {/* ---------------- TRANSLATE BUTTON ---------------- */}
-
-                            <View style={styles.translateBtn}>
+                            <View style={styles.defTabs}>
 
                                 <TouchableOpacity
-                                    onPress={() => {
-
-                                        if (rows[index]) {
-                                            setDescription(rows[index][2]);
-                                        }
-
-                                    }}
+                                    style={[
+                                        styles.defTab,
+                                        selectedDefTab === 'definition' && styles.defTabActive,
+                                    ]}
+                                    onPress={() => setSelectedDefTab('definition')}
                                 >
-
-                                    <Text style={styles.buttonText}>
-                                        Translate Sentence
+                                    <Text
+                                        style={[
+                                            styles.defTabText,
+                                            selectedDefTab === 'definition' && styles.defTabTextActive,
+                                        ]}
+                                    >
+                                        Definition
                                     </Text>
+                                </TouchableOpacity>
 
+
+                                <TouchableOpacity
+                                    style={[
+                                        styles.defTab,
+                                        selectedDefTab === 'scraper' && styles.defTabActive,
+                                    ]}
+                                    onPress={() => setSelectedDefTab('scraper')}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.defTabText,
+                                            selectedDefTab === 'scraper' && styles.defTabTextActive,
+                                        ]}
+                                    >
+                                        Scraper
+                                    </Text>
                                 </TouchableOpacity>
 
                             </View>
 
 
-                            {/* ---------------- STATUS ---------------- */}
+                            {/* ============================================================
+    DEFINITION TAB
+============================================================ */}
 
-                            <StatusIndicator
-                                frequency={selectedFrequency}
-                            />
+                            {selectedDefTab === 'definition' && (
+
+                                <View>
+
+                                    {/* ---------------- HEADER ---------------- */}
+
+                                    <View>
+                                        <Text style={styles.defHeader}>
+                                            Definition
+                                        </Text>
+                                    </View>
 
 
-                            {/* ---------------- PART OF SPEECH ---------------- */}
+                                    {/* ---------------- TRANSLATE BUTTON ---------------- */}
 
-                            <Text style={styles.partOfSpeech}>
-                                adjective
-                            </Text>
+                                    <View style={styles.translateBtn}>
+
+                                        <TouchableOpacity
+                                            onPress={() => {
+
+                                                if (rows[index]) {
+                                                    setDescription(rows[index][2]);
+                                                }
+
+                                            }}
+                                        >
+
+                                            <Text style={styles.buttonText}>
+                                                Translate Sentence
+                                            </Text>
+
+                                        </TouchableOpacity>
+
+                                    </View>
 
 
-                            {/* =================================================
-                        SELECTED WORD / TRANSLATION
-                    ================================================= */}
+                                    {/* ---------------- STATUS ---------------- */}
 
-                            <View style={styles.textRow}>
-
-                                <TouchableOpacity
-                                    style={styles.copy1}
-                                    onPress={copyToClipboard}
-                                >
-
-                                    <AntDesign
-                                        name="copy"
-                                        size={24}
-                                        color="black"
+                                    <StatusIndicator
+                                        frequency={selectedFrequency}
                                     />
 
-                                </TouchableOpacity>
+
+                                    {/* ---------------- PART OF SPEECH ---------------- */}
+
+                                    <Text style={styles.partOfSpeech}>
+                                        adjective
+                                    </Text>
 
 
-                                <Text style={styles.rightText}>
+                                    {/* =================================================
+            SELECTED WORD / TRANSLATION
+        ================================================= */}
 
-                                    {selectedText}
+                                    <View style={styles.textRow}>
 
-                                    {' : '}
+                                        <TouchableOpacity
+                                            style={styles.copy1}
+                                            onPress={copyToClipboard}
+                                        >
 
-                                    {
-                                        multiDefinition
-                                            ? multiDefDisplay
-                                            : translatedText
-                                    }
+                                            <AntDesign
+                                                name="copy"
+                                                size={24}
+                                                color="black"
+                                            />
 
-                                </Text>
-
-                            </View>
-
-
-                            {/* ---------------- SOLID SEPARATOR ---------------- */}
-
-                            <View style={styles.separatorSolid} />
+                                        </TouchableOpacity>
 
 
-                            {/* =================================================
-                        DEFINITIONS
-                    ================================================= */}
+                                        <Text style={styles.rightText}>
 
-                            <DefinitionList
-                                definitions={
-                                    Array.isArray(translatedText)
-                                        ? translatedText
-                                        : []
-                                }
+                                            {selectedText}
 
-                                translationIDs={translationIDs}
+                                            {' : '}
 
-                                onWordPress={displaySelectedText}
+                                            {
+                                                multiDefinition
+                                                    ? multiDefDisplay
+                                                    : translatedText
+                                            }
 
-                                onAddDefinition={handleAddDefinition}
+                                        </Text>
 
-                                selectedText={selectedText}
-
-                                translatedText={translatedText}
-
-                                nat_id={nativeLanguage}
-
-                                tar_id={targetLanguage}
-
-                                popup={popup}
-
-                                token={token}
-
-                                server={serverIP}
-
-                                showSuccess={showSuccess}
-
-                                showError={showError}
-
-                                onDefinitionUpdated={
-                                    handleUpdateDefinition
-                                }
-
-                                onRefreshTranslation={
-                                    refreshTranslation
-                                }
-                            />
+                                    </View>
 
 
-                            {/* ---------------- DOTTED SEPARATOR ---------------- */}
+                                    {/* ---------------- SOLID SEPARATOR ---------------- */}
 
-                            <View style={styles.separatorDotted} />
+                                    <View style={styles.separatorSolid} />
 
 
-                            {/* ---------------- DESCRIPTION ---------------- */}
+                                    {/* =================================================
+            DEFINITIONS
+        ================================================= */}
 
-                            <View>
+                                    <DefinitionList
+                                        definitions={combinedDefinitions}
 
-                                <Text style={styles.defDescription}>
-                                    {description}
-                                </Text>
+                                        translationIDs={translationIDs}
 
-                            </View>
+                                        onWordPress={displaySelectedText}
+
+                                        onAddDefinition={handleAddDefinition}
+
+                                        selectedText={selectedText}
+
+                                        translatedText={translatedText}
+
+                                        nat_id={nativeLanguage}
+
+                                        tar_id={targetLanguage}
+
+                                        popup={popup}
+
+                                        token={token}
+
+                                        server={serverIP}
+
+                                        showSuccess={showSuccess}
+
+                                        showError={showError}
+
+                                        onDefinitionUpdated={
+                                            handleUpdateDefinition
+                                        }
+
+                                        onRefreshTranslation={
+                                            refreshTranslation
+                                        }
+                                    />
+
+
+                                    {/* ---------------- DOTTED SEPARATOR ---------------- */}
+
+                                    <View style={styles.separatorDotted} />
+
+
+                                    {/* ---------------- DESCRIPTION ---------------- */}
+
+                                    <View>
+
+                                        <Text style={styles.defDescription}>
+                                            {description}
+                                        </Text>
+
+                                    </View>
+
+                                </View>
+
+                            )}
+
+
+                            {/* ============================================================
+    SCRAPER TAB
+============================================================ */}
+
+                            {selectedDefTab === 'scraper' && (
+
+                                <View style={styles.scraperContainer}>
+
+                                    <Text style={styles.scraperHeader}>
+                                        Scraper
+                                    </Text>
+
+                                    <Text style={styles.scraperText}>
+                                        Scraper information will appear here.
+                                    </Text>
+
+                                </View>
+
+                            )}
 
                         </ScrollView>
 
@@ -1462,6 +1577,9 @@ export default function HomeScreen({ navigation }) {
                 setContinuousPlay={
                     setContinuousPlay
                 }
+
+                isScraperEnabled={isScraperEnabled}
+                setIsScraperEnabled={setIsScraperEnabled}
 
             />
 
