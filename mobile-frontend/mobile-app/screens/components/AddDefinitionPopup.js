@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import SaveDefinitionButton  from './SaveDefinitionButton ';
+import SaveDefinitionButton from './SaveDefinitionButton ';
 
 export default function AddDefinitionPopup({
   visible,
@@ -9,6 +9,7 @@ export default function AddDefinitionPopup({
   selectedText,
   translatedText,
   definitions,
+  definition: scrapedDefinition,
   nat_id,
   tar_id,
   server,
@@ -23,12 +24,14 @@ export default function AddDefinitionPopup({
   const t_definition = (typeof translatedText === "object" && translatedText !== null) ? String(translatedText[0]) : translatedText;
 
   useEffect(() => {
-    if (definitions && definitions.length >= 1) {
-      setDefinition('');        // or some other logic
+    if (scrapedDefinition) {
+      setDefinition(scrapedDefinition);
+    } else if (definitions && definitions.length >= 1) {
+      setDefinition('');
     } else {
       setDefinition(t_definition);
     }
-  }, [translatedText]);
+  }, [translatedText, scrapedDefinition]);
 
   // useEffect(() => {
   //   console.log(`${typeof translatedText[0]}`)
@@ -82,7 +85,7 @@ export default function AddDefinitionPopup({
               showSuccess={(msg) => {
                 if (typeof showSuccess === 'function') showSuccess(msg);
                 handleLocalSubmit();
-                onClose();
+                //onClose();
               }}
               showError={(msg) => {
                 if (typeof showError === 'function') showError(msg);

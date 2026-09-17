@@ -10,8 +10,9 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
     const [isEditVisible, setEditVisible] = useState(false);
     const [wordCursor, setWordCursor] = useState('')
     const [translationID, setTranslationID] = useState(null);
+    const [scrapedDefinition, setScrapedDefinition] = useState('');
 
-
+    console.log("Word definitions in DefinitionList:", definitions);
     // useEffect(() => {
     //     console.log(`Definition List translated text ${definitions}`);
     //     console.log(`Definition Cursor ${wordCursor}`)
@@ -28,6 +29,13 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
                     : String(definition);
 
         console.log(`Clicked definition: ${definitionAsString}, Translation ID: ${translationID}`);
+
+        if (definition.isScraped) {
+            setScrapedDefinition(definitionAsString);
+            setPopupVisible(true);
+            return;
+        }
+
         setWordCursor(definitionAsString);
         setTranslationID(translationID);
         setEditVisible(true);
@@ -75,6 +83,7 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
                 selectedText={selectedText}
                 translatedText={translatedText}
                 definitions={definitions}
+                definition={scrapedDefinition}
                 nat_id={nat_id}
                 tar_id={tar_id}
                 popup={popup}

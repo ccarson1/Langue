@@ -29,7 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createStyles } from './styles/HomeStyles';
 //SplashScreen.preventAutoHideAsync();
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
     const { width, height } = useWindowDimensions();
     const isLargeScreen = width >= 900;
 
@@ -86,6 +86,56 @@ export default function HomeScreen({ navigation }) {
     const [lessonData, setLessonData] = useState(null);
 
     const indexRef = useRef(0);
+
+    const clearingLessonRef = useRef(false);
+
+    const clearLoadedLesson = async () => {
+        if (soundRef.current) {
+            try {
+                await soundRef.current.stopAsync();
+                await soundRef.current.unloadAsync();
+            } catch (e) {
+                console.log('Error clearing lesson audio:', e);
+            }
+
+            soundRef.current = null;
+        }
+
+        videoRef.current?.pause();
+
+        setLessonData(null);
+        setRows([]);
+        setIndex(0);
+        setCurrentLesson(null);
+        indexRef.current = 0;
+
+        setStartMs(0);
+        setEndMs(0);
+        setSelectedText('');
+        setTranslatedText([]);
+        setTranslationIDs([]);
+        setScrapedDefintions([]);
+        setSelectedFrequency(0);
+        setWordFrequencies([]);
+        setDescription('');
+
+        setLessonAudio(null);
+        setHasAudio(false);
+        setVideoFormat(false);
+        setIsPlaying(false);
+    };
+
+    useEffect(() => {
+        if (route.params?.resetLesson) {
+            clearingLessonRef.current = true;
+
+            clearLoadedLesson();
+
+            navigation.setParams({
+                resetLesson: undefined,
+            });
+        }
+    }, [route.params?.resetLesson]);
 
     useEffect(() => {
         indexRef.current = index;
@@ -201,8 +251,9 @@ export default function HomeScreen({ navigation }) {
     // --- Audio helpers ---
     const playAudio = async () => {
         console.log("Playing index:", index);
-        console.log("segmentStart:", rows[index][3]);
         if (!lessonAudio || !rows[index]) return;
+        console.log("segmentStart:", rows[index][3]);
+        
 
         if (ShowVideoView && videoFormat) {
 
@@ -379,6 +430,7 @@ export default function HomeScreen({ navigation }) {
         setSelectedText('');
         setTranslatedText([]);
         setTranslationIDs([]);
+        setScrapedDefintions([]);
         setSelectedFrequency(0);
 
         fetchWordFrequencies(row[0]);
@@ -557,16 +609,29 @@ export default function HomeScreen({ navigation }) {
 
         const fetchUserProfile = async () => {
             try {
-                const res = await fetch(`http://${serverIP}:8000/api/profile/`, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await fetch(
+                    `http://${serverIP}:8000/api/profile/`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
+
                 if (res.ok) {
                     const userData = await res.json();
+
                     setUser(userData);
-                    setCurrentLesson(userData.current_lesson);
+
+                    if (!clearingLessonRef.current) {
+                        setCurrentLesson(userData.current_lesson);
+                    }
                 }
             } catch (err) {
                 console.error(err);
             }
         };
+
         fetchUserProfile();
     }, [token]);
 

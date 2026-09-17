@@ -69,7 +69,7 @@ export default function SaveDefinitionButton({ payload, definitions, showSuccess
       } else {
         //onSuccess?.('Word saved successfully!');
         showSuccess('Definition saved successfully!');
-        definitions.push(payload["definition"])
+        //definitions.push(payload["definition"])
         //Alert.alert('Success', 'Word saved successfully!');
         console.log(data);
       }

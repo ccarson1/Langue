@@ -164,6 +164,7 @@ def translate(request):
         dictionary_lookup = DictionaryLookup(target_language, user_dictionary, text, user=request.user)
         try:
             translated_text = dictionary_lookup.dic_json_lookup()
+            print("Word from Dictionary lookup: ", translated_text)
             if not translated_text:
                 translated_text = translate_word(text, src_lang=target_language.yt_dlp_lang, tgt_lang=native_language.yt_dlp_lang)
         except Exception as e:

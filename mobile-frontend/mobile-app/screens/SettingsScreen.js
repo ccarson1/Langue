@@ -31,6 +31,8 @@ export default function SettingsScreen({ navigation }) {
   const [languages, setLanguages] = useState([]);
   const [serverIP, setServerIP] = useState('');
   const [loading, setLoading] = useState(false);
+  const [originalNativeLanguage, setOriginalNativeLanguage] = useState('');
+  const [originalTargetLanguage, setOriginalTargetLanguage] = useState('');
 
 
   const fetchLanguages = async () => {
@@ -151,6 +153,8 @@ export default function SettingsScreen({ navigation }) {
         console.log(settings);
         setNativeLanguage(settings.native_language);
         setTargetLanguage(settings.target_language);
+        setOriginalNativeLanguage(settings.native_language);
+        setOriginalTargetLanguage(settings.target_language);
         setOfflineMode(settings.offline_mode ?? false);
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
@@ -226,7 +230,9 @@ export default function SettingsScreen({ navigation }) {
 
       setLoading(false);
 
-      navigation.navigate('Home');
+      const languageChanged = originalNativeLanguage !== nativeLanguage || originalTargetLanguage !== targetLanguage;
+
+      navigation.navigate('Home', { resetLesson: languageChanged, });
 
     } catch (err) {
       console.error('Save settings error:', err);
