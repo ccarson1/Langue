@@ -20,6 +20,7 @@ import ProgressBar from './components/ProgressBar';
 import CustomPopup from './components/CustomPopup';
 import DefinitionList from './components/DefinitionList';
 import LessonVideoPlayer from "./components/LessonVideoPlayer";
+import ScrapedDictionary from './components/ScrapedDictionary';
 
 
 //import styles from './styles/HomeStyles';
@@ -76,6 +77,11 @@ export default function HomeScreen({ navigation, route }) {
     const [userDictionary, setUserDictionary] = useState(0);
     const [selectedDefTab, setSelectedDefTab] = useState('definition');
     const [scrapedDefinitions, setScrapedDefintions] = useState([]);
+    const [scrapedDictionaryEntry, setScrapedDictionaryEntry] = useState(null);
+
+    useEffect(() => {
+        console.log("scrapedDictionaryEntry STATE:", scrapedDictionaryEntry);
+    }, [scrapedDictionaryEntry]);
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
@@ -311,7 +317,10 @@ export default function HomeScreen({ navigation, route }) {
         setMultiDefinition(false);
         setMultiDefDisplay('');
         setScrapedDefintions([]);
+        setScrapedDictionaryEntry(null);
         setSelectedFrequency(0);
+        setDescription('');
+        setSelectedDefTab('definition');
 
         // Set the newly selected word
         setSelectedText(cleanedWord);
@@ -363,7 +372,9 @@ export default function HomeScreen({ navigation, route }) {
                 }
 
                 setScrapedDefintions(data.scraped_definitions);
+                setScrapedDictionaryEntry(data.dictionary_entry || null);
                 console.log("Scraped Definitions: ", data.scraped_definitions);
+                console.log("Dictionary Entry being set: ", data.dictionary_entry);
 
                 return data.translated;
             } else {
@@ -1216,17 +1227,9 @@ export default function HomeScreen({ navigation, route }) {
 
                             {selectedDefTab === 'scraper' && (
 
-                                <View style={styles.scraperContainer}>
-
-                                    <Text style={styles.scraperHeader}>
-                                        Scraper
-                                    </Text>
-
-                                    <Text style={styles.scraperText}>
-                                        Scraper information will appear here.
-                                    </Text>
-
-                                </View>
+                                <ScrapedDictionary
+                                    dictionaryEntry={scrapedDictionaryEntry}
+                                />
 
                             )}
 

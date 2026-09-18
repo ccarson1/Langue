@@ -132,8 +132,10 @@ def translate(request):
     
             for part_of_speech in response_data.get('parts_of_speech', []):
                 scraped_definitions.extend(part_of_speech.get('definitions', []))
+        else:
+            response_data = {}
 
-        response_data = { 'translated': definitions, 'scraped_definitions': scraped_definitions, 'inDatabase': 1, 'webScraped': 0, 'translation_ids': [t.id for t in translations]}
+        response_data = { 'translated': definitions, 'scraped_definitions': scraped_definitions, 'dictionary_entry': response_data, 'inDatabase': 1, 'webScraped': 0, 'translation_ids': [t.id for t in translations]}
         print(f"Response data: {response_data}")
         return Response(response_data)
 
