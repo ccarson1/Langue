@@ -282,14 +282,14 @@ class UserLessonsProgress(models.Model):
 class UserLanguageLessonIndex(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     user = models.ForeignKey( User, on_delete=models.CASCADE, related_name='language_lesson_index' )
-    lesson_progress = models.ForeignKey( UserLessonsProgress, db_column='lesson_id', on_delete=models.SET_NULL, null=True )
+    lesson_progress = models.ForeignKey( UserLessonsProgress, db_column='lesson_index_id', on_delete=models.SET_NULL, null=True, blank=True)
     lesson_language = models.ForeignKey( Language, db_column='lesson_lang', on_delete=models.CASCADE, related_name='lesson_lang_index' )
     class Meta:
         db_table = 'user_language_lesson_index'
         unique_together = ('user', 'lesson_language')
 
     def __str__(self):
-        return f"{self.user.username} - {self.lesson_language.name}"
+        return f"{self.user.username} - {self.lesson_language.lang_name}"
 
     
 class Profile(models.Model):

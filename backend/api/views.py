@@ -12,7 +12,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel, Tag, Dictionary, DictionaryEntry
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, TranslationModelSerializer
@@ -438,12 +438,20 @@ def import_lesson(request):
                         "Failed to download YouTube thumbnail"
                     )
 
-            UserLessonsProgress.objects.get_or_create(
+            lesson_progress, created = UserLessonsProgress.objects.get_or_create(
                 user=request.user,
                 lesson=lesson,
                 defaults={
                     'current_lesson_index': 0,
                     'last_viewed': timezone.now()
+                }
+            )
+
+            UserLanguageLessonIndex.objects.update_or_create(
+                user=request.user,
+                lesson_language=targetLang,
+                defaults={
+                    'lesson_progress': lesson_progress
                 }
             )
 
@@ -979,6 +987,23 @@ def user_settings(request):
 
             settings.native_language = native_lang
             settings.target_language = target_lang
+            language_index = (
+                UserLanguageLessonIndex.objects
+                .select_related(
+                    'lesson_progress',
+                    'lesson_progress__lesson'
+                )
+                .filter(
+                    user=user,
+                    lesson_language=target_lang
+                )
+                .first()
+            )
+            if language_index and language_index.lesson_progress:
+                profile = Profile.objects.get(user=user)
+                profile.current_lesson = language_index.lesson_progress
+                profile.save()
+
             settings.offline_mode = bool(offline_mode)
             settings.notifications = bool(notifications)
             if user_dictionary_id is not None:
@@ -1073,6 +1098,14 @@ def user_lessons_progress_view(request):
             defaults={
                 "current_lesson_index": current_index,
                 "last_viewed": timezone.now(),
+            }
+        )
+
+        UserLanguageLessonIndex.objects.update_or_create(
+            user=user,
+            lesson_language=lesson.target_language,
+            defaults={
+                'lesson_progress': progress
             }
         )
 
@@ -1299,6 +1332,14 @@ def change_lesson(request):
             user=user,
             lesson=lesson,
             defaults={'current_lesson_index': 0}
+        )
+
+        UserLanguageLessonIndex.objects.update_or_create(
+            user=user,
+            lesson_language=lesson.target_language,
+            defaults={
+                'lesson_progress': lesson_progress
+            }
         )
 
         # Update profile

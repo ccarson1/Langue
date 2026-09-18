@@ -87,55 +87,7 @@ export default function HomeScreen({ navigation, route }) {
 
     const indexRef = useRef(0);
 
-    const clearingLessonRef = useRef(false);
 
-    const clearLoadedLesson = async () => {
-        if (soundRef.current) {
-            try {
-                await soundRef.current.stopAsync();
-                await soundRef.current.unloadAsync();
-            } catch (e) {
-                console.log('Error clearing lesson audio:', e);
-            }
-
-            soundRef.current = null;
-        }
-
-        videoRef.current?.pause();
-
-        setLessonData(null);
-        setRows([]);
-        setIndex(0);
-        setCurrentLesson(null);
-        indexRef.current = 0;
-
-        setStartMs(0);
-        setEndMs(0);
-        setSelectedText('');
-        setTranslatedText([]);
-        setTranslationIDs([]);
-        setScrapedDefintions([]);
-        setSelectedFrequency(0);
-        setWordFrequencies([]);
-        setDescription('');
-
-        setLessonAudio(null);
-        setHasAudio(false);
-        setVideoFormat(false);
-        setIsPlaying(false);
-    };
-
-    useEffect(() => {
-        if (route.params?.resetLesson) {
-            clearingLessonRef.current = true;
-
-            clearLoadedLesson();
-
-            navigation.setParams({
-                resetLesson: undefined,
-            });
-        }
-    }, [route.params?.resetLesson]);
 
     useEffect(() => {
         indexRef.current = index;
@@ -620,12 +572,8 @@ export default function HomeScreen({ navigation, route }) {
 
                 if (res.ok) {
                     const userData = await res.json();
-
                     setUser(userData);
-
-                    if (!clearingLessonRef.current) {
-                        setCurrentLesson(userData.current_lesson);
-                    }
+                    setCurrentLesson(userData.current_lesson);
                 }
             } catch (err) {
                 console.error(err);
