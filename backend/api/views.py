@@ -151,6 +151,7 @@ def translate(request):
                     scraped_definitions.extend(part_of_speech.get('definitions', []))
         else:
             response_data = {}
+            web_scraped = 0
 
         response_data = { 'word_id': word.id, 'translated': definitions, 'scraped_definitions': scraped_definitions, 'dictionary_entry': response_data, 'dictionary_entry_exists': dictionary_entry_exists, 'inDatabase': 1, 'webScraped': web_scraped, 'translation_ids': [t.id for t in translations]}
         print(f"Response data: {response_data}")
@@ -617,7 +618,73 @@ def str_to_bool(value):
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
-def edit_lesson(request, lesson_id):
+def edit_lesson(request, lesson_id, sentence_id=None):
+
+    # ============================================================
+    # SINGLE SENTENCE UPDATE / DELETE
+    # ============================================================
+
+    if sentence_id is not None:
+
+        try:
+            sentence_obj = Sentence.objects.get(
+                id=sentence_id,
+                lesson=lesson
+            )
+        except Sentence.DoesNotExist:
+            return Response(
+                {'error': 'Sentence not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if request.method == 'PUT':
+
+            sentence_obj.sentence = request.data.get(
+                'sentence',
+                sentence_obj.sentence
+            )
+
+            sentence_obj.start_ms = request.data.get(
+                'start_ms',
+                sentence_obj.start_ms
+            )
+
+            sentence_obj.end_ms = request.data.get(
+                'end_ms',
+                sentence_obj.end_ms
+            )
+
+            sentence_obj.translated_sentence = request.data.get(
+                'translated_sentence',
+                sentence_obj.translated_sentence
+            )
+
+            sentence_obj.save()
+
+            return Response({
+                'message': 'Sentence updated successfully',
+                'sentence': {
+                    'id': sentence_obj.id,
+                    'sentence': sentence_obj.sentence,
+                    'start_ms': sentence_obj.start_ms,
+                    'end_ms': sentence_obj.end_ms,
+                    'translated_sentence': sentence_obj.translated_sentence
+                }
+            })
+
+        elif request.method == 'DELETE':
+
+            sentence_obj.delete()
+
+            return Response({
+                'message': 'Sentence deleted successfully'
+            })
+
+        else:
+            return Response(
+                {'error': 'Method not allowed'},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
 
     try:
         lesson = Lesson.objects.get( id=lesson_id, user=request.user )
@@ -712,6 +779,7 @@ def edit_lesson(request, lesson_id):
         return Response({
             'message': 'Lesson updated successfully'
         })
+    
     elif request.method == 'DELETE':
 
         try:

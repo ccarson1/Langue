@@ -80,10 +80,16 @@ export default function HomeScreen({ navigation, route }) {
     const [scrapedDictionaryEntry, setScrapedDictionaryEntry] = useState(null);
     const [wordId, setWordId] = useState(0)
     const [dictionaryEntryExists, setDictionaryEntryExists] = useState(false);
+    const [editableSelectedText, setEditableSelectedText] = useState(selectedText);
+    const [selectedTextWidth, setSelectedTextWidth] = useState(50);
 
     useEffect(() => {
-        console.log("scrapedDictionaryEntry STATE:", scrapedDictionaryEntry);
-    }, [scrapedDictionaryEntry]);
+        setEditableSelectedText(selectedText);
+    }, [selectedText]);
+
+    const getSelectedTextWidth = (text) => {
+        return Math.max(30, text.length * 8.5 + 4);
+    };
 
     // --- Popup helpers ---
     const showSuccess = (message) => setPopup({ visible: true, message, type: 'success' });
@@ -100,6 +106,22 @@ export default function HomeScreen({ navigation, route }) {
     useEffect(() => {
         indexRef.current = index;
     }, [index]);
+
+    const saveSelectedText = async () => {
+
+        const newText = editableSelectedText.trim();
+
+        if (!newText || newText === selectedText) {
+            return;
+        }
+
+        console.log('Saving sentence:', newText);
+
+        // API call will go here
+        
+        setSelectedText(newText);
+        setSelectedTextWidth(getSelectedTextWidth(newText));
+    };
 
     const fetchWordFrequencies = async (sentenceId) => {
         try {
@@ -325,7 +347,9 @@ export default function HomeScreen({ navigation, route }) {
         setSelectedDefTab('definition');
 
         // Set the newly selected word
+        
         setSelectedText(cleanedWord);
+        setSelectedTextWidth(getSelectedTextWidth(cleanedWord));
 
         const match = wordFrequencies.find(
             w => w.word.toLowerCase() === cleanedWord.toLowerCase()
@@ -1132,29 +1156,43 @@ export default function HomeScreen({ navigation, route }) {
                                             style={styles.copy1}
                                             onPress={copyToClipboard}
                                         >
-
                                             <AntDesign
                                                 name="copy"
                                                 size={24}
                                                 color="black"
                                             />
-
                                         </TouchableOpacity>
 
+                                        <View style={styles.rightTextContainer}>
 
-                                        <Text style={styles.rightText}>
+                                            
 
-                                            {selectedText}
+                                            <TextInput
+                                                value={editableSelectedText}
+                                                onChangeText={(text) => {
+                                                    setEditableSelectedText(text);
+                                                    setSelectedTextWidth(getSelectedTextWidth(text));
+                                                }}
+                                                onSubmitEditing={saveSelectedText}
+                                                onBlur={saveSelectedText}
+                                                style={[
+                                                    styles.rightTextInput,
+                                                    { width: selectedTextWidth }
+                                                ]}
+                                                returnKeyType="done"
+                                                blurOnSubmit={true}
+                                            />
 
-                                            {' : '}
+                                            <Text style={styles.rightText}>
+                                                {' : '}
+                                                {
+                                                    multiDefinition
+                                                        ? multiDefDisplay
+                                                        : translatedText
+                                                }
+                                            </Text>
 
-                                            {
-                                                multiDefinition
-                                                    ? multiDefDisplay
-                                                    : translatedText
-                                            }
-
-                                        </Text>
+                                        </View>
 
                                     </View>
 

@@ -548,6 +548,25 @@ export const createStyles = (insets) =>
 
             zIndex: 10,
         },
+        rightTextContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+
+        rightTextInput: {
+            padding: 0,
+            margin: 0,
+            fontSize: 16,
+            color: 'white',
+            outlineStyle: 'none',
+        },
+
+        rightText: {
+            fontSize: 16,
+            padding: 0,
+            margin: 0,
+            color: 'white'
+        },
 
     });
 
