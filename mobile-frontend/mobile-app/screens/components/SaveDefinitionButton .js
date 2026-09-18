@@ -5,7 +5,7 @@ import { getServerIP } from '../../utils/config';
 import CustomPopup from './CustomPopup';
 
 
-export default function SaveDefinitionButton({ payload, definitions, showSuccess, showError }) {
+export default function SaveDefinitionButton({ payload, definitions, showSuccess, showError, onWordSaved }) {
   const [loading, setLoading] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
@@ -72,6 +72,9 @@ export default function SaveDefinitionButton({ payload, definitions, showSuccess
         //definitions.push(payload["definition"])
         //Alert.alert('Success', 'Word saved successfully!');
         console.log(data);
+        if (data.word_id && onWordSaved) {
+          onWordSaved(data.word_id);
+}
       }
     } catch (error) {
       console.error('Error saving definition:', error);

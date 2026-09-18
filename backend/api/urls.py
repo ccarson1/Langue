@@ -44,6 +44,7 @@ urlpatterns = [
     path('statistics/', views.statistics, name='statistics'),
     path( "translation-models/", views.TranslationModelListView.as_view(), name="translation-models" ),
     path('tags/', views.tags, name='tags'),
+    path('dictionary-entry/', views.dictionary_entry, name="dictionary_entry"),
     path( '<str:item_type>/', views.language_items, name='language_items' ),
     path( '<str:item_type>/audio/<str:lang_code>/<str:filename>', views.language_item_audio, name='language_item_audio' ),
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),

@@ -16,6 +16,7 @@ export default function AddDefinitionPopup({
   token,
   showSuccess,
   showError,
+  onWordSaved,
 }) {
   const [definition, setDefinition] = useState('');
 
@@ -82,6 +83,7 @@ export default function AddDefinitionPopup({
                 tar_id: tar_id,
               }}
               definitions={definitions}
+              onWordSaved={onWordSaved}
               showSuccess={(msg) => {
                 if (typeof showSuccess === 'function') showSuccess(msg);
                 handleLocalSubmit();

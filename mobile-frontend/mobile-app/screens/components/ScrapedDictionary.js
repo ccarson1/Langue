@@ -4,13 +4,45 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
+    ScrollView
 } from 'react-native';
 
-const ScrapedDictionary = ({ dictionaryEntry  }) => {
+const ScrapedDictionary = ({ dictionaryEntry, dictionaryEntryExists, wordId, serverIP, token }) => {
     const [openPhrases, setOpenPhrases] = useState(true);
     const [openExamples, setOpenExamples] = useState(true);
+    const [saved, setSaved] = useState(dictionaryEntryExists);
 
-    if (!dictionaryEntry ) {
+    const saveDictionaryEntry = async () => {
+        try {
+            const response = await fetch(
+                `http://${serverIP}:8000/api/dictionary-entry/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        word_id: wordId,
+                        dictionary_entry: dictionaryEntry,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            console.log('Save dictionary response:', data);
+
+            if (data.success) {
+                setSaved(true);
+            }
+
+        } catch (error) {
+            console.error('Error saving dictionary entry:', error);
+        }
+    };
+
+    if (!dictionaryEntry) {
         return (
             <View style={styles.scrapedNotFound}>
                 <Text style={styles.scrapedNotFoundText}>
@@ -21,7 +53,7 @@ const ScrapedDictionary = ({ dictionaryEntry  }) => {
     }
 
     return (
-        <View style={styles.scrapedContainer}>
+        <ScrollView style={styles.scrapedContainer}>
 
             {/* ============================================================
                 WORD HEADER
@@ -37,6 +69,17 @@ const ScrapedDictionary = ({ dictionaryEntry  }) => {
                         {dictionaryEntry.pronunciation}
                     </Text>
                 ) : null}
+
+                {!saved && (
+                    <TouchableOpacity
+                        style={styles.saveDictionaryButton}
+                        onPress={saveDictionaryEntry}
+                    >
+                        <Text style={styles.saveDictionaryButtonText}>
+                            Save to Dictionary
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
 
@@ -185,13 +228,14 @@ const ScrapedDictionary = ({ dictionaryEntry  }) => {
                 </View>
             )}
 
-        </View>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
     scrapedContainer: {
         width: '100%',
+        height: 500,
         backgroundColor: '#242938',
         borderRadius: 14,
         overflow: 'hidden',
@@ -367,6 +411,20 @@ const styles = StyleSheet.create({
     scrapedNotFoundText: {
         fontSize: 16,
         color: '#9da5b5',
+    },
+    saveDictionaryButton: {
+        marginTop: 15,
+        alignSelf: 'flex-start',
+        paddingHorizontal: 15,
+        paddingVertical: 9,
+        borderRadius: 5,
+        backgroundColor: '#00b8c4',
+    },
+
+    saveDictionaryButtonText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1b1f2a',
     },
 
 })

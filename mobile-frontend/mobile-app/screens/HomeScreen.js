@@ -76,8 +76,10 @@ export default function HomeScreen({ navigation, route }) {
     const [publicDictionaries, setPublicDictionaries] = useState([]);
     const [userDictionary, setUserDictionary] = useState(0);
     const [selectedDefTab, setSelectedDefTab] = useState('definition');
-    const [scrapedDefinitions, setScrapedDefintions] = useState([]);
+    const [scrapedDefinitions, setScrapedDefinitions] = useState([]);
     const [scrapedDictionaryEntry, setScrapedDictionaryEntry] = useState(null);
+    const [wordId, setWordId] = useState(0)
+    const [dictionaryEntryExists, setDictionaryEntryExists] = useState(false);
 
     useEffect(() => {
         console.log("scrapedDictionaryEntry STATE:", scrapedDictionaryEntry);
@@ -316,7 +318,7 @@ export default function HomeScreen({ navigation, route }) {
         setTranslationIDs([]);
         setMultiDefinition(false);
         setMultiDefDisplay('');
-        setScrapedDefintions([]);
+        setScrapedDefinitions([]);
         setScrapedDictionaryEntry(null);
         setSelectedFrequency(0);
         setDescription('');
@@ -357,6 +359,8 @@ export default function HomeScreen({ navigation, route }) {
 
             if (response.ok) {
                 console.log(data)
+                setWordId(data.word_id);
+                setDictionaryEntryExists(data.dictionary_entry_exists);
                 if (data.inDatabase) {
                     if (data.translated.length > 1 && Array.isArray(data.translated)) {
                         setMultiDefinition(true);
@@ -371,7 +375,7 @@ export default function HomeScreen({ navigation, route }) {
                     console.log(data);
                 }
 
-                setScrapedDefintions(data.scraped_definitions);
+                setScrapedDefinitions(data.scraped_definitions);
                 setScrapedDictionaryEntry(data.dictionary_entry || null);
                 console.log("Scraped Definitions: ", data.scraped_definitions);
                 console.log("Dictionary Entry being set: ", data.dictionary_entry);
@@ -410,7 +414,7 @@ export default function HomeScreen({ navigation, route }) {
         setSelectedText('');
         setTranslatedText([]);
         setTranslationIDs([]);
-        setScrapedDefintions([]);
+        setScrapedDefinitions([]);
         setSelectedFrequency(0);
 
         fetchWordFrequencies(row[0]);
@@ -1198,6 +1202,10 @@ export default function HomeScreen({ navigation, route }) {
                                         onRefreshTranslation={
                                             refreshTranslation
                                         }
+                                        onWordSaved={(id) => {
+                                            console.log('New Word ID:', id);
+                                            setWordId(id);
+                                        }}
                                     />
 
 
@@ -1229,6 +1237,10 @@ export default function HomeScreen({ navigation, route }) {
 
                                 <ScrapedDictionary
                                     dictionaryEntry={scrapedDictionaryEntry}
+                                    dictionaryEntryExists={dictionaryEntryExists}
+                                    wordId={wordId}
+                                    serverIP={serverIP}
+                                    token={token}
                                 />
 
                             )}

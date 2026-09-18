@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AddDefinitionPopup from './AddDefinitionPopup';
 import EditDefinitionPopup from './EditDefinitionPopup';
 
-export default function DefinitionList({ definitions = [], translationIDs = [], onWordPress, onAddDefinition, translatedText, selectedText, nat_id, tar_id, popup, server, token, showSuccess, showError, onDefinitionUpdated, onRefreshTranslation }) {
+export default function DefinitionList({ definitions = [], translationIDs = [], onWordPress, onAddDefinition, translatedText, selectedText, nat_id, tar_id, popup, server, token, showSuccess, showError, onDefinitionUpdated, onRefreshTranslation, onWordSaved }) {
     const [isPopupVisible, setPopupVisible] = useState(false);
     const [isEditVisible, setEditVisible] = useState(false);
     const [wordCursor, setWordCursor] = useState('')
@@ -91,6 +91,7 @@ export default function DefinitionList({ definitions = [], translationIDs = [], 
                 token={token}
                 showSuccess={showSuccess}
                 showError={showError}
+                onWordSaved={onWordSaved}
             />
 
             {isEditVisible && (

@@ -117,6 +117,15 @@ def translate(request):
             target_language_id=tar_id
         )
 
+        dictionary = user_setting.user_dictionary
+
+        if dictionary:
+            dictionary_entry_exists = DictionaryEntry.objects.filter( word=word, dictionary=dictionary ).exists()
+            dictionary_entry = DictionaryEntry.objects.filter( word=word, dictionary=dictionary ).first()
+
+            if dictionary_entry:
+                dictionary_scraper = dictionary_entry.data
+
         # Return an array of definitions
         definitions = [t.definition for t in translations]
         scraped_definitions = []
@@ -125,27 +134,27 @@ def translate(request):
 
         if user_dictionary.dic_type == DICT_TYPES[1] and user_setting.isScraperEnabled:
             print("Current Word: ", text)
-            dictionary_scraper = DictionaryScraper(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
-            response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.lang_name, native_language.lang_name)
-            #response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
+
+            if dictionary_entry_exists:
+                print("Dictionary entry found in database")
+                response_data = dictionary_entry.data
+                web_scraped = 0
+            else:
+                print("Dictionary entry not found - scraping")
+                web_scraped = 1
+                dictionary_scraper = DictionaryScraper(text, target_language.yt_dlp_lang, native_language.yt_dlp_lang)
+                response_data = dictionary_scraper.scrape_lingea_dict(text, target_language.lang_name, native_language.lang_name)
+                #response_data = { 'translated': response_data, 'inDatabase': 0, 'webScraped': 1}
             
     
-            for part_of_speech in response_data.get('parts_of_speech', []):
-                scraped_definitions.extend(part_of_speech.get('definitions', []))
+                for part_of_speech in response_data.get('parts_of_speech', []):
+                    scraped_definitions.extend(part_of_speech.get('definitions', []))
         else:
             response_data = {}
 
-        response_data = { 'translated': definitions, 'scraped_definitions': scraped_definitions, 'dictionary_entry': response_data, 'inDatabase': 1, 'webScraped': 0, 'translation_ids': [t.id for t in translations]}
+        response_data = { 'word_id': word.id, 'translated': definitions, 'scraped_definitions': scraped_definitions, 'dictionary_entry': response_data, 'dictionary_entry_exists': dictionary_entry_exists, 'inDatabase': 1, 'webScraped': web_scraped, 'translation_ids': [t.id for t in translations]}
         print(f"Response data: {response_data}")
         return Response(response_data)
-
-        # data = [ { "id": t.id, "definition": t.definition } for t in translations ]
-
-        # print(f"Definitions from DB: {[d['definition'] for d in data]}")
-        # print(f"Definition IDs: {[d['id'] for d in data]}")
-
-        # return Response({ "translated": data, "inDatabase": 1 })
-
 
     # -----------------------------------
     # DICTIONARY FALLBACK
@@ -184,13 +193,7 @@ def translate(request):
         for part_of_speech in response_data.get('parts_of_speech', []):
             scraped_definitions.extend(part_of_speech.get('definitions', []))
 
-        response_data = {
-            'translated': definitions,
-            'scraped_definitions': scraped_definitions,
-            'dictionary_entry': response_data,
-            'inDatabase': 0,
-            'webScraped': 1
-        }
+        response_data = { 'translated': definitions, 'scraped_definitions': scraped_definitions, 'dictionary_entry': response_data, 'inDatabase': 0, 'webScraped': 1 }
         print(f"Response data: {response_data}")
         return Response(response_data)
 
@@ -2691,8 +2694,86 @@ def tags(request):
             status=status.HTTP_200_OK
         )
 
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def dictionary_entry(request):
+
+    user_settings = UserSetting.objects.get(user=request.user)
+
+    dictionary = user_settings.user_dictionary
+    target_language = user_settings.target_language
+    native_language = user_settings.native_language
+
+    # ============================================================
+    # GET EXISTING DICTIONARY ENTRY
+    # ============================================================
+
+    if request.method == 'GET':
+
+        word_id = request.GET.get('word_id')
+
+        if not word_id:
+            return Response({
+                'error': 'word_id is required'
+            }, status=400)
+
+        word = Word.objects.get(id=word_id)
+
+        dictionary_entry = DictionaryEntry.objects.filter(
+            word=word,
+            dictionary=dictionary
+        ).first()
+
+        if not dictionary_entry:
+            return Response({
+                'exists': False,
+                'dictionary_entry': None
+            })
+
+        return Response({
+            'exists': True,
+            'dictionary_entry': {
+                'id': dictionary_entry.id,
+                'word_id': dictionary_entry.word_id,
+                'data': dictionary_entry.data,
+            }
+        })
+
+    # ============================================================
+    # SAVE DICTIONARY ENTRY
+    # ============================================================
+
+    if request.method == 'POST':
+
+        data = request.data
+
+        word_id = data.get('word_id')
+        entry_data = data.get('dictionary_entry')
+
+        print("Word ID:", word_id)
+        print("Dictionary entry:", entry_data)
+
+        word = Word.objects.get(id=word_id)
+
+        dictionary_entry = DictionaryEntry.objects.create(
+            word=word,
+            dictionary=dictionary,
+            target_language=target_language,
+            native_language=native_language,
+            data=entry_data,
+        )
+
+        return Response({
+            'success': True,
+            'dictionary_entry_id': dictionary_entry.id,
+        })
+
+
 class TranslationModelListView(generics.ListAPIView):
     queryset = TranslationModel.objects.filter(
         is_active=True
     )
     serializer_class = TranslationModelSerializer
+
+

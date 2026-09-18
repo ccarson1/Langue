@@ -176,6 +176,7 @@ export const createStyles = (insets) =>
             alignItems: 'center',
         },
 
+
         rightColumnLarge: {
             flex: 3,
             minHeight: 600,
