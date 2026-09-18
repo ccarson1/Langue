@@ -205,7 +205,7 @@ export default function HomeScreen({ navigation, route }) {
         console.log("Playing index:", index);
         if (!lessonAudio || !rows[index]) return;
         console.log("segmentStart:", rows[index][3]);
-        
+
 
         if (ShowVideoView && videoFormat) {
 
@@ -304,16 +304,33 @@ export default function HomeScreen({ navigation, route }) {
 
     const displaySelectedText = async (word) => {
         const cleanedWord = cleanText(word);
+
+        // Clear previous word information
+        setTranslatedText([]);
+        setTranslationIDs([]);
+        setMultiDefinition(false);
+        setMultiDefDisplay('');
+        setScrapedDefintions([]);
+        setSelectedFrequency(0);
+
+        // Set the newly selected word
         setSelectedText(cleanedWord);
-        const match = wordFrequencies.find(w => w.word.toLowerCase() === cleanedWord.toLowerCase());
-        setSelectedFrequency(() => match?.frequency ?? 0);
+
+        const match = wordFrequencies.find(
+            w => w.word.toLowerCase() === cleanedWord.toLowerCase()
+        );
+
+        setSelectedFrequency(match?.frequency ?? 0);
+
         const translation = await translateWord(cleanedWord);
+
         setTranslatedText(translation);
 
         console.log("Clicked word:", cleanedWord);
         console.log("Matches:", wordFrequencies);
         console.log("Found:", match);
     };
+
 
     const translateWord = async (word) => {
         setLoading(true);
