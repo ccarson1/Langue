@@ -47,6 +47,8 @@ git pull origin main
 # error: cannot pull with rebase: You have unstaged changes.
 # error: Please commit or stash them.
 
+git clean -fd
+
 git reset --hard
 git pull --rebase origin main
 
@@ -92,17 +94,6 @@ emulator -list-avds
 
 emulator -avd Pixel_9_Pro
 
-adb devices
-
-# Run on physical phone
-adb devices
-## If you see
-List of devices attached
-R5CW12B7H8H    device
-
-## Run this
-adb kill-server
-adb start-server
 adb devices
 
 # TV Channels

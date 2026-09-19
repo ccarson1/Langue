@@ -225,6 +225,18 @@ const LessonVideoPlayer = forwardRef(({
 
     }, [player, currentSentence, onSentenceChanged]);
 
+    useEffect(() => {
+        if (!lesson?.sentences || !currentSentence) return;
+
+        const updatedSentence = lesson.sentences.find(
+            sentence => sentence.id === currentSentence.id
+        );
+
+        if (updatedSentence) {
+            setCurrentSentence(updatedSentence);
+        }
+    }, [lesson?.sentences]);
+
     const words = useMemo(() => {
 
         if (!currentSentence)
@@ -270,13 +282,18 @@ const LessonVideoPlayer = forwardRef(({
 
                         {words.map((word, index) => (
 
+
+
                             <Pressable
                                 key={index}
                                 onPress={() => {
 
+                                    console.log("VIDEO WORD PRESSED:", word);
+                                    console.log("VIDEO WORD INDEX:", index);
+
                                     setSelectedWord(word);
 
-                                    onWordPress(word);
+                                    onWordPress(word, index);
 
                                 }}
                             >

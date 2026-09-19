@@ -620,6 +620,20 @@ def str_to_bool(value):
 @parser_classes([MultiPartParser, FormParser])
 def edit_lesson(request, lesson_id, sentence_id=None):
 
+    try:
+        print("EDIT SENTENCE lesson_id:", lesson_id)
+        print("EDIT SENTENCE user:", request.user)
+        print("EDIT SENTENCE user_id:", request.user.id)
+        print("LESSON WITH ID:", Lesson.objects.filter(id=lesson_id).values(
+            'id', 'user_id', 'uuid'
+        ))
+        lesson = Lesson.objects.get( id=lesson_id, user=request.user )
+    except Lesson.DoesNotExist:
+        return Response(
+            {'error': 'Lesson not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
     # ============================================================
     # SINGLE SENTENCE UPDATE / DELETE
     # ============================================================
@@ -686,13 +700,7 @@ def edit_lesson(request, lesson_id, sentence_id=None):
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
 
-    try:
-        lesson = Lesson.objects.get( id=lesson_id, user=request.user )
-    except Lesson.DoesNotExist:
-        return Response(
-            {'error': 'Lesson not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+    
 
     if request.method == 'GET':
 
@@ -1256,6 +1264,7 @@ def lesson_detail_with_sentences(request, lesson_id):
         lesson_data = {
             "id": lesson.id,
             "title": lesson.title,
+            "user_id": lesson.user.id,
             "doc_file": lesson.doc_file.url if lesson.doc_file else None,
             "audio_file": lesson.media_file.url if lesson.media_file else None,
             "native_language": native_language_id,

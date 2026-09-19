@@ -81,7 +81,11 @@ export default function HomeScreen({ navigation, route }) {
     const [wordId, setWordId] = useState(0)
     const [dictionaryEntryExists, setDictionaryEntryExists] = useState(false);
     const [editableSelectedText, setEditableSelectedText] = useState(selectedText);
+    console.log("EDITABLE SELECTED TEXT:", editableSelectedText);
     const [selectedTextWidth, setSelectedTextWidth] = useState(50);
+    const [selectedWordIndex, setSelectedWordIndex] = useState(null);
+
+
 
     useEffect(() => {
         setEditableSelectedText(selectedText);
@@ -98,7 +102,7 @@ export default function HomeScreen({ navigation, route }) {
     const insets = useSafeAreaInsets();
     const styles = createStyles(insets);
     const [lessonData, setLessonData] = useState(null);
-
+    const isLessonOwner = !!user && !!lessonData && Number(lessonData.user_id) === Number(user.id);
     const indexRef = useRef(0);
 
 
@@ -108,19 +112,113 @@ export default function HomeScreen({ navigation, route }) {
     }, [index]);
 
     const saveSelectedText = async () => {
+        console.log('SAVE SELECTED TEXT CALLED');
+        console.log('editableSelectedText:', editableSelectedText);
+        console.log('selectedText:', selectedText);
+        console.log('selectedWordIndex:', selectedWordIndex);
+        console.log('current index:', index);
+        console.log('current lesson:', currentLesson);
 
         const newText = editableSelectedText.trim();
 
+        // Nothing changed
         if (!newText || newText === selectedText) {
             return;
         }
 
-        console.log('Saving sentence:', newText);
+        // Make sure we have a valid sentence
+        if (!rows[index] || selectedWordIndex === null) {
+            return;
+        }
 
-        // API call will go here
-        
-        setSelectedText(newText);
-        setSelectedTextWidth(getSelectedTextWidth(newText));
+        const sentenceId = rows[index][0];
+        const currentSentence = rows[index][1];
+
+        // Split the current sentence into words
+        const words = currentSentence.split(' ');
+
+        // Make sure the selected word still exists
+        if (!words[selectedWordIndex]) {
+            return;
+        }
+
+        // Replace only the selected word
+        words[selectedWordIndex] = newText;
+
+        // Rebuild the sentence
+        const updatedSentence = words.join(' ');
+
+        console.log('Original sentence:', currentSentence);
+        console.log('Updated sentence:', updatedSentence);
+
+        const formData = new FormData();
+
+        formData.append('sentence', updatedSentence);
+
+        try {
+
+            const response = await fetch(
+                `http://${serverIP}:8000/api/edit_lesson/${currentLesson}/sentence/${sentenceId}/`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: formData,
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error('Failed to update sentence:', data);
+                showError('Failed to update sentence');
+                return;
+            }
+
+            // Update the sentence in the frontend
+            setRows(prevRows =>
+                prevRows.map((row, rowIndex) =>
+                    rowIndex === index
+                        ? [
+                            row[0],
+                            updatedSentence,
+                            row[2],
+                            row[3],
+                            row[4],
+                            row[5],
+                        ]
+                        : row
+                )
+            );
+
+            setLessonData(prevLesson => ({
+                ...prevLesson,
+                sentences: prevLesson.sentences.map(sentence =>
+                    sentence.id === sentenceId
+                        ? {
+                            ...sentence,
+                            sentence: updatedSentence,
+                        }
+                        : sentence
+                ),
+            }));
+
+            // Update the selected word
+            setSelectedText(newText);
+
+            // Keep input width correct
+            setSelectedTextWidth(
+                getSelectedTextWidth(newText)
+            );
+
+            console.log('Sentence updated successfully');
+
+        } catch (error) {
+
+            console.error('Error updating sentence:', error);
+            showError('Failed to update sentence');
+        }
     };
 
     const fetchWordFrequencies = async (sentenceId) => {
@@ -332,7 +430,7 @@ export default function HomeScreen({ navigation, route }) {
     // --- Word translation ---
     const cleanText = (text) => text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'<>@\[\]\\|]/g, '').trim();
 
-    const displaySelectedText = async (word) => {
+    const displaySelectedText = async (word, wordIndex) => {
         const cleanedWord = cleanText(word);
 
         // Clear previous word information
@@ -347,8 +445,9 @@ export default function HomeScreen({ navigation, route }) {
         setSelectedDefTab('definition');
 
         // Set the newly selected word
-        
+
         setSelectedText(cleanedWord);
+        setSelectedWordIndex(wordIndex);
         setSelectedTextWidth(getSelectedTextWidth(cleanedWord));
 
         const match = wordFrequencies.find(
@@ -995,7 +1094,7 @@ export default function HomeScreen({ navigation, route }) {
                                                 key={i}
                                                 style={styles.word}
                                                 onPress={() => {
-                                                    displaySelectedText(word);
+                                                    displaySelectedText(word, i);
                                                 }}
                                             >
                                                 {word}
@@ -1165,23 +1264,37 @@ export default function HomeScreen({ navigation, route }) {
 
                                         <View style={styles.rightTextContainer}>
 
-                                            
+                                            {console.log("USER OBJECT:", user)}
+                                            {console.log("LESSON DATA OBJECT:", lessonData)}
+                                            {isLessonOwner ? (
 
-                                            <TextInput
-                                                value={editableSelectedText}
-                                                onChangeText={(text) => {
-                                                    setEditableSelectedText(text);
-                                                    setSelectedTextWidth(getSelectedTextWidth(text));
-                                                }}
-                                                onSubmitEditing={saveSelectedText}
-                                                onBlur={saveSelectedText}
-                                                style={[
-                                                    styles.rightTextInput,
-                                                    { width: selectedTextWidth }
-                                                ]}
-                                                returnKeyType="done"
-                                                blurOnSubmit={true}
-                                            />
+                                                <TextInput
+                                                    value={editableSelectedText}
+                                                    editable={isLessonOwner}
+                                                    onChangeText={(text) => {
+                                                        console.log("TEXT INPUT CHANGED:", text);
+                                                        setEditableSelectedText(text);
+                                                        setSelectedTextWidth(getSelectedTextWidth(text));
+                                                    }}
+                                                    onSubmitEditing={() => {
+                                                        console.log('ENTER PRESSED');
+                                                        saveSelectedText();
+                                                    }}
+                                                    onBlur={() => {
+                                                        console.log('TEXT INPUT BLURRED');
+                                                        saveSelectedText();
+                                                    }}
+                                                    style={[
+                                                        styles.rightTextInput,
+                                                        { width: selectedTextWidth }
+                                                    ]}
+                                                    returnKeyType="done"
+                                                />
+                                            ) : (
+                                                <Text style={styles.rightText}>
+                                                    {selectedText}
+                                                </Text>
+                                            )}
 
                                             <Text style={styles.rightText}>
                                                 {' : '}
