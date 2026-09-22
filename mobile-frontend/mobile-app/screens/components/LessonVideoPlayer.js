@@ -26,12 +26,13 @@ const LessonVideoPlayer = forwardRef(({
     playbackRate,
     onPlaybackFinished,
     onSentenceChanged,
+    onEditSentence,
     selectedWordIndex,
 }, ref) => {
 
     const [videoUri, setVideoUri] = useState(null);
 
-    const [currentSentence, setCurrentSentence] = useState(null);
+    const [currentSentenceId, setCurrentSentenceId] = useState(null);
     const sentenceLongPressRef = useRef(false);
     const sentencePopupRef = useRef(null);
 
@@ -215,29 +216,33 @@ const LessonVideoPlayer = forwardRef(({
                 return;
 
             if (
-                !currentSentence ||
-                sentence.id !== currentSentence.id
+                currentSentenceId === null ||
+                sentence.id !== currentSentenceId
             ) {
-                setCurrentSentence(sentence);
-                onSentenceChanged?.(player.currentTime * 1000);
+                setCurrentSentenceId(sentence.id);
+                onSentenceChanged?.(sentence);
             }
 
         }, 150);
 
         return () => clearInterval(interval);
 
-    }, [player, currentSentence, onSentenceChanged]);
+    }, [player, currentSentenceId, onSentenceChanged]);
 
     const displayedSentence = useMemo(() => {
-
-        if (!currentSentence || !lesson?.sentences)
+        if (currentSentenceId === null || !lesson?.sentences)
             return null;
 
-        return lesson.sentences.find(
-            sentence => sentence.id === currentSentence.id
-        ) || currentSentence;
+        const sentence = lesson.sentences.find(
+            sentence => sentence.id === currentSentenceId
+        ) || null;
 
-    }, [lesson?.sentences, currentSentence]);
+        console.log("VIDEO DISPLAYED SENTENCE:", sentence);
+        console.log("VIDEO CURRENT SENTENCE ID:", currentSentenceId);
+        console.log("VIDEO LESSON SENTENCES:", lesson.sentences);
+
+        return sentence;
+    }, [lesson, currentSentenceId]);
 
 
     const words = useMemo(() => {
@@ -296,6 +301,8 @@ const LessonVideoPlayer = forwardRef(({
                         }}
                         onEdit={(sentence) => {
                             console.log("VIDEO SENTENCE EDIT:", sentence);
+
+                            onEditSentence?.(sentence);
                         }}
                         onDelete={(sentence) => {
                             console.log("VIDEO SENTENCE DELETE:", sentence);

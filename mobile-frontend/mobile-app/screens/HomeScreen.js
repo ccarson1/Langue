@@ -22,6 +22,7 @@ import DefinitionList from './components/DefinitionList';
 import LessonVideoPlayer from "./components/LessonVideoPlayer";
 import ScrapedDictionary from './components/ScrapedDictionary';
 import SentencePopupMenu from './components/SentencePopupMenu';
+import EditSentence from "./components/EditSentence";
 
 
 //import styles from './styles/HomeStyles';
@@ -85,6 +86,8 @@ export default function HomeScreen({ navigation, route }) {
     console.log("EDITABLE SELECTED TEXT:", editableSelectedText);
     const [selectedTextWidth, setSelectedTextWidth] = useState(50);
     const [selectedWordIndex, setSelectedWordIndex] = useState(null);
+    const [editSentenceVisible, setEditSentenceVisible] = useState(false);
+    const [sentenceToEdit, setSentenceToEdit] = useState("")
 
 
 
@@ -114,52 +117,79 @@ export default function HomeScreen({ navigation, route }) {
         indexRef.current = index;
     }, [index]);
 
-    const saveSelectedText = async () => {
+    const saveSelectedText = async (newSentenceText = null) => {
+
         console.log('SAVE SELECTED TEXT CALLED');
-        console.log('editableSelectedText:', editableSelectedText);
+        const editingWord = selectedWordIndex !== null;
+        const originalSentence = rows[index]?.[1];
+
+        // Sentence editing passes the new sentence directly.
+        // Word editing continues using editableSelectedText.
+        const newText = (newSentenceText ?? editableSelectedText).trim();
+
+
+        console.log('newText:', newText);
         console.log('selectedText:', selectedText);
         console.log('selectedWordIndex:', selectedWordIndex);
         console.log('current index:', index);
         console.log('current lesson:', currentLesson);
 
-        const newText = editableSelectedText.trim();
-
-        // Nothing changed
-        if (!newText || newText === selectedText) {
+        if (!newText) {
             return;
         }
 
-        // Make sure we have a valid sentence
-        if (!rows[index] || selectedWordIndex === null) {
+        if (!rows[index]) {
             return;
         }
 
         const sentenceId = rows[index][0];
-        const currentSentence = rows[index][1];
+        const currentSentence = originalSentence;
 
-        // Split the current sentence into words
-        const words = currentSentence.split(' ');
+        let updatedSentence;
 
-        // Make sure the selected word still exists
-        if (!words[selectedWordIndex]) {
-            return;
+        console.log("ORIGINAL SELECTED WORD:", selectedText);
+        console.log("EDITED WORD:", editableSelectedText);
+
+        // --------------------------------
+        // WORD EDIT
+        // --------------------------------
+        if (editingWord) {
+            if (newText === selectedText) {
+                return;
+            }
+
+            const words = currentSentence.split(' ');
+
+            if (!words[selectedWordIndex]) {
+                return;
+            }
+
+            words[selectedWordIndex] = newText;
+            updatedSentence = words.join(' ');
+
+            // --------------------------------
+            // SENTENCE EDIT
+            // --------------------------------
+        } else {
+
+            if (newText === currentSentence) {
+                return;
+            }
+
+            updatedSentence = newText;
         }
 
-        // Replace only the selected word
-        words[selectedWordIndex] = newText;
-
-        // Rebuild the sentence
-        const updatedSentence = words.join(' ');
-
-        console.log('Original sentence:', currentSentence);
-        console.log('Updated sentence:', updatedSentence);
+        console.log("========== SENTENCE SAVE ==========");
+        console.log("NEW TEXT FROM EDITOR:", newText);
+        console.log("CURRENT ROW SENTENCE:", currentSentence);
+        console.log("UPDATED SENTENCE:", updatedSentence);
+        console.log("SENTENCE ID:", sentenceId);
+        console.log("==================================");
 
         const formData = new FormData();
-
         formData.append('sentence', updatedSentence);
 
         try {
-
             const response = await fetch(
                 `http://${serverIP}:8000/api/edit_lesson/${currentLesson}/sentence/${sentenceId}/`,
                 {
@@ -173,13 +203,14 @@ export default function HomeScreen({ navigation, route }) {
 
             const data = await response.json();
 
+            console.log('SAVE SENTENCE RESPONSE:', data);
+
             if (!response.ok) {
                 console.error('Failed to update sentence:', data);
                 showError('Failed to update sentence');
                 return;
             }
 
-            // Update the sentence in the frontend
             setRows(prevRows =>
                 prevRows.map((row, rowIndex) =>
                     rowIndex === index
@@ -195,30 +226,40 @@ export default function HomeScreen({ navigation, route }) {
                 )
             );
 
-            setLessonData(prevLesson => ({
-                ...prevLesson,
-                sentences: prevLesson.sentences.map(sentence =>
+            setLessonData(prevLesson => {
+                console.log("========== UPDATING LESSON DATA ==========");
+                console.log("SENTENCE ID TO UPDATE:", sentenceId);
+                console.log("UPDATED SENTENCE:", updatedSentence);
+
+                const updatedSentences = prevLesson.sentences.map(sentence =>
                     sentence.id === sentenceId
                         ? {
                             ...sentence,
                             sentence: updatedSentence,
                         }
                         : sentence
-                ),
-            }));
+                );
 
-            // Update the selected word
-            setSelectedText(newText);
+                const updatedSentenceObject = updatedSentences.find(
+                    sentence => sentence.id === sentenceId
+                );
 
-            // Keep input width correct
-            setSelectedTextWidth(
-                getSelectedTextWidth(newText)
-            );
+                console.log(
+                    "UPDATED SENTENCE OBJECT:",
+                    updatedSentenceObject
+                );
+
+                return {
+                    ...prevLesson,
+                    sentences: updatedSentences,
+                };
+            });
+
+
 
             console.log('Sentence updated successfully');
 
         } catch (error) {
-
             console.error('Error updating sentence:', error);
             showError('Failed to update sentence');
         }
@@ -453,6 +494,8 @@ export default function HomeScreen({ navigation, route }) {
         setSelectedText(cleanedWord);
         setSelectedWordIndex(wordIndex);
         setSelectedTextWidth(getSelectedTextWidth(cleanedWord));
+
+        console.log("SETTING WORD INDEX:", wordIndex);
 
         const match = wordFrequencies.find(
             w => w.word.toLowerCase() === cleanedWord.toLowerCase()
@@ -1055,7 +1098,6 @@ export default function HomeScreen({ navigation, route }) {
                                 token={token}
                                 serverIP={serverIP}
                                 onWordPress={displaySelectedText}
-                                selectedWordIndex={selectedWordIndex}
                                 ShowVideoCaptions={ShowVideoCaptions}
                                 startMs={startMs}
                                 endMs={endMs}
@@ -1064,6 +1106,12 @@ export default function HomeScreen({ navigation, route }) {
                                 playbackRate={playbackRate}
                                 onPlaybackFinished={() => setIsPlaying(false)}
                                 onSentenceChanged={handleSentenceChanged}
+                                onEditSentence={(sentence) => {
+                                    setSelectedWordIndex(null);
+                                    setSentenceToEdit(sentence);
+                                    setEditSentenceVisible(true);
+                                }}
+                                selectedWordIndex={selectedWordIndex}
                             />
 
                         )}
@@ -1090,7 +1138,14 @@ export default function HomeScreen({ navigation, route }) {
                                 sentence={rows[index]?.[1] || ''}
                                 longPressTriggeredRef={sentenceLongPressRef}
                                 onTranslate={(sentence) => {
-                                    setDescription(rows[index]?.[2] || '');
+                                    if (rows[index]) {
+                                        setDescription(rows[index][2]);
+                                    }
+                                }}
+                                onEdit={(sentence) => {
+                                    setSelectedWordIndex(null);
+                                    setSentenceToEdit(sentence);
+                                    setEditSentenceVisible(true);
                                 }}
                             >
 
@@ -1339,10 +1394,10 @@ export default function HomeScreen({ navigation, route }) {
                                                         console.log('ENTER PRESSED');
                                                         saveSelectedText();
                                                     }}
-                                                    onBlur={() => {
-                                                        console.log('TEXT INPUT BLURRED');
-                                                        saveSelectedText();
-                                                    }}
+                                                    // onBlur={() => {
+                                                    //     console.log('TEXT INPUT BLURRED');
+                                                    //     saveSelectedText();
+                                                    // }}
                                                     style={[
                                                         styles.rightTextInput,
                                                         { width: selectedTextWidth }
@@ -1462,6 +1517,20 @@ export default function HomeScreen({ navigation, route }) {
                 </View>
 
             </ScrollView >
+
+            <EditSentence
+                visible={editSentenceVisible}
+                sentence={sentenceToEdit}
+                onCancel={() => {
+                    setEditSentenceVisible(false);
+                }}
+                onSave={(newSentence) => {
+                    console.log("SAVE SENTENCE:", newSentence);
+                    setSelectedWordIndex(null);
+                    saveSelectedText(newSentence);
+                    setEditSentenceVisible(false);
+                }}
+            />
 
 
             {/* ============================================================
