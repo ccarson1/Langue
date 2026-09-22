@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import {
     View,
     Text,
@@ -10,8 +10,10 @@ import {
 
 import { VideoView, useVideoPlayer } from "expo-video";
 import * as FileSystem from "expo-file-system/legacy";
+import SentencePopupMenu from "./SentencePopupMenu";
 
 const LessonVideoPlayer = forwardRef(({
+    isLessonOwner,
     lesson,
     token,
     serverIP,
@@ -24,13 +26,14 @@ const LessonVideoPlayer = forwardRef(({
     playbackRate,
     onPlaybackFinished,
     onSentenceChanged,
+    selectedWordIndex,
 }, ref) => {
 
     const [videoUri, setVideoUri] = useState(null);
 
     const [currentSentence, setCurrentSentence] = useState(null);
-
-    const [selectedWord, setSelectedWord] = useState("");
+    const sentenceLongPressRef = useRef(false);
+    const sentencePopupRef = useRef(null);
 
     const [loading, setLoading] = useState(true);
 
@@ -181,7 +184,7 @@ const LessonVideoPlayer = forwardRef(({
 
         fetchVideo();
 
-    }, [lesson]);
+    }, [lesson?.id, token, serverIP]);
 
 
 
@@ -225,28 +228,33 @@ const LessonVideoPlayer = forwardRef(({
 
     }, [player, currentSentence, onSentenceChanged]);
 
-    useEffect(() => {
-        if (!lesson?.sentences || !currentSentence) return;
+    const displayedSentence = useMemo(() => {
 
-        const updatedSentence = lesson.sentences.find(
+        if (!currentSentence || !lesson?.sentences)
+            return null;
+
+        return lesson.sentences.find(
             sentence => sentence.id === currentSentence.id
-        );
+        ) || currentSentence;
 
-        if (updatedSentence) {
-            setCurrentSentence(updatedSentence);
-        }
-    }, [lesson?.sentences]);
+    }, [lesson?.sentences, currentSentence]);
+
 
     const words = useMemo(() => {
 
-        if (!currentSentence)
+        if (!displayedSentence)
             return [];
 
-        return currentSentence.sentence
+        return displayedSentence.sentence
             .trim()
             .split(/\s+/);
 
-    }, [currentSentence]);
+    }, [displayedSentence]);
+
+    console.log(
+        "CAPTION SENTENCE:",
+        displayedSentence?.sentence
+    );
 
     if (loading) {
 
@@ -278,42 +286,72 @@ const LessonVideoPlayer = forwardRef(({
             {ShowVideoCaptions && (
                 <View style={styles.overlay}>
 
-                    <View style={styles.wordRow}>
+                    <SentencePopupMenu
+                        ref={sentencePopupRef}
+                        isLessonOwner={isLessonOwner}
+                        sentence={displayedSentence?.sentence || ""}
+                        longPressTriggeredRef={sentenceLongPressRef}
+                        onTranslate={(sentence) => {
+                            console.log("VIDEO SENTENCE TRANSLATE:", sentence);
+                        }}
+                        onEdit={(sentence) => {
+                            console.log("VIDEO SENTENCE EDIT:", sentence);
+                        }}
+                        onDelete={(sentence) => {
+                            console.log("VIDEO SENTENCE DELETE:", sentence);
+                        }}
+                    >
+                        <View style={styles.wordRow}>
 
-                        {words.map((word, index) => (
+                            {words.map((word, index) => (
+                                <Pressable
+                                    key={index}
+                                    onLongPress={(event) => {
 
+                                        console.log("WORD LONG PRESS FIRED");
 
+                                        sentenceLongPressRef.current = true;
 
-                            <Pressable
-                                key={index}
-                                onPress={() => {
+                                        const { pageX, pageY } = event.nativeEvent;
 
-                                    console.log("VIDEO WORD PRESSED:", word);
-                                    console.log("VIDEO WORD INDEX:", index);
+                                        sentencePopupRef.current?.showMenu(
+                                            pageX,
+                                            pageY
+                                        );
+                                    }}
+                                    delayLongPress={500}
+                                    onPress={() => {
 
-                                    setSelectedWord(word);
+                                        if (sentenceLongPressRef.current) {
+                                            console.log("WORD PRESS IGNORED - SENTENCE LONG PRESS");
 
-                                    onWordPress(word, index);
+                                            sentenceLongPressRef.current = false;
 
-                                }}
-                            >
+                                            return;
+                                        }
 
-                                <Text
-                                    style={[
-                                        styles.word,
+                                        console.log("VIDEO WORD PRESSED:", word);
+                                        console.log("VIDEO WORD INDEX:", index);
 
-                                        selectedWord === word &&
-                                        styles.selectedWord,
-                                    ]}
+                                        onWordPress(word, index);
+
+                                    }}
                                 >
-                                    {word}{" "}
-                                </Text>
+                                    <Text
+                                        style={[
+                                            styles.word,
 
-                            </Pressable>
+                                            selectedWordIndex === index &&
+                                            styles.selectedWord,
+                                        ]}
+                                    >
+                                        {word}{" "}
+                                    </Text>
+                                </Pressable>
+                            ))}
 
-                        ))}
-
-                    </View>
+                        </View>
+                    </SentencePopupMenu>
 
                 </View>
             )}

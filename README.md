@@ -96,6 +96,12 @@ emulator -avd Pixel_9_Pro
 
 adb devices
 
+# Run App on Physical Android Device
+adb devices
+
+### if device is (unauthorized)
+adb kill-server && adb start-server
+
 # TV Channels
 
 // const CHANNELS = [

@@ -359,24 +359,12 @@ export const createStyles = (insets) =>
             top: 10,
             right: 40,
 
-            backgroundColor: '#00adb5',
+        },
 
-            padding: 8,
-
-            borderRadius: 5,
-
-            minWidth: 60,
-
-            shadowColor: '#30475e',
-            shadowOffset: {
-                width: 0,
-                height: 2,
-            },
-            shadowOpacity: 0.3,
-            shadowRadius: 6,
-
-            // Android shadow
-            elevation: 4,
+        editSentenceButton:{
+            position: 'absolute',
+            top: 10,
+            right: 100,
         },
 
         buttonText: {

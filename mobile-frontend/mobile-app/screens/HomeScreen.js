@@ -1,6 +1,6 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
-import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, ScrollView, View, useWindowDimensions, Pressable } from 'react-native';
 import { Audio } from 'expo-av';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -21,6 +21,7 @@ import CustomPopup from './components/CustomPopup';
 import DefinitionList from './components/DefinitionList';
 import LessonVideoPlayer from "./components/LessonVideoPlayer";
 import ScrapedDictionary from './components/ScrapedDictionary';
+import SentencePopupMenu from './components/SentencePopupMenu';
 
 
 //import styles from './styles/HomeStyles';
@@ -103,6 +104,8 @@ export default function HomeScreen({ navigation, route }) {
     const styles = createStyles(insets);
     const [lessonData, setLessonData] = useState(null);
     const isLessonOwner = !!user && !!lessonData && Number(lessonData.user_id) === Number(user.id);
+    const sentenceLongPressRef = useRef(false);
+    const sentencePopupRef = useRef(null);
     const indexRef = useRef(0);
 
 
@@ -307,6 +310,7 @@ export default function HomeScreen({ navigation, route }) {
         await Clipboard.setStringAsync(selectedText);
         showSuccess('Text copied to clipboard!');
     };
+
 
     const updateLessonProgress = async (newIndex) => {
         if (!token || !currentLesson) return;
@@ -1045,11 +1049,13 @@ export default function HomeScreen({ navigation, route }) {
                         {lessonData?.videoFormat && ShowVideoView && (
 
                             <LessonVideoPlayer
+                                isLessonOwner={isLessonOwner}
                                 ref={videoRef}
                                 lesson={lessonData}
                                 token={token}
                                 serverIP={serverIP}
                                 onWordPress={displaySelectedText}
+                                selectedWordIndex={selectedWordIndex}
                                 ShowVideoCaptions={ShowVideoCaptions}
                                 startMs={startMs}
                                 endMs={endMs}
@@ -1078,44 +1084,66 @@ export default function HomeScreen({ navigation, route }) {
 
                         {(!ShowVideoCaptions || !lessonData?.videoFormat) && (
 
-                            <View style={styles.wordContainer}>
+                            <SentencePopupMenu
+                                ref={sentencePopupRef}
+                                isLessonOwner={isLessonOwner}
+                                sentence={rows[index]?.[1] || ''}
+                                longPressTriggeredRef={sentenceLongPressRef}
+                                onTranslate={(sentence) => {
+                                    setDescription(rows[index]?.[2] || '');
+                                }}
+                            >
 
-                                <ScrollView
-                                    style={styles.wordScroll}
-                                    contentContainerStyle={styles.wordWrap}
-                                    showsVerticalScrollIndicator={true}
-                                >
+                                <View style={styles.wordContainer}>
 
-                                    {rows[index]?.[1]
-                                        ?.split(' ')
-                                        .map((word, i) => (
+                                    <ScrollView
+                                        style={styles.wordScroll}
+                                        contentContainerStyle={styles.wordWrap}
+                                        showsVerticalScrollIndicator={true}
+                                    >
+                                        {rows[index]?.[1]
+                                            ?.split(' ')
+                                            .map((word, i) => (
+                                                <Pressable
+                                                    key={i}
+                                                    onLongPress={(event) => {
+                                                        console.log("HOME WORD LONG PRESS FIRED");
 
-                                            <Text
-                                                key={i}
-                                                style={styles.word}
-                                                onPress={() => {
-                                                    displaySelectedText(word, i);
-                                                }}
-                                            >
-                                                {word}
+                                                        sentenceLongPressRef.current = true;
 
-                                                {i <
-                                                    rows[index]?.[2]
-                                                        ?.split(' ')
-                                                        .length - 1
-                                                    ? ' '
-                                                    : ''
-                                                }
+                                                        const { pageX, pageY } = event.nativeEvent;
 
-                                            </Text>
+                                                        sentencePopupRef.current?.showMenu(
+                                                            pageX,
+                                                            pageY
+                                                        );
+                                                    }}
+                                                    delayLongPress={500}
+                                                    onPress={() => {
+                                                        if (sentenceLongPressRef.current) {
+                                                            console.log("HOME WORD PRESS IGNORED - SENTENCE LONG PRESS");
 
-                                        ))
-                                    }
+                                                            sentenceLongPressRef.current = false;
+                                                            return;
+                                                        }
 
-                                </ScrollView>
+                                                        displaySelectedText(word, i);
+                                                    }}
+                                                >
+                                                    <Text style={styles.word}>
+                                                        {word}
+                                                        {i < rows[index]?.[2]?.split(' ').length - 1
+                                                            ? ' '
+                                                            : ''}
+                                                    </Text>
+                                                </Pressable>
+                                            ))
+                                        }
+                                    </ScrollView>
 
-                            </View>
+                                </View>
 
+                            </SentencePopupMenu>
                         )}
 
                     </View>
@@ -1207,6 +1235,29 @@ export default function HomeScreen({ navigation, route }) {
                                         </Text>
                                     </View>
 
+                                    <View style={styles.editSentenceButton}>
+
+                                        <TouchableOpacity
+                                            onPress={() => {
+
+                                                if (rows[index]) {
+                                                    console.log("Editable Sentence: ", rows[index]);
+                                                }
+
+
+                                            }}
+                                        >
+
+                                            <AntDesign
+                                                name="edit"
+                                                size={24}
+                                                color="black"
+                                            />
+
+                                        </TouchableOpacity>
+
+                                    </View>
+
 
                                     {/* ---------------- TRANSLATE BUTTON ---------------- */}
 
@@ -1222,13 +1273,21 @@ export default function HomeScreen({ navigation, route }) {
                                             }}
                                         >
 
-                                            <Text style={styles.buttonText}>
+                                            {/* <Text style={styles.buttonText}>
                                                 Translate Sentence
-                                            </Text>
+                                            </Text> */}
+
+                                            <AntDesign
+                                                name="translation"
+                                                size={24}
+                                                color="black"
+                                            />
 
                                         </TouchableOpacity>
 
                                     </View>
+
+
 
 
                                     {/* ---------------- STATUS ---------------- */}
@@ -1402,228 +1461,230 @@ export default function HomeScreen({ navigation, route }) {
 
                 </View>
 
-            </ScrollView>
+            </ScrollView >
 
 
             {/* ============================================================
         SIDE MENU
     ============================================================ */}
 
-            {menuOpen && (
+            {
+                menuOpen && (
 
-                <Animated.View
-                    style={[
-                        styles.sideMenu,
-                        {
-                            transform: [
-                                {
-                                    translateX: slideAnim,
-                                },
-                            ],
-                        },
-                    ]}
-                >
+                    <Animated.View
+                        style={[
+                            styles.sideMenu,
+                            {
+                                transform: [
+                                    {
+                                        translateX: slideAnim,
+                                    },
+                                ],
+                            },
+                        ]}
+                    >
 
-                    <Text style={styles.menuHeader}>
+                        <Text style={styles.menuHeader}>
 
-                        Menu
+                            Menu
+
+                            {user && (
+                                <Text style={{ fontSize: 10 }}>
+                                    {' '}{user.username}
+                                </Text>
+                            )}
+
+                        </Text>
+
+
+                        <View style={styles.separatorSolid} />
+
+
+                        {/* ---------------- IMPORT ---------------- */}
 
                         {user && (
-                            <Text style={{ fontSize: 10 }}>
-                                {' '}{user.username}
-                            </Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Import');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Import
+                                </Text>
+                            </TouchableOpacity>
                         )}
 
-                    </Text>
+
+                        {/* ---------------- STATISTICS ---------------- */}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Statistics');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Statistics
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
 
-                    <View style={styles.separatorSolid} />
+                        {/* ---------------- LESSONS ---------------- */}
 
-
-                    {/* ---------------- IMPORT ---------------- */}
-
-                    {user && (
                         <TouchableOpacity
                             onPress={() => {
-                                navigation.navigate('Import');
+                                navigation.navigate('Lessons');
                                 setMenuOpen(false);
                             }}
                         >
                             <Text style={styles.navText}>
-                                Import
+                                Lessons
                             </Text>
                         </TouchableOpacity>
-                    )}
 
 
-                    {/* ---------------- STATISTICS ---------------- */}
+                        {/* ---------------- LISTENING ---------------- */}
 
-                    {user && (
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Listening');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Listening
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+
+                        {/* ---------------- LIVE TV ---------------- */}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('LiveTVScreen');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Live TV
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+
+                        {/* ---------------- Grammar ---------------- */}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Grammar');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Grammar
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+
+
+                        {/* ---------------- Typing ---------------- */}
+
+                        {user && (
+                            <TouchableOpacity
+
+                            >
+                                <Text style={styles.navText}>
+                                    Typing
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+
+                        {/* ---------------- ACCOUNT / LOGIN ---------------- */}
+
+                        {user ? (
+
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Account');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Account
+                                </Text>
+                            </TouchableOpacity>
+
+                        ) : (
+
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Login');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Login
+                                </Text>
+                            </TouchableOpacity>
+
+                        )}
+
+
+                        {/* ---------------- SIGNUP ---------------- */}
+
+                        {!user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Signup');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Signup
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+
+                        {/* ---------------- SETTINGS ---------------- */}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('Settings');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    Settings
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+
+                        {/* ---------------- EXIT ---------------- */}
+
                         <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Statistics');
-                                setMenuOpen(false);
-                            }}
+                            onPress={() => setShowExitModal(true)}
                         >
                             <Text style={styles.navText}>
-                                Statistics
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-                    {/* ---------------- LESSONS ---------------- */}
-
-                    <TouchableOpacity
-                        onPress={() => {
-                            navigation.navigate('Lessons');
-                            setMenuOpen(false);
-                        }}
-                    >
-                        <Text style={styles.navText}>
-                            Lessons
-                        </Text>
-                    </TouchableOpacity>
-
-
-                    {/* ---------------- LISTENING ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Listening');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Listening
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-                    {/* ---------------- LIVE TV ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('LiveTVScreen');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Live TV
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-                    {/* ---------------- Grammar ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Grammar');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Grammar
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-
-                    {/* ---------------- Typing ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-
-                        >
-                            <Text style={styles.navText}>
-                                Typing
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-                    {/* ---------------- ACCOUNT / LOGIN ---------------- */}
-
-                    {user ? (
-
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Account');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Account
+                                Exit
                             </Text>
                         </TouchableOpacity>
 
-                    ) : (
+                    </Animated.View>
 
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Login');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Login
-                            </Text>
-                        </TouchableOpacity>
-
-                    )}
-
-
-                    {/* ---------------- SIGNUP ---------------- */}
-
-                    {!user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Signup');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Signup
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-                    {/* ---------------- SETTINGS ---------------- */}
-
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => {
-                                navigation.navigate('Settings');
-                                setMenuOpen(false);
-                            }}
-                        >
-                            <Text style={styles.navText}>
-                                Settings
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-
-                    {/* ---------------- EXIT ---------------- */}
-
-                    <TouchableOpacity
-                        onPress={() => setShowExitModal(true)}
-                    >
-                        <Text style={styles.navText}>
-                            Exit
-                        </Text>
-                    </TouchableOpacity>
-
-                </Animated.View>
-
-            )}
+                )
+            }
 
 
             {/* ============================================================
@@ -1788,7 +1849,7 @@ export default function HomeScreen({ navigation, route }) {
                 visible={loading}
             />
 
-        </View>
+        </View >
     )
 
 }
