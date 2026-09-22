@@ -19,6 +19,7 @@ const LessonVideoPlayer = forwardRef(({
     serverIP,
     onWordPress,
     ShowVideoCaptions,
+    initialStartMs,
     startMs,
     endMs,
     continuousPlay,
@@ -33,6 +34,7 @@ const LessonVideoPlayer = forwardRef(({
     const [videoUri, setVideoUri] = useState(null);
 
     const [currentSentenceId, setCurrentSentenceId] = useState(null);
+    const initialSeekDoneRef = useRef(false);
     const sentenceLongPressRef = useRef(false);
     const sentencePopupRef = useRef(null);
 
@@ -54,6 +56,23 @@ const LessonVideoPlayer = forwardRef(({
         player.playbackRate = playbackRate;
 
     }, [player, volume, playbackRate]);
+
+    useEffect(() => {
+        initialSeekDoneRef.current = false;
+    }, [lesson?.id]);
+
+    useEffect(() => {
+        if (!player || !videoUri) return;
+        if (initialSeekDoneRef.current) return;
+
+        player.currentTime = initialStartMs / 1000;
+
+        console.log("RESTORING VIDEO POSITION:", startMs);
+
+        initialSeekDoneRef.current = true;
+    }, [player, videoUri, initialStartMs]);
+
+    
 
     useImperativeHandle(ref, () => ({
         play() {

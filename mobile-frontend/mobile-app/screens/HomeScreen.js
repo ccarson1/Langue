@@ -793,22 +793,51 @@ export default function HomeScreen({ navigation, route }) {
                 const progressRes = await fetch(`http://${serverIP}:8000/api/user-progress/?lesson_id=${currentLesson}`, { headers: { Authorization: `Bearer ${token}` } });
                 if (progressRes.ok) {
                     const progressData = await progressRes.json();
+
                     console.log("nativeLanguage:", nativeLanguage);
                     console.log("targetLanguage:", targetLanguage);
+
                     setNativeLanguage(progressData.native_lang);
                     setTargetLanguage(progressData.target_lang);
-                    setIndex(progressData.current_lesson_index || 0);
 
+                    const savedIndex = progressData.current_lesson_index || 0;
+
+                    indexRef.current = savedIndex;
+                    setIndex(savedIndex);
+
+                    console.log("SAVED LESSON INDEX:", savedIndex);
                 }
 
                 const lessonRes = await fetch(`http://${serverIP}:8000/api/lesson/${currentLesson}/`, { headers: { Authorization: `Bearer ${token}` } });
                 if (lessonRes.ok) {
                     const lessonData = await lessonRes.json();
                     setLessonData(lessonData);
-                    const parsed = (lessonData.sentences || []).map(s => [s.id, s.sentence, s.translated_sentence, s.start_ms, s.end_ms, s.videoFormat]);
+
+                    const parsed = (lessonData.sentences || []).map(s => [
+                        s.id,
+                        s.sentence,
+                        s.translated_sentence,
+                        s.start_ms,
+                        s.end_ms,
+                        s.videoFormat
+                    ]);
+
                     console.log("Fetched lesson data:", parsed);
                     console.log("Current Lesson:", lessonData);
+
                     setRows(parsed);
+
+                    // Restore the saved video position
+                    const savedIndex = indexRef.current;
+                    const savedRow = parsed[savedIndex];
+
+                    if (savedRow) {
+                        setStartMs(savedRow[3]);
+                        setEndMs(savedRow[4]);
+
+                        console.log("SAVED VIDEO POSITION:", savedRow[3], savedRow[4]);
+                    }
+
                     setHasAudio(lessonData.audioUploaded);
                     setVideoFormat(lessonData.videoFormat);
                     console.log(lessonData.audioUploaded);
@@ -1099,6 +1128,7 @@ export default function HomeScreen({ navigation, route }) {
                                 serverIP={serverIP}
                                 onWordPress={displaySelectedText}
                                 ShowVideoCaptions={ShowVideoCaptions}
+                                initialStartMs={rows[index]?.[3] ?? 0}
                                 startMs={startMs}
                                 endMs={endMs}
                                 continuousPlay={continuousPlay}
