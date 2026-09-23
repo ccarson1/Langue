@@ -853,7 +853,7 @@ export default function HomeScreen({ navigation, route }) {
                         s.translated_sentence,
                         s.start_ms,
                         s.end_ms,
-                        s.videoFormat
+                        s.position
                     ]);
 
                     console.log("Fetched lesson data:", parsed);

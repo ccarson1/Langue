@@ -156,6 +156,7 @@ export default function SettingsScreen({ navigation }) {
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
         setSelectedDictionary(settings.user_dictionary || '');
+        setSelectedModel(settings.translation_model || '');
         setDictionaries(settings.public_dictionaries);
         console.log(dictionaries);
       } catch (err) {

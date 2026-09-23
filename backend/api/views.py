@@ -704,7 +704,7 @@ def edit_lesson(request, lesson_id, sentence_id=None):
 
     if request.method == 'GET':
 
-        sentences = Sentence.objects.filter(lesson=lesson)
+        sentences = Sentence.objects.filter(lesson=lesson).order_by('position')
 
         if lesson.image:
             with lesson.image.open('rb') as f:
@@ -728,7 +728,8 @@ def edit_lesson(request, lesson_id, sentence_id=None):
                     'sentence': s.sentence,
                     'start_ms': s.start_ms,
                     'end_ms': s.end_ms,
-                    'translated_sentence': s.translated_sentence
+                    'translated_sentence': s.translated_sentence,
+                    'position': s.position,
                 }
                 for s in sentences
             ]
@@ -758,7 +759,7 @@ def edit_lesson(request, lesson_id, sentence_id=None):
         if isinstance(incoming_sentences, str):
             incoming_sentences = json.loads(incoming_sentences)
 
-        for s in incoming_sentences:
+        for position, s in enumerate(incoming_sentences):
 
             try:
                 sentence_obj = Sentence.objects.get( id=s['id'], lesson=lesson )
@@ -766,6 +767,7 @@ def edit_lesson(request, lesson_id, sentence_id=None):
                 sentence_obj.start_ms = s.get( 'start_ms', sentence_obj.start_ms )
                 sentence_obj.end_ms = s.get( 'end_ms', sentence_obj.end_ms )
                 sentence_obj.translated_sentence = s.get( 'translated_sentence', sentence_obj.translated_sentence )
+                sentence_obj.position = position
 
                 sentence_obj.save()
 
@@ -776,6 +778,7 @@ def edit_lesson(request, lesson_id, sentence_id=None):
                     start_ms=s.get('start_ms', 0),
                     end_ms=s.get('end_ms', 0),
                     translated_sentence=s.get('translated_sentence', ''),
+                    position=position,
                     lesson_language_id=lesson.target_language_id,
                     translate_language_id=lesson.native_language_id,
                 )
@@ -1276,7 +1279,8 @@ def lesson_detail_with_sentences(request, lesson_id):
                     "sentence": s.sentence,
                     "translated_sentence": s.translated_sentence,
                     "start_ms": s.start_ms,
-                    "end_ms": s.end_ms
+                    "end_ms": s.end_ms,
+                    "position": s.position,
                 }
                 for s in sentences
             ],
@@ -1290,7 +1294,7 @@ def lesson_detail_with_sentences(request, lesson_id):
     except Lesson.DoesNotExist:
         return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
 
-@csrf_exempt  # ✅ Must be OUTERMOST
+@csrf_exempt
 @api_view(['POST'])
 def get_audio(request):
 
@@ -2028,6 +2032,7 @@ def sentence_word_frequency(request):
     return Response(result)
 
 @csrf_exempt
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def ocr_image(request):
     if request.method != "POST":
@@ -2066,6 +2071,7 @@ def ocr_image(request):
     text = ocr.pytesseract()
 
     if translateText:
+        load_user_model(user)
         translated_text = translate_word(text, src_lang=settings.target_language.yt_dlp_lang, tgt_lang=settings.native_language.yt_dlp_lang)
     else:
         translated_text = ''

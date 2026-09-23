@@ -202,4 +202,30 @@ export const createStyles = (insets) =>
             fontSize: 16,
             fontWeight: 'bold',
         },
+        dragHandle: {
+            width: 40,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+
+        draggingRow: {
+            transform: [
+                { scale: 1.03 },
+            ],
+            opacity: 0.9,
+            zIndex: 100,
+            elevation: 8,
+        },
+        dropIndicator: {
+            height: 4,
+            marginVertical: 3,
+            borderRadius: 2,
+            backgroundColor: '#00b8c4',
+        },
+        dropIndicator: {
+            height: 5,
+            marginVertical: 3,
+            borderRadius: 3,
+            backgroundColor: '#00b8c4',
+        },
     });

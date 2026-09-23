@@ -1,7 +1,7 @@
 
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 import {
     View,
@@ -15,6 +15,7 @@ import {
     Share,
     Platform,
     Image,
+    PanResponder,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +45,9 @@ export default function LessonEditScreen({ route, navigation }) {
     const [imageName, setImageName] = useState('');
     const [creationDate, setcreationDate] = useState(null);
     const [sentences, setSentences] = useState([]);
+    const [draggedIndex, setDraggedIndex] = useState(null);
+    const [dragY, setDragY] = useState(0);
+    const [dropIndex, setDropIndex] = useState(null);
     const [sentencesExpanded, setSentencesExpanded] = useState(false);
     const [serverIP, setServerIP] = useState('');
     const [deleting, setDeleting] = useState(false);
@@ -58,6 +62,13 @@ export default function LessonEditScreen({ route, navigation }) {
 
     const insets = useSafeAreaInsets();
     const styles = createStyles(insets);
+    const rowHeight = 100;
+    const dragStartY = useRef(0);
+    const draggedIndexRef = useRef(null);
+    const dragActivated = useRef(false);
+    const dragThreshold = 15;
+    const dragYRef = useRef(0);
+
 
     // ── Server IP ────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -89,6 +100,7 @@ export default function LessonEditScreen({ route, navigation }) {
             );
 
             const data = await res.json();
+            console.log(data)
 
             setTitle(data.title || '');
             setUrl(data.url || '');
@@ -115,6 +127,121 @@ export default function LessonEditScreen({ route, navigation }) {
         setSentences(updated);
     };
 
+    const startDragging = (index, pageY) => {
+        setDraggedIndex(index);
+        draggedIndexRef.current = index;
+
+        dragStartY.current = pageY;
+
+        setDragY(0);
+        dragYRef.current = 0;
+
+        setDropIndex(index);
+    };
+
+    const finishDragging = () => {
+        const fromIndex = draggedIndexRef.current;
+
+        if (fromIndex === null) return;
+
+        const offset = Math.round(
+            dragYRef.current / rowHeight
+        );
+
+        const dropIndex = Math.max(
+            0,
+            Math.min(
+                sentences.length - 1,
+                fromIndex + offset
+            )
+        );
+
+        let toIndex = dropIndex;
+
+        // If moving downward, the dragged item is removed
+        // from the array before it is inserted.
+        if (toIndex > fromIndex) {
+            toIndex -= 1;
+        }
+
+        if (fromIndex !== toIndex) {
+            setSentences((prev) => {
+                const updated = [...prev];
+
+                const [movedSentence] = updated.splice(
+                    fromIndex,
+                    1
+                );
+
+                updated.splice(
+                    toIndex,
+                    0,
+                    movedSentence
+                );
+
+                return updated;
+            });
+        }
+
+        setDraggedIndex(null);
+        draggedIndexRef.current = null;
+
+        setDragY(0);
+        dragYRef.current = 0;
+
+        setDropIndex(null);
+    };
+
+    const createDragResponder = (index) => {
+        return PanResponder.create({
+
+            onStartShouldSetPanResponder: () => true,
+
+            onPanResponderGrant: (event) => {
+                startDragging(
+                    index,
+                    event.nativeEvent.pageY
+                );
+            },
+
+            onPanResponderMove: (event) => {
+                if (draggedIndexRef.current === null) {
+                    return;
+                }
+
+                const distance =
+                    event.nativeEvent.pageY - dragStartY.current;
+
+                dragYRef.current = distance;
+                setDragY(distance);
+
+                const fromIndex = draggedIndexRef.current;
+
+                // Determine how many row positions the dragged item has moved.
+                const indexOffset = Math.round(
+                    distance / rowHeight
+                );
+
+                const newDropIndex = Math.max(
+                    0,
+                    Math.min(
+                        sentences.length - 1,
+                        fromIndex + indexOffset
+                    )
+                );
+
+                setDropIndex(newDropIndex);
+            },
+
+            onPanResponderRelease: () => {
+                finishDragging();
+            },
+
+            onPanResponderTerminate: () => {
+                finishDragging();
+            },
+        });
+    };
     // ── Save ─────────────────────────────────────────────────────────────────
     const saveLesson = async () => {
         try {
@@ -360,62 +487,88 @@ export default function LessonEditScreen({ route, navigation }) {
                             <Text style={styles.headerColumn}>Translation</Text>
                         </View>
 
-                        {sentences.map((item, index) => (
-                            <View key={item.id} style={styles.row}>
-                                <Text style={styles.headerColumnSmall}>{index + 1}</Text>
+                        {sentences.map((item, index) => {
+                            const dragResponder = createDragResponder(index);
 
-                                <View style={styles.sentenceColumn}>
-                                    <TextInput
-                                        style={styles.columnInput}
-                                        multiline
-                                        value={item.sentence}
-                                        onChangeText={(text) =>
-                                            updateSentence(index, 'sentence', text)
-                                        }
-                                    />
-                                    <TextInput
-                                        style={styles.timeInput}
-                                        value={String(item.start_ms)}
-                                        onChangeText={(text) =>
-                                            updateSentence(
-                                                index,
-                                                'start_ms',
-                                                parseInt(text, 10) || 0
-                                            )
-                                        }
-                                    />
-                                </View>
+                            return (
 
-                                <View style={styles.sentenceColumn}>
-                                    <TextInput
-                                        style={styles.columnInput}
-                                        multiline
-                                        value={item.translated_sentence}
-                                        onChangeText={(text) =>
-                                            updateSentence(
-                                                index,
-                                                'translated_sentence',
-                                                text
-                                            )
-                                        }
-                                    />
-                                    <TextInput
-                                        style={styles.timeInput}
-                                        value={String(item.end_ms)}
-                                        onChangeText={(text) =>
-                                            updateSentence(
-                                                index,
-                                                'end_ms',
-                                                parseInt(text, 10) || 0
-                                            )
-                                        }
-                                    />
-                                </View>
-                            </View>
-                        ))}
+                                <React.Fragment key={item.id}>
+
+                                    {draggedIndex !== null &&
+                                        dropIndex === index &&
+                                        draggedIndex !== index && (
+                                            <View style={styles.dropIndicator} />
+                                        )}
+
+                                    <View
+                                        style={[
+                                            styles.row,
+                                            draggedIndex === index && styles.draggingRow,
+                                            draggedIndex === index && {
+                                                transform: [{ translateY: dragY }],
+                                            },
+                                        ]}
+                                    >
+                                        <View {...dragResponder.panHandlers} style={styles.dragHandle} >
+                                            <AntDesign name="menu" size={24} color="white" />
+                                        </View>
+                                        <Text style={styles.headerColumnSmall}>{index + 1}</Text>
+
+                                        <View style={styles.sentenceColumn}>
+                                            <TextInput
+                                                style={styles.columnInput}
+                                                multiline
+                                                value={item.sentence}
+                                                onChangeText={(text) =>
+                                                    updateSentence(index, 'sentence', text)
+                                                }
+                                            />
+                                            <TextInput
+                                                style={styles.timeInput}
+                                                value={String(item.start_ms)}
+                                                onChangeText={(text) =>
+                                                    updateSentence(
+                                                        index,
+                                                        'start_ms',
+                                                        parseInt(text, 10) || 0
+                                                    )
+                                                }
+                                            />
+                                        </View>
+
+                                        <View style={styles.sentenceColumn}>
+                                            <TextInput
+                                                style={styles.columnInput}
+                                                multiline
+                                                value={item.translated_sentence}
+                                                onChangeText={(text) =>
+                                                    updateSentence(
+                                                        index,
+                                                        'translated_sentence',
+                                                        text
+                                                    )
+                                                }
+                                            />
+                                            <TextInput
+                                                style={styles.timeInput}
+                                                value={String(item.end_ms)}
+                                                onChangeText={(text) =>
+                                                    updateSentence(
+                                                        index,
+                                                        'end_ms',
+                                                        parseInt(text, 10) || 0
+                                                    )
+                                                }
+                                            />
+                                        </View>
+                                    </View>
+                                </React.Fragment>
+                            );
+                        })}
 
                     </>
-                )}
+                )
+                }
                 <TouchableOpacity
                     style={styles.addSentenceButton}
                     onPress={() =>
@@ -430,7 +583,7 @@ export default function LessonEditScreen({ route, navigation }) {
                     <Text style={styles.addSentenceButtonText}>Add Sentence</Text>
                 </TouchableOpacity>
                 {/* Save */}
-                <TouchableOpacity style={styles.saveButton} onPress={saveLesson}>
+                < TouchableOpacity style={styles.saveButton} onPress={saveLesson} >
                     <Text style={styles.saveButtonText}>Save Lesson</Text>
                 </TouchableOpacity>
 

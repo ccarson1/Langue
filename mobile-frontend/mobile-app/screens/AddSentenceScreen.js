@@ -16,6 +16,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+import ButtonGroup from './components/ButtonGroup';
 
 export default function AddSentenceScreen({ route, navigation }) {
     const { onSave } = route.params;
@@ -30,6 +31,8 @@ export default function AddSentenceScreen({ route, navigation }) {
     const [user, setUser] = useState(null);
     const [translateText, setTranslateText] = useState('');
     const [generateAudio, setGenerateAudio] = useState('');
+    const splitOptions = [{ label: 'Period', value: 'period' }, { label: 'Manual', value: 'manual' }]
+    const [splitType, setSplitType] = useState('period');
 
 
     const decodeToken = (token) => {
@@ -207,10 +210,10 @@ export default function AddSentenceScreen({ route, navigation }) {
     return (
         <View style={styles.screenWrapper}>
             <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-                    <AntDesign name="left" size={22} color="white" />
-                </TouchableOpacity>
+                <AntDesign name="left" size={22} color="white" />
+            </TouchableOpacity>
             <ScrollView style={styles.container}>
-                
+
 
                 <Text style={styles.label}>Image</Text>
 
@@ -240,7 +243,7 @@ export default function AddSentenceScreen({ route, navigation }) {
                 </View>
                 <View style={styles.switchRow}>
                     <Text style={styles.label}>Generate Audio</Text>
-                    <Switch value={generateAudio} onValueChange={setGenerateAudio} />
+                    <Switch value={generateAudio} onValueChange={setGenerateAudio} disabled={true} />
                 </View>
                 <TouchableOpacity
                     style={styles.imageButton}
@@ -253,7 +256,19 @@ export default function AddSentenceScreen({ route, navigation }) {
                 >
                     <Text style={styles.imageButtonText}>Retranslate</Text>
                 </TouchableOpacity>
-                <Text style={styles.label}>Native Sentence</Text>
+
+                <Text style={styles.label}>Split Text into Sentences</Text>
+                <ButtonGroup options={splitOptions} selectedValue={splitType} onValueChange={setSplitType} />
+
+                <TouchableOpacity
+                    style={styles.splitButton}
+                >
+                    <Text style={styles.splitButtonText}>Split Text</Text>
+                </TouchableOpacity>
+
+                
+
+                <Text style={styles.label}>Native Text</Text>
                 <TextInput
                     style={styles.input}
                     multiline
@@ -335,6 +350,19 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
     },
+    splitButton: {
+        backgroundColor: '#00adb5',
+        marginTop: 20,
+        marginBottom: 70,
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    splitButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    
     imageButton: {
         backgroundColor: '#444',
         padding: 12,
