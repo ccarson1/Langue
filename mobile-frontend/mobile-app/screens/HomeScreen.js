@@ -35,6 +35,8 @@ import { createStyles } from './styles/HomeStyles';
 export default function HomeScreen({ navigation, route }) {
     const { width, height } = useWindowDimensions();
     const isLargeScreen = width >= 900;
+    const [offlineMode, setOfflineMode] = useState( route.params?.offlineMode ?? false );
+    console.log("OFFLINE MODE:", offlineMode);
 
     // State
     const [token, setToken] = useState(null);
@@ -42,6 +44,7 @@ export default function HomeScreen({ navigation, route }) {
     const [serverIP, setServerIP] = useState('');
     const [appIsReady, setAppIsReady] = useState(false);
     const [loading, setLoading] = useState(false);
+    
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const [rows, setRows] = useState([]);
     const [index, setIndex] = useState(0);
@@ -88,6 +91,7 @@ export default function HomeScreen({ navigation, route }) {
     const [selectedWordIndex, setSelectedWordIndex] = useState(null);
     const [editSentenceVisible, setEditSentenceVisible] = useState(false);
     const [sentenceToEdit, setSentenceToEdit] = useState("")
+    const [lessonReady, setLessonReady] = useState(false);
 
 
 
@@ -110,6 +114,7 @@ export default function HomeScreen({ navigation, route }) {
     const sentenceLongPressRef = useRef(false);
     const sentencePopupRef = useRef(null);
     const indexRef = useRef(0);
+    const restoringLessonRef = useRef(false);
 
 
 
@@ -357,17 +362,39 @@ export default function HomeScreen({ navigation, route }) {
         if (!token || !currentLesson) return;
 
         try {
-            await fetch(`http://${serverIP}:8000/api/user-progress/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    lesson_id: currentLesson,
-                    current_lesson_index: newIndex,
-                }),
-            });
+            const response = await fetch(
+                `http://${serverIP}:8000/api/user-progress/`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        lesson_id: currentLesson,
+                        current_lesson_index: newIndex,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            console.log(
+                "PROGRESS SAVE:",
+                "lesson:", currentLesson,
+                "index:", newIndex,
+                "status:", response.status,
+                "response:", data
+            );
+
+            if (!response.ok) {
+                console.error(
+                    "PROGRESS SAVE FAILED:",
+                    response.status,
+                    data
+                );
+            }
+
         } catch (err) {
             console.error("Failed to update lesson progress:", err);
         }
@@ -623,7 +650,15 @@ export default function HomeScreen({ navigation, route }) {
     };
 
     const handleSentenceChanged = (sentence) => {
+        if (restoringLessonRef.current) return;
         const newIndex = rows.findIndex(row => row[0] === sentence.id);
+
+        console.log(
+            "HANDLE SENTENCE CHANGED:",
+            "newIndex:", newIndex,
+            "current index:", indexRef.current,
+            "sentence:", sentence
+        );
 
         if (newIndex === -1) return;
         if (newIndex === indexRef.current) return;
@@ -633,10 +668,7 @@ export default function HomeScreen({ navigation, route }) {
         indexRef.current = newIndex;
         setIndex(newIndex);
 
-        setStartMs(row[3]);
-        setEndMs(row[4]);
-
-        fetchWordFrequencies(row[0]);
+        // ...
     };
 
     const saveAudioSettings = async () => {
@@ -759,7 +791,7 @@ export default function HomeScreen({ navigation, route }) {
 
     // --- Fetch user and lesson data ---
     useEffect(() => {
-        if (!token) return;
+        if (offlineMode || !token) return;
 
         const fetchUserProfile = async () => {
             try {
@@ -790,6 +822,7 @@ export default function HomeScreen({ navigation, route }) {
 
         const fetchLessonData = async () => {
             try {
+                setLessonReady(false);
                 const progressRes = await fetch(`http://${serverIP}:8000/api/user-progress/?lesson_id=${currentLesson}`, { headers: { Authorization: `Bearer ${token}` } });
                 if (progressRes.ok) {
                     const progressData = await progressRes.json();
@@ -803,6 +836,7 @@ export default function HomeScreen({ navigation, route }) {
                     const savedIndex = progressData.current_lesson_index || 0;
 
                     indexRef.current = savedIndex;
+                    restoringLessonRef.current = true;
                     setIndex(savedIndex);
 
                     console.log("SAVED LESSON INDEX:", savedIndex);
@@ -841,6 +875,7 @@ export default function HomeScreen({ navigation, route }) {
                     setHasAudio(lessonData.audioUploaded);
                     setVideoFormat(lessonData.videoFormat);
                     console.log(lessonData.audioUploaded);
+                    setLessonReady(true);
                 }
             } catch (err) {
                 console.error(err);
@@ -1118,7 +1153,16 @@ export default function HomeScreen({ navigation, route }) {
 
                         {/* ---------------- VIDEO ---------------- */}
 
-                        {lessonData?.videoFormat && ShowVideoView && (
+                        {lessonReady && lessonData?.videoFormat && ShowVideoView && (
+
+                            console.log(
+                                "VIDEO READY PROPS:",
+                                "lessonReady:", lessonReady,
+                                "index:", index,
+                                "startMs:", startMs,
+                                "endMs:", endMs,
+                                "row:", rows[index]
+                            ),
 
                             <LessonVideoPlayer
                                 isLessonOwner={isLessonOwner}
@@ -1128,9 +1172,14 @@ export default function HomeScreen({ navigation, route }) {
                                 serverIP={serverIP}
                                 onWordPress={displaySelectedText}
                                 ShowVideoCaptions={ShowVideoCaptions}
-                                initialStartMs={rows[index]?.[3] ?? 0}
+
                                 startMs={startMs}
                                 endMs={endMs}
+                                initialStartMs={startMs}
+                                onInitialSeekComplete={() => {
+                                    restoringLessonRef.current = false;
+                                    console.log("LESSON RESTORE COMPLETE");
+                                }}
                                 continuousPlay={continuousPlay}
                                 volume={volume}
                                 playbackRate={playbackRate}

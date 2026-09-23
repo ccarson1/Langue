@@ -6,6 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Switch,
+  Platform,
 } from 'react-native';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import styles from './styles/LoginStyles';
@@ -19,6 +21,7 @@ export default function LoginScreen({ navigation }) {
   const [serverIP, setServerIP] = useState(config.SERVER_IP); // pre-fill with default
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+  const [offlineMode, setOfflineMode] = useState(false)
 
   // Load saved IP on mount
   useEffect(() => {
@@ -63,6 +66,9 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleLogin = async () => {
+
+    if (offlineMode) { navigation.replace('Home', { offlineMode: true, }); return; }
+
     if (!serverIP.trim()) {
       showError('Please enter a server IP address.');
       return;
@@ -86,7 +92,7 @@ export default function LoginScreen({ navigation }) {
         await AsyncStorage.setItem('accessToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
         Alert.alert('Success', 'Login successful!');
-        navigation.replace('Home');
+        navigation.replace('Home', {offlineMode: offlineMode});
       } else {
         showError(`Error: ${data.error || 'Login failed.'}`);
       }
@@ -147,6 +153,15 @@ export default function LoginScreen({ navigation }) {
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Log In</Text>
         </TouchableOpacity>
+        <View style={styles.checkboxRow}>
+          <Switch
+            value={offlineMode}
+            onValueChange={setOfflineMode}
+            trackColor={{ false: '#777', true: '#00adb5' }}
+            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+          />
+          <Text style={styles.checkboxLabel}>Offline Mode</Text>
+        </View>
 
         <TouchableOpacity onPress={() => navigation.navigate('ResetPassword')}>
           <Text style={styles.forgot}>Forgot password?</Text>

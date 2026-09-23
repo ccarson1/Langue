@@ -111,7 +111,7 @@ export default function AccountScreen({ navigation }) {
 
         {/* Storage Capacity Bar */}
         <View style={styles.storageSection}>
-          <Text style={styles.label}>Storage</Text>
+          <Text style={styles.label}>Cloud Storage</Text>
           <View style={styles.storageBarContainer}>
             <View style={styles.storageBarBackground}>
               <View 

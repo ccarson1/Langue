@@ -1942,8 +1942,8 @@ def sentence_word_frequency(request):
 
     for word_text in words:
 
-        print("WORD:", word_text)
-        print("LESSON LANGUAGE:", sentence.lesson_language)
+        #print("WORD:", word_text)
+        #print("LESSON LANGUAGE:", sentence.lesson_language)
 
         frequency = 0.0
         has_translation = False
@@ -1954,7 +1954,7 @@ def sentence_word_frequency(request):
             language=sentence.lesson_language
         ).first()
 
-        print("WORD OBJ:", word_obj)
+        #print("WORD OBJ:", word_obj)
 
         if word_obj:
 
@@ -1964,7 +1964,7 @@ def sentence_word_frequency(request):
                 target_language=sentence.lesson_language
             ).exists()
 
-            print("HAS TRANSLATION:", has_translation)
+            #print("HAS TRANSLATION:", has_translation)
 
             if has_translation:
 
@@ -2023,7 +2023,7 @@ def sentence_word_frequency(request):
             "has_translation": has_translation,
             "is_saved": is_saved,
         })
-    print("Semtence Data:", result)
+    #print("Sentence Data:", result)
 
     return Response(result)
 

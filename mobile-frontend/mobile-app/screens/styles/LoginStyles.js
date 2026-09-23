@@ -82,4 +82,14 @@ export default StyleSheet.create({
     textAlign: 'center',
     color: 'white',
   },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  checkboxLabel: {
+    color: '#eeeeee',
+    marginLeft: 10,
+    fontSize: 15,
+  },
 });
