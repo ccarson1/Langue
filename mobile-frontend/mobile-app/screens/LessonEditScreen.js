@@ -127,6 +127,55 @@ export default function LessonEditScreen({ route, navigation }) {
         setSentences(updated);
     };
 
+    const deleteSentence = async (sentenceId, index, isNew) => {
+        try {
+            if (isNew) {
+                setSentences((prev) =>
+                    prev.filter((_, i) => i !== index)
+                );
+                return;
+            }
+
+            const token = await AsyncStorage.getItem('accessToken');
+
+            const url =
+                `http://${serverIP}:8000/api/edit-lesson/${lessonId}/sentence/${sentenceId}/`;
+
+            console.log('DELETE URL:', url);
+            console.log('DELETE TOKEN EXISTS:', !!token);
+
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            console.log('DELETE STATUS:', res.status);
+
+            const responseText = await res.text();
+
+            console.log('DELETE RESPONSE:', responseText);
+
+            if (!res.ok) {
+                throw new Error(
+                    `Delete failed (${res.status}): ${responseText}`
+                );
+            }
+
+            setSentences((prev) =>
+                prev.filter((_, i) => i !== index)
+            );
+
+        } catch (error) {
+            console.error('Delete sentence error:', error);
+            Alert.alert(
+                'Error',
+                error.message || 'Failed to delete sentence'
+            );
+        }
+    };
+
     const startDragging = (index, pageY) => {
         setDraggedIndex(index);
         draggedIndexRef.current = index;
@@ -479,12 +528,26 @@ export default function LessonEditScreen({ route, navigation }) {
                     </Text>
                 </TouchableOpacity>
 
+                <View style={styles.downloadRow}>
+                    <TouchableOpacity
+                        style={styles.downloadButton}
+
+                    >
+                        <Text style={styles.downloadButtonText}>
+                            Retranslate Sentences
+                        </Text>
+                    </TouchableOpacity>
+
+                </View>
+
+
                 {sentencesExpanded && (
                     <>
                         <View style={styles.tableHeader}>
                             <Text style={styles.headerColumnSmall}>#</Text>
                             <Text style={styles.headerColumn}>Native</Text>
                             <Text style={styles.headerColumn}>Translation</Text>
+                            <Text style={styles.headerColumnSmall}>Delete</Text>
                         </View>
 
                         {sentences.map((item, index) => {
@@ -561,6 +624,12 @@ export default function LessonEditScreen({ route, navigation }) {
                                                 }
                                             />
                                         </View>
+                                        <TouchableOpacity
+                                            style={styles.deleteSentenceButton}
+                                            onPress={() => deleteSentence(item.id, index, item.isNew)}
+                                        >
+                                            <AntDesign name="delete" size={22} color="white" />
+                                        </TouchableOpacity>
                                     </View>
                                 </React.Fragment>
                             );
@@ -573,8 +642,8 @@ export default function LessonEditScreen({ route, navigation }) {
                     style={styles.addSentenceButton}
                     onPress={() =>
                         navigation.navigate('AddSentence', {
-                            onSave: (newSentence) => {
-                                setSentences((prev) => [...prev, newSentence]);
+                            onSave: (newSentences) => {
+                                setSentences((prev) => [...prev, ...newSentences]);
                             },
                         })
                     }

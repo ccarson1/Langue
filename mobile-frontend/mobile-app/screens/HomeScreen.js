@@ -35,7 +35,7 @@ import { createStyles } from './styles/HomeStyles';
 export default function HomeScreen({ navigation, route }) {
     const { width, height } = useWindowDimensions();
     const isLargeScreen = width >= 900;
-    const [offlineMode, setOfflineMode] = useState( route.params?.offlineMode ?? false );
+    const [offlineMode, setOfflineMode] = useState(route.params?.offlineMode ?? false);
     console.log("OFFLINE MODE:", offlineMode);
 
     // State
@@ -44,7 +44,7 @@ export default function HomeScreen({ navigation, route }) {
     const [serverIP, setServerIP] = useState('');
     const [appIsReady, setAppIsReady] = useState(false);
     const [loading, setLoading] = useState(false);
-    
+
     const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
     const [rows, setRows] = useState([]);
     const [index, setIndex] = useState(0);
@@ -847,14 +847,16 @@ export default function HomeScreen({ navigation, route }) {
                     const lessonData = await lessonRes.json();
                     setLessonData(lessonData);
 
-                    const parsed = (lessonData.sentences || []).map(s => [
-                        s.id,
-                        s.sentence,
-                        s.translated_sentence,
-                        s.start_ms,
-                        s.end_ms,
-                        s.position
-                    ]);
+                    const parsed = (lessonData.sentences || [])
+                        .sort((a, b) => a.position - b.position)
+                        .map(s => [
+                            s.id,
+                            s.sentence,
+                            s.translated_sentence,
+                            s.start_ms,
+                            s.end_ms,
+                            s.position
+                        ]);
 
                     console.log("Fetched lesson data:", parsed);
                     console.log("Current Lesson:", lessonData);

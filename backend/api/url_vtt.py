@@ -363,6 +363,7 @@ class URL_VTT():
                 start_ms=start_ms,
                 end_ms=end_ms,
                 translated_sentence=translated_text,
+                position=idx,
                 lesson_language=self.native_id,
                 translate_language=self.target_id,
                 lesson=self.lesson

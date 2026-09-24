@@ -64,7 +64,7 @@ class VTT():
         load_user_model(self.user_id)
         total_sentence_storage = 0
 
-        for seg in segments:
+        for position, seg in enumerate(segments):
             start_ms = int(seg["start"] * 1000)
             end_ms = int(seg["end"] * 1000)
 
@@ -90,6 +90,7 @@ class VTT():
                 start_ms=start_ms,
                 end_ms=end_ms,
                 translated_sentence=translated,
+                position=position,
                 lesson_language=self.native_id,
                 translate_language=self.target_id,
                 lesson=self.lesson

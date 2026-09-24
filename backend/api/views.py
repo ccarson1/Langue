@@ -615,6 +615,7 @@ def str_to_bool(value):
         return value.lower() == 'true'
     return False
 
+@csrf_exempt
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
