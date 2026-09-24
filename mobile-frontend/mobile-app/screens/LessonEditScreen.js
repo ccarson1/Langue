@@ -1,6 +1,3 @@
-
-
-
 import React, { useEffect, useState, useRef } from 'react';
 
 import {
@@ -16,6 +13,7 @@ import {
     Platform,
     Image,
     PanResponder,
+    useWindowDimensions,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -61,7 +59,10 @@ export default function LessonEditScreen({ route, navigation }) {
     const [audioDurationMs, setAudioDurationMs] = useState(60000);
 
     const insets = useSafeAreaInsets();
-    const styles = createStyles(insets);
+    // Screen width drives the responsive layout (phone / tablet / wide breakpoints
+    // live inside createStyles). useWindowDimensions re-renders on rotation too.
+    const { width } = useWindowDimensions();
+    const styles = createStyles(insets, width);
     const rowHeight = 100;
     const dragStartY = useRef(0);
     const draggedIndexRef = useRef(null);
@@ -577,52 +578,57 @@ export default function LessonEditScreen({ route, navigation }) {
                                         </View>
                                         <Text style={styles.headerColumnSmall}>{index + 1}</Text>
 
-                                        <View style={styles.sentenceColumn}>
-                                            <TextInput
-                                                style={styles.columnInput}
-                                                multiline
-                                                value={item.sentence}
-                                                onChangeText={(text) =>
-                                                    updateSentence(index, 'sentence', text)
-                                                }
-                                            />
-                                            <TextInput
-                                                style={styles.timeInput}
-                                                value={String(item.start_ms)}
-                                                onChangeText={(text) =>
-                                                    updateSentence(
-                                                        index,
-                                                        'start_ms',
-                                                        parseInt(text, 10) || 0
-                                                    )
-                                                }
-                                            />
-                                        </View>
+                                        {/* On narrow phones this wraps to a column so the two
+                                            multiline inputs stay full-width and readable; on
+                                            tablets/wide screens they stay side by side. */}
+                                        <View style={styles.sentenceInputsWrap}>
+                                            <View style={styles.sentenceColumn}>
+                                                <TextInput
+                                                    style={styles.columnInput}
+                                                    multiline
+                                                    value={item.sentence}
+                                                    onChangeText={(text) =>
+                                                        updateSentence(index, 'sentence', text)
+                                                    }
+                                                />
+                                                <TextInput
+                                                    style={styles.timeInput}
+                                                    value={String(item.start_ms)}
+                                                    onChangeText={(text) =>
+                                                        updateSentence(
+                                                            index,
+                                                            'start_ms',
+                                                            parseInt(text, 10) || 0
+                                                        )
+                                                    }
+                                                />
+                                            </View>
 
-                                        <View style={styles.sentenceColumn}>
-                                            <TextInput
-                                                style={styles.columnInput}
-                                                multiline
-                                                value={item.translated_sentence}
-                                                onChangeText={(text) =>
-                                                    updateSentence(
-                                                        index,
-                                                        'translated_sentence',
-                                                        text
-                                                    )
-                                                }
-                                            />
-                                            <TextInput
-                                                style={styles.timeInput}
-                                                value={String(item.end_ms)}
-                                                onChangeText={(text) =>
-                                                    updateSentence(
-                                                        index,
-                                                        'end_ms',
-                                                        parseInt(text, 10) || 0
-                                                    )
-                                                }
-                                            />
+                                            <View style={styles.sentenceColumn}>
+                                                <TextInput
+                                                    style={styles.columnInput}
+                                                    multiline
+                                                    value={item.translated_sentence}
+                                                    onChangeText={(text) =>
+                                                        updateSentence(
+                                                            index,
+                                                            'translated_sentence',
+                                                            text
+                                                        )
+                                                    }
+                                                />
+                                                <TextInput
+                                                    style={styles.timeInput}
+                                                    value={String(item.end_ms)}
+                                                    onChangeText={(text) =>
+                                                        updateSentence(
+                                                            index,
+                                                            'end_ms',
+                                                            parseInt(text, 10) || 0
+                                                        )
+                                                    }
+                                                />
+                                            </View>
                                         </View>
                                         <TouchableOpacity
                                             style={styles.deleteSentenceButton}
@@ -638,29 +644,33 @@ export default function LessonEditScreen({ route, navigation }) {
                     </>
                 )
                 }
-                <TouchableOpacity
-                    style={styles.addSentenceButton}
-                    onPress={() =>
-                        navigation.navigate('AddSentence', {
-                            onSave: (newSentences) => {
-                                setSentences((prev) => [...prev, ...newSentences]);
-                            },
-                        })
-                    }
-                >
-                    <AntDesign name="plus-circle" size={24} color="white" />
-                    <Text style={styles.addSentenceButtonText}>Add Sentence</Text>
-                </TouchableOpacity>
-                {/* Save */}
-                < TouchableOpacity style={styles.saveButton} onPress={saveLesson} >
-                    <Text style={styles.saveButtonText}>Save Lesson</Text>
-                </TouchableOpacity>
+
+                {/* Save / Add Sentence sit side by side on tablets, stacked on phones */}
+                <View style={styles.actionRow}>
+                    <TouchableOpacity
+                        style={styles.addSentenceButton}
+                        onPress={() =>
+                            navigation.navigate('AddSentence', {
+                                onSave: (newSentences) => {
+                                    setSentences((prev) => [...prev, ...newSentences]);
+                                },
+                            })
+                        }
+                    >
+                        <AntDesign name="plus-circle" size={24} color="#00adb5" />
+                        <Text style={styles.addSentenceButtonText}>Add Sentence</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.saveButton} onPress={saveLesson}>
+                        <Text style={styles.saveButtonText}>Save Lesson</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={confirmDeleteLesson}
                 >
-                    <AntDesign name="delete" size={20} color="white" />
+                    <AntDesign name="delete" size={20} color="#e05a5a" />
 
                     <Text style={styles.deleteButtonText}>
                         Delete Lesson
