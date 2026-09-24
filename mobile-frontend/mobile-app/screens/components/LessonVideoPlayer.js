@@ -305,7 +305,7 @@ const LessonVideoPlayer = forwardRef(({
         <View style={styles.container}>
 
             <VideoView
-                key={videoUri}
+
                 style={styles.video}
                 player={player}
                 nativeControls={false}

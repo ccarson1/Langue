@@ -1371,28 +1371,6 @@ export default function HomeScreen({ navigation, route }) {
                                         </Text>
                                     </View>
 
-                                    <View style={styles.editSentenceButton}>
-
-                                        <TouchableOpacity
-                                            onPress={() => {
-
-                                                if (rows[index]) {
-                                                    console.log("Editable Sentence: ", rows[index]);
-                                                }
-
-
-                                            }}
-                                        >
-
-                                            <AntDesign
-                                                name="edit"
-                                                size={24}
-                                                color="black"
-                                            />
-
-                                        </TouchableOpacity>
-
-                                    </View>
 
 
                                     {/* ---------------- TRANSLATE BUTTON ---------------- */}
@@ -1431,13 +1409,6 @@ export default function HomeScreen({ navigation, route }) {
                                     <StatusIndicator
                                         frequency={selectedFrequency}
                                     />
-
-
-                                    {/* ---------------- PART OF SPEECH ---------------- */}
-
-                                    <Text style={styles.partOfSpeech}>
-                                        adjective
-                                    </Text>
 
 
                                     {/* =================================================
