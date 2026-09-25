@@ -163,7 +163,7 @@ export default function BottomAudioMenu({
                                 <Switch value={isScraperEnabled} onValueChange={setIsScraperEnabled} />
                             </View>
 
-                            {targetText && (
+                            {/* {targetText && (
                                 <View style={styles.pronunciationSection}>
                                     <Text style={styles.sectionTitle}>Pronunciation Practice</Text>
 
@@ -183,7 +183,7 @@ export default function BottomAudioMenu({
                                         isPhraseMode={isPhraseMode}
                                     />
                                 </View>
-                            )}
+                            )} */}
                         </View>
                     </View>
 

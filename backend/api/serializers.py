@@ -106,11 +106,12 @@ class SentenceSerializer(serializers.ModelSerializer):
         fields = ['id','sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms']
 
 class LessonSerializer(serializers.ModelSerializer):
-    sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
+    #sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
     image = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
+
         fields = [
             'id',
             'image',
@@ -127,8 +128,8 @@ class LessonSerializer(serializers.ModelSerializer):
             'fileUploaded',
             'urlReference',
             'created_at',
-            'sentences',
             'videoFormat',
+            'tags'
             
         ]
 

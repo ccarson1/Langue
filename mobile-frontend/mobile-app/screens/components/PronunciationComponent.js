@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
@@ -12,18 +13,33 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { getServerIP } from '../../utils/config';
 
 export default function PronunciationComponent({
-  targetText,        // Required: the word or phrase to practice
-  isPhraseMode = true,   // 'word' or 'phrase' (sent to backend)
+  targetText,
+  isPhraseMode = true,
 }) {
   const [isRecording, setIsRecording] = useState(false);
   const [recording, setRecording] = useState(null);
+  const [recordingUri, setRecordingUri] = useState(null);
+  const [sound, setSound] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const mode = isPhraseMode ? 'phrase' : 'word';
+
+  const mode = isPhraseMode ? 'word' : 'phrase';
 
   const startRecording = async () => {
     try {
+      // Stop any previous playback
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+        setIsPlaying(false);
+      }
+
+      setRecordingUri(null);
+
       await Audio.requestPermissionsAsync();
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -50,27 +66,49 @@ export default function PronunciationComponent({
 
     try {
       await recording.stopAndUnloadAsync();
+
       const uri = recording.getURI();
+
+      console.log("RECORDING URI:", uri);
+
+      // Keep the temporary recording available for playback
+      setRecordingUri(uri);
 
       const serverIP = await getServerIP();
       const token = await AsyncStorage.getItem('accessToken');
 
       const formData = new FormData();
-      formData.append('audio', {
-        uri,
-        type: 'audio/m4a',
-        name: 'recording.m4a',
-      });
+
+      if (Platform.OS === 'web') {
+        const blob = await fetch(uri).then(response => response.blob());
+
+        formData.append(
+          'audio',
+          new File([blob], 'recording.m4a', {
+            type: 'audio/m4a',
+          })
+        );
+      } else {
+        formData.append('audio', {
+          uri,
+          type: 'audio/m4a',
+          name: 'recording.m4a',
+        });
+      }
+
       formData.append('text', targetText);
       formData.append('mode', mode);
 
-      const response = await fetch(`http://${serverIP}:8000/api/practice/evaluate/`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const response = await fetch(
+        `http://${serverIP}:8000/api/practice/evaluate/`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
 
       const data = await response.json();
 
@@ -93,9 +131,48 @@ export default function PronunciationComponent({
     }
   };
 
+  const playRecording = async () => {
+    if (!recordingUri) return;
+
+    try {
+      // If currently playing, stop it
+      if (sound && isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+        return;
+      }
+
+      // If sound already exists, play it
+      if (sound) {
+        await sound.playAsync();
+        setIsPlaying(true);
+        return;
+      }
+
+      console.log("PLAYING RECORDING:", recordingUri);
+
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: recordingUri },
+        { shouldPlay: true }
+      );
+
+      setSound(newSound);
+      setIsPlaying(true);
+
+      // Detect when playback finishes
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          setIsPlaying(false);
+        }
+      });
+    } catch (error) {
+      console.error("PLAYBACK ERROR:", error);
+      Alert.alert('Error', 'Could not play recording');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* <Text style={styles.targetText}>{targetText}</Text> */}
 
       <TouchableOpacity
         style={[
@@ -110,27 +187,62 @@ export default function PronunciationComponent({
           size={42}
           color={isRecording ? "#ff4757" : "#00adb5"}
         />
+
         <Text style={styles.recordText}>
           {isRecording ? "STOP" : "RECORD"}
         </Text>
       </TouchableOpacity>
 
+      {/* Play temporary recording */}
+      {recordingUri && !isRecording && (
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={playRecording}
+          disabled={isLoading}
+        >
+          <Ionicons
+            name={isPlaying ? "pause-circle" : "play-circle"}
+            size={28}
+            color="#00adb5"
+          />
+
+          <Text style={styles.playText}>
+            {isPlaying ? "PAUSE" : "PLAY"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {result && (
-        <View style={[
-          styles.resultBox,
-          result.correct ? styles.correctResult : styles.incorrectResult
-        ]}>
+        <View
+          style={[
+            styles.resultBox,
+            result.correct
+              ? styles.correctResult
+              : styles.incorrectResult,
+          ]}
+        >
           <Text style={styles.resultTitle}>
             {result.correct ? "✅ Great!" : "❌ Try Again"}
           </Text>
-          <Text style={styles.resultMessage}>{result.message}</Text>
+
+          <Text style={styles.resultMessage}>
+            {result.message}
+          </Text>
+
           {result.score !== undefined && (
-            <Text style={styles.score}>Score: {result.score}%</Text>
+            <Text style={styles.score}>
+              Score: {result.score}%
+            </Text>
           )}
         </View>
       )}
 
-      {isLoading && <Text style={styles.loadingText}>Evaluating...</Text>}
+      {isLoading && (
+        <Text style={styles.loadingText}>
+          Evaluating...
+        </Text>
+      )}
+
     </View>
   );
 }
@@ -140,14 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
-  // targetText: {
-  //   fontSize: 18,
-  //   color: '#eeeeee',
-  //   fontWeight: '500',
-  //   textAlign: 'center',
-  //   marginBottom: 16,
-  //   paddingHorizontal: 10,
-  // },
+
   recordButton: {
     width: 120,
     height: 120,
@@ -157,18 +262,37 @@ const styles = StyleSheet.create({
     borderColor: '#00adb5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
+
   recordingActive: {
     borderColor: '#ff4757',
     backgroundColor: '#3a2c2c',
   },
+
   recordText: {
     color: '#eeeeee',
     fontWeight: '600',
     marginTop: 6,
     fontSize: 14,
   },
+
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+
+  playText: {
+    color: '#eeeeee',
+    fontWeight: '600',
+    fontSize: 13,
+    marginLeft: 5,
+  },
+
   resultBox: {
     padding: 14,
     borderRadius: 10,
@@ -176,32 +300,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+
   correctResult: {
     backgroundColor: '#1e3a2f',
     borderWidth: 1,
     borderColor: '#00adb5',
   },
+
   incorrectResult: {
     backgroundColor: '#3a2c2c',
     borderWidth: 1,
     borderColor: '#ff4757',
   },
+
   resultTitle: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 6,
   },
+
   resultMessage: {
     color: '#eeeeee',
     textAlign: 'center',
     fontSize: 14,
     lineHeight: 20,
   },
+
   score: {
     marginTop: 6,
     color: '#00adb5',
     fontWeight: '600',
   },
+
   loadingText: {
     color: '#00adb5',
     marginTop: 8,

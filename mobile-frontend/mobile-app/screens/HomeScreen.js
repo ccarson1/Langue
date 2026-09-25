@@ -1,6 +1,6 @@
 // HomeScreen.js
 import React, { useEffect, useState, useRef } from 'react';
-import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, ScrollView, View, useWindowDimensions, Pressable } from 'react-native';
+import { Platform, BackHandler, Animated, TouchableOpacity, TextInput, Text, ScrollView, View, useWindowDimensions, Pressable, Switch } from 'react-native';
 import { Audio } from 'expo-av';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -23,6 +23,7 @@ import LessonVideoPlayer from "./components/LessonVideoPlayer";
 import ScrapedDictionary from './components/ScrapedDictionary';
 import SentencePopupMenu from './components/SentencePopupMenu';
 import EditSentence from "./components/EditSentence";
+import PronunciationComponent from './components/PronunciationComponent';
 
 
 //import styles from './styles/HomeStyles';
@@ -92,6 +93,7 @@ export default function HomeScreen({ navigation, route }) {
     const [editSentenceVisible, setEditSentenceVisible] = useState(false);
     const [sentenceToEdit, setSentenceToEdit] = useState("")
     const [lessonReady, setLessonReady] = useState(false);
+    const [isPhraseMode, setIsPhraseMode] = useState(true);
 
 
 
@@ -196,7 +198,7 @@ export default function HomeScreen({ navigation, route }) {
 
         try {
             const response = await fetch(
-                `http://${serverIP}:8000/api/edit_lesson/${currentLesson}/sentence/${sentenceId}/`,
+                `http://${serverIP}:8000/api/edit-lesson/${currentLesson}/sentence/${sentenceId}/`,
                 {
                     method: 'PUT',
                     headers: {
@@ -1539,6 +1541,26 @@ export default function HomeScreen({ navigation, route }) {
                                             {description}
                                         </Text>
 
+                                    </View>
+
+                                    <View style={styles.pronunciationSection}>
+                                        <Text style={styles.sectionTitle}>Pronunciation Practice</Text>
+
+                                        <View style={styles.modeToggleContainer}>
+                                            <Text style={styles.toggleLabel}>Word</Text>
+                                            <Switch
+                                                trackColor={{ false: '#555', true: '#00adb5' }}
+                                                thumbColor={isPhraseMode ? '#eeeeee' : '#222831'}
+                                                onValueChange={setIsPhraseMode}
+                                                value={isPhraseMode}
+                                            />
+                                            <Text style={styles.toggleLabel}>Phrase</Text>
+                                        </View>
+
+                                        <PronunciationComponent
+                                            targetText={selectedText}
+                                            isPhraseMode={isPhraseMode}
+                                        />
                                     </View>
 
                                 </View>

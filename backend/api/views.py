@@ -642,37 +642,19 @@ def edit_lesson(request, lesson_id, sentence_id=None):
     if sentence_id is not None:
 
         try:
-            sentence_obj = Sentence.objects.get(
-                id=sentence_id,
-                lesson=lesson
-            )
+            sentence_obj = Sentence.objects.get( id=sentence_id, lesson=lesson )
         except Sentence.DoesNotExist:
-            return Response(
-                {'error': 'Sentence not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response( {'error': 'Sentence not found'}, status=status.HTTP_404_NOT_FOUND )
 
         if request.method == 'PUT':
 
-            sentence_obj.sentence = request.data.get(
-                'sentence',
-                sentence_obj.sentence
-            )
+            sentence_obj.sentence = request.data.get( 'sentence', sentence_obj.sentence )
 
-            sentence_obj.start_ms = request.data.get(
-                'start_ms',
-                sentence_obj.start_ms
-            )
+            sentence_obj.start_ms = request.data.get( 'start_ms', sentence_obj.start_ms )
 
-            sentence_obj.end_ms = request.data.get(
-                'end_ms',
-                sentence_obj.end_ms
-            )
+            sentence_obj.end_ms = request.data.get( 'end_ms', sentence_obj.end_ms )
 
-            sentence_obj.translated_sentence = request.data.get(
-                'translated_sentence',
-                sentence_obj.translated_sentence
-            )
+            sentence_obj.translated_sentence = request.data.get( 'translated_sentence', sentence_obj.translated_sentence )
 
             sentence_obj.save()
 
@@ -691,17 +673,9 @@ def edit_lesson(request, lesson_id, sentence_id=None):
 
             sentence_obj.delete()
 
-            return Response({
-                'message': 'Sentence deleted successfully'
-            })
-
+            return Response({ 'message': 'Sentence deleted successfully' })
         else:
-            return Response(
-                {'error': 'Method not allowed'},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-
-    
+            return Response( {'error': 'Method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED )
 
     if request.method == 'GET':
 
@@ -798,30 +772,15 @@ def edit_lesson(request, lesson_id, sentence_id=None):
             with transaction.atomic():
 
                 # Save paths before deleting the database object
-                image_name = (
-                    lesson.image.name
-                    if lesson.image
-                    else None
-                )
+                image_name = ( lesson.image.name if lesson.image else None )
 
-                lesson_folder = os.path.join(
-                    settings.MEDIA_ROOT,
-                    'lessons',
-                    str(lesson.uuid)
-                )
-
+                lesson_folder = os.path.join( settings.MEDIA_ROOT, 'lessons', str(lesson.uuid) )
                 # Remove lesson media storage records
-                StorageManager.delete_lesson_storage(
-                    request.user,
-                    lesson
-                )
-
+                StorageManager.delete_lesson_storage( request.user, lesson )
                 # Delete image
                 if ( image_name and image_name != 'images/default-01.jpg' ):
                     StorageManager.delete_image_storage( request.user, lesson.image )
                     lesson.image.delete(save=False)
-
-                
 
                 # Delete lesson folder
                 if os.path.isdir(lesson_folder):
@@ -830,21 +789,12 @@ def edit_lesson(request, lesson_id, sentence_id=None):
                 # Delete database record
                 lesson.delete()
 
-
                 # Recalculate aggregate sentence storage
-                StorageManager.recalculate_sentence_storage(
-                    request.user
-                )
+                StorageManager.recalculate_sentence_storage( request.user )
 
                 # Recalculate profile.used_storage from StorageObjects
-                StorageManager.recalculate(
-                    request.user
-                )
-
-            return Response(
-                {'message': 'Lesson deleted successfully'},
-                status=status.HTTP_200_OK
-            )
+                StorageManager.recalculate( request.user )
+            return Response( {'message': 'Lesson deleted successfully'}, status=status.HTTP_200_OK )
 
         except Exception as e:
             print("Error deleting lesson:", e)
@@ -2263,6 +2213,11 @@ def evaluate_pronunciation_view(request):
         text = request.data.get('text')
         mode = request.data.get('mode', 'phrase')
         audio_file = request.FILES.get('audio')
+
+        print("Text: ", text)
+        print("Mode: ", mode)
+        print("Audio file:", audio_file)
+        print("FILES:", request.FILES)
 
         if not text or not audio_file:
             return Response({"error": "Text and audio file are required"},
