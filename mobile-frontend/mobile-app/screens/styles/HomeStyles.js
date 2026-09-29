@@ -275,7 +275,7 @@ export const createStyles = (insets) =>
             padding: 15,
 
             width: '100%',
-            Height: 600,
+            height: 600,
 
             position: 'relative',
 

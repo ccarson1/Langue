@@ -552,6 +552,7 @@ export default function AddSentenceScreen({ route, navigation }) {
     const [user, setUser] = useState(null);
     const [translateText, setTranslateText] = useState('');
     const [generateAudio, setGenerateAudio] = useState('');
+    const [generateVideo, setGenerateVideo] = useState('');
     const [loading, setLoading] = useState(false);
 
     const splitOptions = [
@@ -1184,7 +1185,6 @@ export default function AddSentenceScreen({ route, navigation }) {
 
                     </View>
 
-
                     <View style={styles.switchRow}>
 
                         <Text style={styles.switchLabel}>
@@ -1195,6 +1195,23 @@ export default function AddSentenceScreen({ route, navigation }) {
                             value={generateAudio}
                             onValueChange={
                                 setGenerateAudio
+                            }
+                            disabled={true}
+                        />
+
+                    </View>
+
+
+                    <View style={styles.switchRow}>
+
+                        <Text style={styles.switchLabel}>
+                            Generate Video
+                        </Text>
+
+                        <Switch
+                            value={generateVideo}
+                            onValueChange={
+                                setGenerateVideo
                             }
                             disabled={true}
                         />
