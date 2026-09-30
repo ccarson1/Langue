@@ -46,7 +46,11 @@ urlpatterns = [
     path( "translation-models/", views.TranslationModelListView.as_view(), name="translation-models" ),
     path('tags/', views.tags, name='tags'),
     path('dictionary-entry/', views.dictionary_entry, name="dictionary_entry"),
+    path("books/", views.books_list, name="books-list"),
+    path("books/<str:book_id>/", views.book_detail, name="book-detail"),
+    re_path( r'^books/(?P<book_id>[^/]+)/pages/(?P<page>[^/]+)/images/(?P<path>.*)$', views.serve_book_image, name='book-image', ),
     path( '<str:item_type>/', views.language_items, name='language_items' ),
     path( '<str:item_type>/audio/<str:lang_code>/<str:filename>', views.language_item_audio, name='language_item_audio' ),
+    
     re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

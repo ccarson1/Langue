@@ -2816,3 +2816,216 @@ class TranslationModelListView(generics.ListAPIView):
     serializer_class = TranslationModelSerializer
 
 
+BOOKS_DIR = Path(settings.BASE_DIR) / "api" / "books"
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def books_list(request):
+    """
+    Return every book folder inside api/books/.
+    """
+
+    books = []
+
+    if not BOOKS_DIR.exists():
+        return JsonResponse([], safe=False)
+
+    for book_dir in sorted(BOOKS_DIR.iterdir()):
+        if not book_dir.is_dir():
+            continue
+
+        books.append({
+            "id": book_dir.name,
+            "name": book_dir.name.replace("_", " "),
+        })
+
+    return JsonResponse(books, safe=False)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def book_detail(request, book_id):
+    """
+    Return the complete contents of a book:
+    - book information
+    - table of contents
+    - every page
+    - image URLs
+    """
+
+    book_dir = BOOKS_DIR / book_id
+
+    # Prevent path traversal
+    try:
+        book_dir = book_dir.resolve()
+        books_root = BOOKS_DIR.resolve()
+
+        book_dir.relative_to(books_root)
+
+    except ValueError:
+        return JsonResponse(
+            {"error": "Invalid book."},
+            status=400
+        )
+
+    if not book_dir.is_dir():
+        return JsonResponse(
+            {"error": "Book not found."},
+            status=404
+        )
+
+    content_dir = book_dir / "content" / "book_ocr_output"
+
+    if not content_dir.exists():
+        return JsonResponse(
+            {"error": "Book content not found."},
+            status=404
+        )
+
+    # ------------------------------------------------------------
+    # TOC
+    # ------------------------------------------------------------
+
+    toc = []
+
+    toc_file = content_dir / "toc.json"
+
+    if toc_file.exists():
+        try:
+            with open(toc_file, "r", encoding="utf-8") as f:
+                toc_data = json.load(f)
+
+            if isinstance(toc_data, list):
+                toc = toc_data
+
+            elif isinstance(toc_data, dict):
+                toc = toc_data.get("entries", [])
+
+        except (json.JSONDecodeError, OSError):
+            toc = []
+
+    # ------------------------------------------------------------
+    # PAGES
+    # ------------------------------------------------------------
+
+    pages_dir = content_dir / "pages"
+
+    pages = []
+
+    if pages_dir.exists():
+
+        page_directories = sorted(
+            [
+                directory
+                for directory in pages_dir.iterdir()
+                if directory.is_dir() and
+                (directory / "page.json").exists()
+            ],
+            key=lambda directory: directory.name
+        )
+
+        for page_dir in page_directories:
+            page_file = page_dir / "page.json"
+            try:
+                with open(page_file, "r", encoding="utf-8") as f:
+                    page_data = json.load(f)
+
+                page_data["id"] = page_dir.name
+
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            # ----------------------------------------------------
+            # Process elements
+            # ----------------------------------------------------
+
+            for element in page_data.get("elements", []):
+
+                bbox = element.get("bbox")
+
+                if bbox and len(bbox) >= 4:
+                    x1, y1, x2, y2 = bbox
+
+                    element["x"] = x1
+                    element["y"] = y1
+                    element["width"] = x2 - x1
+                    element["height"] = y2 - y1
+
+                # ------------------------------------------------
+                # Image URL
+                # ------------------------------------------------
+
+                if element.get("type") == "image":
+
+                    filename = element.get("filename")
+
+                    if filename:
+                        filename = filename.replace("\\", "/")
+
+                        element["filename"] = filename
+
+                        element["image_url"] = (
+                            f"/api/books/"
+                            f"{book_id}/"
+                            f"pages/"
+                            f"{page_dir.name}/"
+                            f"images/"
+                            f"{filename}"
+                        )
+
+            pages.append(page_data)
+
+    # ------------------------------------------------------------
+    # Return entire book
+    # ------------------------------------------------------------
+
+    return JsonResponse({
+        "id": book_id,
+        "name": book_id.replace("_", " "),
+        "toc": toc,
+        "pages": pages,
+    })
+
+
+BOOKS_DIR = Path(settings.BASE_DIR) / "api" / "books"
+
+
+def serve_book_image(request, book_id, page, path):
+
+    books_root = BOOKS_DIR.resolve()
+
+    book_root = (
+        BOOKS_DIR / book_id
+    ).resolve()
+
+    try:
+        book_root.relative_to(books_root)
+    except ValueError:
+        raise Http404
+
+
+    image_file = (
+        book_root
+        / "content"
+        / "book_ocr_output"
+        / "pages"
+        / page
+        / "images"
+        / path
+    ).resolve()
+
+
+    try:
+        image_file.relative_to(book_root)
+    except ValueError:
+        raise Http404
+
+
+    if not image_file.is_file():
+        raise Http404
+
+
+    return FileResponse(
+        open(image_file, "rb")
+    )
+

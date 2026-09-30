@@ -12,19 +12,21 @@ import {
   Alert,
   Switch,
   Platform,
-  ProgressViewIOS 
+  ProgressViewIOS,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { Picker } from '@react-native-picker/picker';
 import { jwtDecode } from 'jwt-decode';
-import styles from './styles/ImportStyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createStyles } from './styles/ImportStyles';
 import CustomPopup from './components/CustomPopup';
 import LoadingOverlay from './components/LoadingOverlay';
 import ButtonGroup from './components/ButtonGroup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getServerIP } from '../utils/config';
 import ProgressBar from './components/ProgressBar';
+import PDFConverterPopup from './components/PDFConverterPopup';
 
 console.log('ButtonGroup:', ButtonGroup);
 console.log('CustomPopup:', CustomPopup);
@@ -54,7 +56,7 @@ export default function ImportScreen({ navigation, route }) {
   const [progress, setProgress] = useState(0);
   const [serverIP, setServerIP] = useState('');
   const progressUrl = `http://${serverIP}:8000/api/lesson-import-progress/`;
-  const uploadOptions = [{ label: 'Video', value: 'video' }, { label: 'Audio', value: 'audio' }, { label: 'Empty', value: 'empty' }]
+  const uploadOptions = [{ label: 'Video', value: 'video' }, { label: 'Audio', value: 'audio' }, { label: 'Text Only', value: 'text_only' }, { label: 'Empty', value: 'empty' }]
   const [uploadType, setUploadType] = useState('empty');
   const sourceOptions = [{ label: 'Manual', value: 'manual' }, { label: 'URL', value: 'url' }]
   const [uploadSource, setUploadSource] = useState('manual');
@@ -63,6 +65,10 @@ export default function ImportScreen({ navigation, route }) {
   const [ShowVideoCaptions, setShowVideoCaptions] = useState(false);
   const [ShowVideoView, setShowVideoView] = useState(false);
 
+  const [pdfConverterVisible, setPdfConverterVisible] = useState(false);
+
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(insets);
 
   useEffect(() => {
     const loadIP = async () => {
@@ -337,6 +343,11 @@ export default function ImportScreen({ navigation, route }) {
     return fileUri;
   };
 
+  const handleOpenPDFConverter = () => {
+    setPdfFile(null);
+    setPdfPopupVisible(true);
+  };
+
   function dataURLtoBlob(dataurl) {
     const arr = dataurl.split(',');
     const mime = arr[0].match(/:(.*?);/)[1];
@@ -486,6 +497,26 @@ export default function ImportScreen({ navigation, route }) {
     }
   };
 
+  const handlePDFPick = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        setPdfFile(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('PDF pick error:', error);
+      Alert.alert('Error', 'Failed to select PDF.');
+    }
+  };
+
 
   return (
     <ScrollView
@@ -532,6 +563,7 @@ export default function ImportScreen({ navigation, route }) {
           {/* ====================== URL SECTION ====================== */}
           {uploadSource === 'url' && uploadType !== 'empty' && (
             <View>
+
               <View style={styles.checkboxRow}>
                 <Switch
                   value={urlReference}
@@ -562,6 +594,7 @@ export default function ImportScreen({ navigation, route }) {
           {/* ====================== MANUAL FILE SECTION ====================== */}
           {uploadSource === 'manual' && uploadType !== 'empty' && (
             <View>
+
               <View style={styles.checkboxRow}>
                 <Switch
                   value={fileUploaded}
@@ -569,7 +602,7 @@ export default function ImportScreen({ navigation, route }) {
                   trackColor={{ false: '#777', true: '#00adb5' }}
                   thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
                 />
-                <Text style={styles.checkboxLabel}>Upload Lesson File <small>(.csv)</small></Text>
+                <Text style={styles.checkboxLabel}>Upload Lesson File <Text style={{ fontSize: 12 }}>(.csv)</Text></Text>
               </View>
 
               {fileUploaded && (
@@ -579,6 +612,12 @@ export default function ImportScreen({ navigation, route }) {
                     <Text style={styles.buttonText}>
                       {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
                     </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => setPdfConverterVisible(true)}
+                  >
+                    <Text style={styles.buttonText}>Convert PDF to csv</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -714,6 +753,18 @@ export default function ImportScreen({ navigation, route }) {
             <Text style={styles.buttonText}>Import Lesson</Text>
           </TouchableOpacity>
 
+          <PDFConverterPopup
+            visible={pdfConverterVisible}
+            onClose={() => setPdfConverterVisible(false)}
+            serverIP={serverIP}
+            token={token}
+            onConverted={(data) => {
+              console.log('Converted CSV:', data);
+
+              // We'll connect the returned CSV to lessonFile here.
+            }}
+          />
+
           {popup.visible && popup.message && (
             <CustomPopup
               visible={true}
@@ -731,7 +782,7 @@ export default function ImportScreen({ navigation, route }) {
               <View style={{ marginTop: 20 }}>
                 {Platform.OS === 'android' ? (
                   <ProgressBar styleAttr="Horizontal" progress={progress / 100} indeterminate={false} color="#00adb5" />
-                ): (
+                ) : (
                   <progress value={progress} max={100} style={{ width: '100%' }} />
                 )}
                 <Text style={{ color: '#fff' }}>{progress}%</Text>

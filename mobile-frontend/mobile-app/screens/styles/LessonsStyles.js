@@ -67,14 +67,14 @@ export const createStyles = (insets, width = 390) => {
         backLink: {
             position: 'absolute',
             top: 40,
-            right: isTablet ? 24 : 20,
+            left: isTablet ? Math.max(20, (width - contentMaxWidth) / 2) : 20,
+            zIndex: 20,
             width: 38,
             height: 38,
             borderRadius: 19,
-            backgroundColor: 'rgba(57,62,70,0.9)',
+            backgroundColor: 'rgba(57,62,70,0.85)',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 50,
         },
 
 

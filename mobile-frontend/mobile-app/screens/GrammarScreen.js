@@ -13,9 +13,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
+import { createStyles } from './styles/GrammarStyles';
 
 export default function AlphabetScreen({ navigation }) {
     const insets = useSafeAreaInsets();
+    const styles = createStyles(insets);
 
     const [alphabet, setAlphabet] = useState([]);
     const [numbers, setNumbers] = useState([]);
@@ -179,6 +181,8 @@ export default function AlphabetScreen({ navigation }) {
                 <AntDesign name="left" size={22} color="white" />
             </TouchableOpacity>
 
+
+
             {/* Alphabet / Numbers menu */}
             <View style={styles.menu}>
                 <TouchableOpacity
@@ -214,6 +218,22 @@ export default function AlphabetScreen({ navigation }) {
                         Numbers
                     </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.menuButton,
+                        selectedType === 'numbers' && styles.menuButtonActive,
+                    ]}
+                    onPress={() => navigation.navigate('Library')}
+                >
+                    
+                    <Text style={styles.libraryLinkText}>
+                        <AntDesign name="book" size={22} color="white" />
+                        Library
+                        
+                    </Text>
+                </TouchableOpacity>
+
             </View>
 
             <ScrollView
@@ -290,122 +310,3 @@ export default function AlphabetScreen({ navigation }) {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#222831',
-    },
-
-    loadingText: {
-        color: 'white',
-        fontSize: 20,
-        textAlign: 'center',
-        marginTop: 50,
-    },
-
-    header: {
-        backgroundColor: '#30475e',
-        paddingVertical: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    headerText: {
-        color: 'white',
-        fontSize: 28,
-        fontFamily: 'PlaywriteHU-Regular',
-    },
-
-    menu: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 12,
-        gap: 10,
-        backgroundColor: '#222831',
-    },
-
-    menuButton: {
-        paddingVertical: 10,
-        paddingHorizontal: 30,
-        borderRadius: 8,
-        backgroundColor: '#393e46',
-    },
-
-    menuButtonActive: {
-        backgroundColor: '#00adb5',
-    },
-
-    menuText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-
-    menuTextActive: {
-        color: 'white',
-    },
-
-    scrollContent: {
-        padding: 20,
-        alignItems: 'center',
-    },
-
-    description: {
-        color: 'white',
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 20,
-        maxWidth: 700,
-    },
-
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        width: '100%',
-        gap: 12,
-    },
-
-    card: {
-        backgroundColor: '#393e46',
-        borderRadius: 12,
-        padding: 16,
-        width: Platform.OS === 'web' ? 180 : '46%',
-        minHeight: 140,
-        justifyContent: 'center',
-        alignItems: 'center',
-        cursor: 'pointer',
-        userSelect: 'none',
-    },
-
-    letter: {
-        fontSize: 36,
-        color: '#00adb5',
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-
-    name: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginBottom: 6,
-    },
-
-    pronunciation: {
-        color: '#eeeeee',
-        fontSize: 16,
-        textAlign: 'center',
-    },
-
-    backLink: {
-        position: 'absolute',
-        top: 40,
-        right: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-});

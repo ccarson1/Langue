@@ -31,6 +31,7 @@ lib64/
 *.sqlite3
 db.sqlite3
 media/
+books/
 staticfiles/
 static/
 local_settings.py

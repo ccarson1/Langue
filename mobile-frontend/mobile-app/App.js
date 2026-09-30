@@ -21,6 +21,8 @@ import ResetPasswordConfirmScreen from './screens/ResetPasswordConfirmScreen';
 import AddSentenceScreen from './screens/AddSentenceScreen';
 import GrammarScreen from './screens/GrammarScreen';
 import StatisticsScreen from './screens/StatisticsScreen';
+import LibraryScreen from "./screens/LibraryScreen";
+import BookViewerScreen from "./screens/BookViewerScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -64,6 +66,8 @@ export default function App() {
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />
           <Stack.Screen name="Grammar" component={GrammarScreen} />
+          <Stack.Screen name="Library" component={LibraryScreen} />
+          <Stack.Screen name="BookViewer" component={BookViewerScreen} />
           <Stack.Screen name="Statistics" component={StatisticsScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen name="ResetPasswordConfirm" component={ResetPasswordConfirmScreen} />

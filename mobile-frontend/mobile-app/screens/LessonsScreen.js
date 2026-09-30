@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 
 import AntDesign from '@expo/vector-icons/AntDesign';
-import styles from "./styles/LessonsStyles";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { getServerIP } from '../utils/config';
