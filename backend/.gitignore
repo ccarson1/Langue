@@ -30,9 +30,10 @@ lib64/
 *.mo
 *.sqlite3
 db.sqlite3
-media/
-!media/images/
-!media/images/default-01.jpg
+api/media/*
+!api/media/images/
+api/media/images/*
+!api/media/images/default-01.jpg
 books/
 staticfiles/
 static/
