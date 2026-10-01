@@ -31,6 +31,8 @@ lib64/
 *.sqlite3
 db.sqlite3
 media/
+!media/images/
+!media/images/default-01.jpg
 books/
 staticfiles/
 static/
