@@ -26,7 +26,7 @@ import ButtonGroup from './components/ButtonGroup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getServerIP } from '../utils/config';
 import ProgressBar from './components/ProgressBar';
-import PDFConverterPopup from './components/PDFConverterPopup';
+// import PDFConverterPopup from './components/PDFConverterPopup';
 
 console.log('ButtonGroup:', ButtonGroup);
 console.log('CustomPopup:', CustomPopup);
@@ -60,12 +60,15 @@ export default function ImportScreen({ navigation, route }) {
   const [uploadType, setUploadType] = useState('empty');
   const sourceOptions = [{ label: 'Manual', value: 'manual' }, { label: 'URL', value: 'url' }]
   const [uploadSource, setUploadSource] = useState('manual');
+  const fileOptions = [{ label: 'CSV', value: 'csv' }, { label: 'PDF', value: 'pdf' }]
+  const [fileType, setFileType] = useState('csv');
   const [translateTarget, setTranslateTarget] = useState(false);
   const { recordId } = route.params || {};
   const [ShowVideoCaptions, setShowVideoCaptions] = useState(false);
   const [ShowVideoView, setShowVideoView] = useState(false);
+  const [generateAudio, setGenerateAudio] = useState(false);
 
-  const [pdfConverterVisible, setPdfConverterVisible] = useState(false);
+  // const [pdfConverterVisible, setPdfConverterVisible] = useState(false);
 
   const insets = useSafeAreaInsets();
   const styles = createStyles(insets);
@@ -273,23 +276,51 @@ export default function ImportScreen({ navigation, route }) {
 
   const handleFilePick = async () => {
     setLoading(true);
+
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      const fileMimeType =
+        fileType === 'csv'
+          ? 'text/csv'
+          : 'application/pdf';
+
+      const result = await DocumentPicker.getDocumentAsync({
+        type: fileMimeType,
+      });
+
       console.log("File upload pressed:", result);
 
       if (result && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
+
         console.log("Selected file:", file);
+
+        // Check the file extension
+        const fileName = file.name?.toLowerCase() || '';
+
+        const validExtension =
+          fileType === 'csv'
+            ? fileName.endsWith('.csv')
+            : fileName.endsWith('.pdf');
+
+        if (!validExtension) {
+          showError(
+            `Please select a ${fileType.toUpperCase()} file.`
+          );
+          setLessonFile(null);
+          return;
+        }
+
         setLessonFile(file);
       } else {
         setLessonFile(null);
       }
     } catch (error) {
-      showError(`File pick error: ${error}`)
+      showError(`File pick error: ${error}`);
       console.error("File pick error:", error);
       setLessonFile(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleImagePick = async () => {
@@ -343,10 +374,10 @@ export default function ImportScreen({ navigation, route }) {
     return fileUri;
   };
 
-  const handleOpenPDFConverter = () => {
-    setPdfFile(null);
-    setPdfPopupVisible(true);
-  };
+  // const handleOpenPDFConverter = () => {
+  //   setPdfFile(null);
+  //   setPdfPopupVisible(true);
+  // };
 
   function dataURLtoBlob(dataurl) {
     const arr = dataurl.split(',');
@@ -431,6 +462,8 @@ export default function ImportScreen({ navigation, route }) {
       formData.append('translateTarget', translateTarget);
       formData.append('showVideoCaptions', ShowVideoCaptions);
       formData.append('showVideoView', ShowVideoView);
+      formData.append('generateAudio', generateAudio);
+      formData.append('fileType', fileType);
 
       // Start polling progress
       const pollingInterval = setInterval(async () => {
@@ -607,18 +640,19 @@ export default function ImportScreen({ navigation, route }) {
 
               {fileUploaded && (
                 <View>
+                  <ButtonGroup options={fileOptions} selectedValue={fileType} onValueChange={(value) => { setFileType(value); setLessonFile(null); }} />
                   <Text style={styles.label}>Lesson File</Text>
                   <TouchableOpacity style={styles.button} onPress={handleFilePick}>
                     <Text style={styles.buttonText}>
                       {lessonFile ? `Selected: ${lessonFile.name}` : 'Choose File'}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     style={styles.button}
                     onPress={() => setPdfConverterVisible(true)}
                   >
                     <Text style={styles.buttonText}>Convert PDF to csv</Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                 </View>
               )}
 
@@ -727,6 +761,16 @@ export default function ImportScreen({ navigation, route }) {
 
           <View style={styles.checkboxRow}>
             <Switch
+              value={generateAudio}
+              onValueChange={setGenerateAudio}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+            />
+            <Text style={styles.checkboxLabel}>Generate audio from captions</Text>
+          </View>
+
+          <View style={styles.checkboxRow}>
+            <Switch
               value={translateTarget}
               onValueChange={setTranslateTarget}
               trackColor={{ false: '#777', true: '#00adb5' }}
@@ -753,7 +797,7 @@ export default function ImportScreen({ navigation, route }) {
             <Text style={styles.buttonText}>Import Lesson</Text>
           </TouchableOpacity>
 
-          <PDFConverterPopup
+          {/* <PDFConverterPopup
             visible={pdfConverterVisible}
             onClose={() => setPdfConverterVisible(false)}
             serverIP={serverIP}
@@ -763,7 +807,7 @@ export default function ImportScreen({ navigation, route }) {
 
               // We'll connect the returned CSV to lessonFile here.
             }}
-          />
+          /> */}
 
           {popup.visible && popup.message && (
             <CustomPopup

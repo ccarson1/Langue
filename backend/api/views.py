@@ -399,6 +399,9 @@ def import_lesson(request):
             media_file = request.FILES.get('media')
             image_file = request.FILES.get('image')
 
+            generateAudio = request.data.get('generateAudio');
+            fileType = request.data.get('fileType');
+
             print(lesson_file)
 
             nativeLang = get_object_or_404( Language, lang_name=nativeLangName )
@@ -440,25 +443,17 @@ def import_lesson(request):
                 success = download_youtube_image(url, lesson)
 
                 if not success:
-                    raise Exception(
-                        "Failed to download YouTube thumbnail"
-                    )
-
+                    raise Exception( "Failed to download YouTube thumbnail" )
             lesson_progress, created = UserLessonsProgress.objects.get_or_create(
                 user=request.user,
                 lesson=lesson,
-                defaults={
-                    'current_lesson_index': 0,
-                    'last_viewed': timezone.now()
-                }
+                defaults={ 'current_lesson_index': 0, 'last_viewed': timezone.now() }
             )
 
             UserLanguageLessonIndex.objects.update_or_create(
                 user=request.user,
                 lesson_language=targetLang,
-                defaults={
-                    'lesson_progress': lesson_progress
-                }
+                defaults={ 'lesson_progress': lesson_progress }
             )
 
             lesson_import_progress[user_id] = 5
@@ -481,23 +476,31 @@ def import_lesson(request):
 
                 success = save_lesson_media.process_lesson()
                 if not success:
-                    raise Exception(
-                        "YouTube processing failed"
-                    )
-
+                    raise Exception( "YouTube processing failed" )
                 lesson.media_folder = save_lesson_media.AUDIO_DIR
                 lesson.save(update_fields=["media_folder"])
 
                 lesson.refresh_from_db()
 
+            if fileUploaded:
+                if fileType == 'pdf':
+                    print("pdf uploaded")
+                    print(fileUploaded)
+                    print("targetLang", targetLang)
+                    print("nativeLang", nativeLang)
+                    print("translateTarget", translateTarget)
+                    print("lesson.target_language:", lesson.target_language)
+                    print("lesson.native_language:", lesson.native_language)
+                    ocr = OCR( None, targetLang.tesseract_langcode, nativeLang.tesseract_langcode)
+
+                    ocr.process_pdf( lesson_file, lesson, lesson.target_language, lesson.native_language, translateTarget, user_id, lesson_import_progress )
+                elif fileType == 'csv':
+                    print("csv uploaded")
+
             # FILE IMPORT
             if (fileUploaded or alwaysGenerateCaptions) and (audioUploaded or videoFormat) and urlReference == False:
 
-                # if lesson_file:
-                #     lesson.doc_file = lesson_file
-
-                # if media_file:
-                #     lesson.media_file = media_file
+                print("has audio ")
 
 
                 lesson.save()
@@ -2013,12 +2016,14 @@ def ocr_image(request):
     try:
         settings = UserSetting.objects.get(user=user)
         lang_code = settings.target_language.tesseract_langcode
+        native_lang_code = settings.native_language.tesseract_langcode
         print("lang_code:", lang_code)
+        print("native_lang_code:", native_lang_code)
     except UserSetting.DoesNotExist:
         lang_code = "eng"  # fallback
 
     # --- Run OCR ---
-    ocr = OCR(image_file, lang_code)
+    ocr = OCR(image_file, lang_code, native_lang_code)
     text = ocr.pytesseract()
 
     if translateText:
@@ -2028,6 +2033,10 @@ def ocr_image(request):
         translated_text = ''
 
     return JsonResponse({"text": text, "translation": translated_text})
+
+
+
+
 
 
 @api_view(['GET'])

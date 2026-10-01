@@ -1163,6 +1163,13 @@ export default function LiveTVPlayer({ navigation }) {
                 />
               </View>
 
+              <Text style={styles.label}>Public</Text>
+
+                        <Switch
+                          value={isRecordingPublic}
+                          onValueChange={updateRecordingPublic}
+                        />
+
               <View style={styles.formActions}>
                 <Pressable
                   style={({ hovered, pressed }) => [

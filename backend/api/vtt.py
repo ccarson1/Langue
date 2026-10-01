@@ -61,7 +61,7 @@ class VTT():
 
 
     def create_sentences(self, segments):
-        load_user_model(self.user_id)
+        
         total_sentence_storage = 0
 
         for position, seg in enumerate(segments):
@@ -72,6 +72,7 @@ class VTT():
             
 
             if self.translateTarget:
+                load_user_model(self.user_id)
                 translated = translate_word(
                     text,
                     self.yt_dlp_lang,
