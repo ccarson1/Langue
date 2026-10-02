@@ -36,6 +36,14 @@ class Command(BaseCommand):
             "source_language": None,
             "target_language": None,
         },
+        "piper": {
+            "name": "Piper",
+            "purpose": "text_to_speech",
+            "model_type": "piper",
+            "model_name": "lt_LT-reginute1-medium",
+            "source_language": "lt",
+            "target_language": None,
+        },
     }
 
     TESSERACT_CONFIG = {
