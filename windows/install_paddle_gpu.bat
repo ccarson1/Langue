@@ -10,12 +10,26 @@ echo  Langue - PaddlePaddle Windows GPU
 echo ========================================
 echo.
 
-echo Checking system...
+REM ----------------------------------------
+REM Configure PaddleX model/cache location
+REM ----------------------------------------
+
+set "PADDLE_PDX_CACHE_HOME=%CD%\backend\models\paddleocr"
+
+echo PaddleX cache directory:
+echo     %PADDLE_PDX_CACHE_HOME%
 echo.
+
+if not exist "%PADDLE_PDX_CACHE_HOME%" (
+    mkdir "%PADDLE_PDX_CACHE_HOME%"
+)
 
 REM ----------------------------------------
 REM Check Python environment
 REM ----------------------------------------
+
+echo Checking system...
+echo.
 
 if not exist "env\Scripts\python.exe" (
     echo ERROR: Python virtual environment not found.
@@ -133,6 +147,10 @@ echo     NVIDIA GPU build
 echo     CUDA 12.6 build
 echo.
 
+echo PaddleX model/cache directory:
+echo     %PADDLE_PDX_CACHE_HOME%
+echo.
+
 echo The existing PaddlePaddle installation,
 echo if present, may be replaced.
 echo.
@@ -167,6 +185,10 @@ echo ========================================
 echo  Installation successful
 echo ========================================
 echo.
+
+REM ----------------------------------------
+REM Verify PaddlePaddle
+REM ----------------------------------------
 
 echo Verifying PaddlePaddle...
 echo.
@@ -210,6 +232,14 @@ REM ----------------------------------------
 echo ========================================
 echo  GPU installation complete
 echo ========================================
+echo.
+
+echo PaddleX model/cache directory:
+echo     %PADDLE_PDX_CACHE_HOME%
+echo.
+
+echo OCR models are stored under:
+echo     %PADDLE_PDX_CACHE_HOME%\official_models
 echo.
 
 pause

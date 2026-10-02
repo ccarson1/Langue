@@ -1,4 +1,3 @@
-```bash
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,6 +10,18 @@ echo "========================================"
 echo " Langue - PaddlePaddle Linux GPU"
 echo "========================================"
 echo
+
+# ----------------------------------------
+# Configure PaddleX model/cache location
+# ----------------------------------------
+
+export PADDLE_PDX_CACHE_HOME="$LANGUE_DIR/backend/models/paddleocr"
+
+echo "PaddleX cache directory:"
+echo "    $PADDLE_PDX_CACHE_HOME"
+echo
+
+mkdir -p "$PADDLE_PDX_CACHE_HOME"
 
 echo "Checking system..."
 echo
@@ -151,6 +162,10 @@ echo "Detected driver/CUDA:"
 echo "    $CUDA_INFO"
 echo
 
+echo "PaddleX model/cache directory:"
+echo "    $PADDLE_PDX_CACHE_HOME"
+echo
+
 echo "The existing PaddlePaddle installation,"
 echo "if present, may be replaced."
 echo
@@ -264,5 +279,12 @@ echo " GPU installation complete"
 echo "========================================"
 echo
 
+echo "PaddleX model/cache directory:"
+echo "    $PADDLE_PDX_CACHE_HOME"
+echo
+
+echo "OCR models are stored under:"
+echo "    $PADDLE_PDX_CACHE_HOME/official_models"
+echo
+
 exit 0
-```

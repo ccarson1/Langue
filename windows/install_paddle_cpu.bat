@@ -10,6 +10,20 @@ echo ========================================
 echo.
 
 REM ----------------------------------------
+REM Configure PaddleX model/cache location
+REM ----------------------------------------
+
+set "PADDLE_PDX_CACHE_HOME=%CD%\backend\models\paddleocr"
+
+echo PaddleX cache directory:
+echo     %PADDLE_PDX_CACHE_HOME%
+echo.
+
+if not exist "%PADDLE_PDX_CACHE_HOME%" (
+    mkdir "%PADDLE_PDX_CACHE_HOME%"
+)
+
+REM ----------------------------------------
 REM Check Python environment
 REM ----------------------------------------
 
@@ -78,6 +92,10 @@ echo The following will be installed:
 echo.
 echo     PaddlePaddle 3.2.2
 echo     CPU build
+echo.
+
+echo PaddleX model/cache directory:
+echo     %PADDLE_PDX_CACHE_HOME%
 echo.
 
 echo The existing PaddlePaddle installation,
@@ -161,6 +179,14 @@ REM ----------------------------------------
 echo ========================================
 echo  CPU installation complete
 echo ========================================
+echo.
+
+echo PaddleX model/cache directory:
+echo     %PADDLE_PDX_CACHE_HOME%
+echo.
+
+echo OCR models are stored under:
+echo     %PADDLE_PDX_CACHE_HOME%\official_models
 echo.
 
 pause

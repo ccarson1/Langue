@@ -20,6 +20,12 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 print(BASE_DIR)
 
+# PaddleX model/cache location
+os.environ.setdefault(
+    "PADDLE_PDX_CACHE_HOME",
+    str(BASE_DIR / "models" / "paddleocr")
+)
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
