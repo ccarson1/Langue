@@ -158,23 +158,50 @@ class PhraseTranslation(models.Model):
     class Meta:
         db_table = 'Phrase_Translations'
 
-class TranslationModel(models.Model):
+# class TranslationModel(models.Model):
+#     MODEL_TYPES = [
+#         ("m2m100", "M2M100"),
+#         ("opus", "OPUS"),
+#     ]
+
+#     name = models.CharField(max_length=100)
+#     model_type = models.CharField(max_length=50, choices=MODEL_TYPES)
+#     model_name = models.CharField(max_length=255)
+#     save_path = models.CharField(max_length=255)
+#     source_language = models.CharField(max_length=20, null=True, blank=True)
+#     target_language = models.CharField(max_length=20, null=True, blank=True)
+
+#     is_active = models.BooleanField(default=True)
+
+#     def __str__(self):
+#         return f"{self.name} ({self.source_language} → {self.target_language})"
+
+class AIModel(models.Model):
+
+    MODEL_PURPOSES = [
+        ("speech_to_text", "Speech to Text"),
+        ("text_to_text", "Text to Text"),
+        ("text_to_speech", "Text to Speech"),
+        ("image_to_text", "Image to Text"),
+        ("other", "Other"),
+    ]
+
     MODEL_TYPES = [
         ("m2m100", "M2M100"),
         ("opus", "OPUS"),
     ]
 
     name = models.CharField(max_length=100)
-    model_type = models.CharField(max_length=50, choices=MODEL_TYPES)
-    model_name = models.CharField(max_length=255)
-    save_path = models.CharField(max_length=255)
-    source_language = models.CharField(max_length=20, null=True, blank=True)
-    target_language = models.CharField(max_length=20, null=True, blank=True)
-
-    is_active = models.BooleanField(default=True)
+    purpose = models.CharField( max_length=50, choices=MODEL_PURPOSES )
+    model_type = models.CharField( max_length=50, choices=MODEL_TYPES )
+    model_name = models.CharField( max_length=255 )
+    save_path = models.CharField( max_length=255 )
+    source_language = models.CharField( max_length=20, null=True, blank=True )
+    target_language = models.CharField( max_length=20, null=True, blank=True )
+    is_active = models.BooleanField( default=True )
 
     def __str__(self):
-        return f"{self.name} ({self.source_language} → {self.target_language})"
+        return self.name
 
 
 class Dictionary(models.Model):
@@ -245,8 +272,11 @@ class UserSetting(models.Model):
     showVideoView = models.BooleanField(default=False)
     continuousPlay = models.BooleanField(default=False)
     isScraperEnabled = models.BooleanField(default=False)
-    translationModel = models.ForeignKey(TranslationModel,on_delete=models.CASCADE, related_name='settings_translation_model', null=True, blank=True)
-    
+    speechToTextModel = models.ForeignKey( AIModel, on_delete=models.SET_NULL, related_name='settings_speech_to_text_model', null=True, blank=True )
+    textToTextModel = models.ForeignKey( AIModel, on_delete=models.SET_NULL, related_name='settings_text_to_text_model', null=True, blank=True )
+    textToSpeechModel = models.ForeignKey( AIModel, on_delete=models.SET_NULL, related_name='settings_text_to_speech_model', null=True, blank=True )
+    imageToTextModel = models.ForeignKey( AIModel, on_delete=models.SET_NULL, related_name='settings_image_to_text_model', null=True, blank=True )
+        
 class Sentence(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     sentence = models.CharField(max_length=250)

@@ -12,10 +12,10 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, TranslationModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex
 from django.db.models import Q, Count
 from rest_framework import generics
-from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, TranslationModelSerializer
+from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, AIModelSerializer
 from django.views.generic import TemplateView
 from .w_translate import load_user_model, translate_word
 from.dictionary_lookup import DictionaryLookup
@@ -970,9 +970,27 @@ def user_settings(request):
             'continuousPlay': settings.continuousPlay,
             'isScraperEnabled': settings.isScraperEnabled,
 
-            'translation_model': (
-                settings.translationModel.id
-                if settings.translationModel
+            'speech_to_text_model': (
+                settings.speechToTextModel.id
+                if settings.speechToTextModel
+                else None
+            ),
+
+            'text_to_text_model': (
+                settings.textToTextModel.id
+                if settings.textToTextModel
+                else None
+            ),
+
+            'text_to_speech_model': (
+                settings.textToSpeechModel.id
+                if settings.textToSpeechModel
+                else None
+            ),
+
+            'image_to_text_model': (
+                settings.imageToTextModel.id
+                if settings.imageToTextModel
                 else None
             ),
         }
@@ -982,7 +1000,10 @@ def user_settings(request):
         
         native_id = request.data.get('native_language')
         target_id = request.data.get('target_language')
-        translation_model_id = request.data.get( 'translation_model' )
+        speech_to_text_model_id = request.data.get('speech_to_text_model')
+        text_to_text_model_id = request.data.get('text_to_text_model')
+        text_to_speech_model_id = request.data.get('text_to_speech_model')
+        image_to_text_model_id = request.data.get('image_to_text_model')
         offline_mode = request.data.get('offline_mode')
         notifications = request.data.get('notifications')
         user_dictionary_id = request.data.get('user_dictionary')
@@ -1015,12 +1036,46 @@ def user_settings(request):
             if user_dictionary_id is not None:
                 user_dictionary = get_object_or_404( Dictionary, id=user_dictionary_id )
 
-            translation_model = None
-            if translation_model_id:
-                translation_model = get_object_or_404( TranslationModel, id=translation_model_id, is_active=True )
+            speech_to_text_model = None
+            if speech_to_text_model_id:
+                speech_to_text_model = get_object_or_404(
+                    AIModel,
+                    id=speech_to_text_model_id,
+                    purpose='speech_to_text',
+                    is_active=True
+                )
 
-            if translation_model_id:
-                settings.translationModel = translation_model
+            text_to_text_model = None
+            if text_to_text_model_id:
+                text_to_text_model = get_object_or_404(
+                    AIModel,
+                    id=text_to_text_model_id,
+                    purpose='text_to_text',
+                    is_active=True
+                )
+
+            text_to_speech_model = None
+            if text_to_speech_model_id:
+                text_to_speech_model = get_object_or_404(
+                    AIModel,
+                    id=text_to_speech_model_id,
+                    purpose='text_to_speech',
+                    is_active=True
+                )
+
+            image_to_text_model = None
+            if image_to_text_model_id:
+                image_to_text_model = get_object_or_404(
+                    AIModel,
+                    id=image_to_text_model_id,
+                    purpose='image_to_text',
+                    is_active=True
+                )
+
+            settings.speechToTextModel = speech_to_text_model
+            settings.textToTextModel = text_to_text_model
+            settings.textToSpeechModel = text_to_speech_model
+            settings.imageToTextModel = image_to_text_model
 
 
             settings.native_language = native_lang
@@ -1060,9 +1115,9 @@ def user_settings(request):
             return Response({'message': 'Settings updated successfully'})
         except Language.DoesNotExist:
             return Response({'error': 'Invalid language ID'}, status=status.HTTP_400_BAD_REQUEST)
-        except TranslationModel.DoesNotExist:
+        except AIModel.DoesNotExist:
 
-            return Response( { 'error': 'Invalid translation model.' }, status=status.HTTP_400_BAD_REQUEST )
+            return Response( { 'error': 'Invalid AI model.' }, status=status.HTTP_400_BAD_REQUEST )
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -2818,11 +2873,11 @@ def dictionary_entry(request):
         })
 
 
-class TranslationModelListView(generics.ListAPIView):
-    queryset = TranslationModel.objects.filter(
+class AIModelListView(generics.ListAPIView):
+    queryset = AIModel.objects.filter(
         is_active=True
     )
-    serializer_class = TranslationModelSerializer
+    serializer_class = AIModelSerializer
 
 
 BOOKS_DIR = Path(settings.BASE_DIR) / "api" / "books"

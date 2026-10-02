@@ -24,7 +24,10 @@ export default function SettingsScreen({ navigation }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [dictionaries, setDictionaries] = useState([]);
   const [selectedDictionary, setSelectedDictionary] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
+  const [selectedSpeechToTextModel, setSelectedSpeechToTextModel] = useState('');
+  const [selectedTextToTextModel, setSelectedTextToTextModel] = useState('');
+  const [selectedTextToSpeechModel, setSelectedTextToSpeechModel] = useState('');
+  const [selectedImageToTextModel, setSelectedImageToTextModel] = useState('');
   const [loadedModels, setLoadedModels] = useState([]);
   const [profilePrivate, setProfilePrivate] = useState(false);
   const [token, setToken] = useState(null);
@@ -52,7 +55,7 @@ export default function SettingsScreen({ navigation }) {
 
       console.log(
         'Fetching translation models:',
-        `http://${serverIP}:8000/api/translation-models/`
+        `http://${serverIP}:8000/api/ai-models/`
       );
 
       console.log(
@@ -61,7 +64,7 @@ export default function SettingsScreen({ navigation }) {
       );
 
       const res = await fetch(
-        `http://${serverIP}:8000/api/translation-models/`,
+        `http://${serverIP}:8000/api/ai-models/`,
         {
           headers: {
             Authorization: `Bearer ${storedToken}`,
@@ -156,7 +159,21 @@ export default function SettingsScreen({ navigation }) {
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
         setSelectedDictionary(settings.user_dictionary || '');
-        setSelectedModel(settings.translation_model || '');
+        setSelectedSpeechToTextModel(
+          settings.speech_to_text_model || ''
+        );
+
+        setSelectedTextToTextModel(
+          settings.text_to_text_model || ''
+        );
+
+        setSelectedTextToSpeechModel(
+          settings.text_to_speech_model || ''
+        );
+
+        setSelectedImageToTextModel(
+          settings.image_to_text_model || ''
+        );
         setDictionaries(settings.public_dictionaries);
         console.log(dictionaries);
       } catch (err) {
@@ -201,7 +218,10 @@ export default function SettingsScreen({ navigation }) {
             notifications: notificationsEnabled,
             user_dictionary: selectedDictionary,
             privacy: profilePrivate,
-            translation_model: selectedModel,
+            speech_to_text_model: selectedSpeechToTextModel,
+            text_to_text_model: selectedTextToTextModel,
+            text_to_speech_model: selectedTextToSpeechModel,
+            image_to_text_model: selectedImageToTextModel,
           }),
         }
       );
@@ -320,27 +340,105 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         <Text style={styles.label}>
-          Translation Model
+          Speech to Text Model
         </Text>
 
         <View style={styles.pickerWrapper}>
           <Picker
-            selectedValue={selectedModel}
-            onValueChange={setSelectedModel}
+            selectedValue={selectedSpeechToTextModel}
+            onValueChange={setSelectedSpeechToTextModel}
             style={styles.picker}
             dropdownIconColor="white"
           >
-            
+            <Picker.Item label="None" value="" />
 
-            {loadedModels.map((mod) => (
+            {loadedModels
+              .filter((mod) => mod.purpose === 'speech_to_text')
+              .map((mod) => (
+                <Picker.Item
+                  key={mod.id}
+                  label={mod.name}
+                  value={mod.id}
+                />
+              ))}
+          </Picker>
+        </View>
 
-              <Picker.Item
-                key={mod.id}
-                label={mod.name}
-                value={mod.id}
-              />
-            ))}
 
+        <Text style={styles.label}>
+          Text to Text Model
+        </Text>
+
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedTextToTextModel}
+            onValueChange={setSelectedTextToTextModel}
+            style={styles.picker}
+            dropdownIconColor="white"
+          >
+            <Picker.Item label="None" value="" />
+
+            {loadedModels
+              .filter((mod) => mod.purpose === 'text_to_text')
+              .map((mod) => (
+                <Picker.Item
+                  key={mod.id}
+                  label={mod.name}
+                  value={mod.id}
+                />
+              ))}
+          </Picker>
+        </View>
+
+
+        <Text style={styles.label}>
+          Text to Speech Model
+        </Text>
+
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedTextToSpeechModel}
+            onValueChange={setSelectedTextToSpeechModel}
+            style={styles.picker}
+            dropdownIconColor="white"
+          >
+            <Picker.Item label="None" value="" />
+
+            {loadedModels
+              .filter((mod) => mod.purpose === 'text_to_speech')
+              .map((mod) => (
+                <Picker.Item
+                  key={mod.id}
+                  label={mod.name}
+                  value={mod.id}
+                />
+              ))}
+          </Picker>
+        </View>
+
+
+        <Text style={styles.label}>
+          Image to Text Model
+        </Text>
+
+        <View style={styles.pickerWrapper}>
+          <Picker
+            selectedValue={selectedImageToTextModel}
+            onValueChange={setSelectedImageToTextModel}
+            style={styles.picker}
+            dropdownIconColor="white"
+          >
+            <Picker.Item label="None" value="" />
+
+            {loadedModels
+              .filter((mod) => mod.purpose === 'image_to_text')
+              .map((mod) => (
+                <Picker.Item
+                  key={mod.id}
+                  label={mod.name}
+                  value={mod.id}
+                />
+              ))}
           </Picker>
         </View>
 

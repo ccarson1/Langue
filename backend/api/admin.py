@@ -1,6 +1,6 @@
 
 from django.contrib import admin
-from .models import Lesson, Editor, Language, Phrase, PhraseTranslation, Report, UserWord, Word, WordTranslation, Profile, UserSetting, UserLessonsProgress, Sentence, Channel, ChannelVote, Recording, TranslationModel, Tag, StorageObject, Dictionary, DictionaryEntry, UserLanguageLessonIndex
+from .models import Lesson, Editor, Language, Phrase, PhraseTranslation, Report, UserWord, Word, WordTranslation, Profile, UserSetting, UserLessonsProgress, Sentence, Channel, ChannelVote, Recording, AIModel, Tag, StorageObject, Dictionary, DictionaryEntry, UserLanguageLessonIndex
 
 admin.site.register(Language)
 admin.site.register(Editor)
@@ -18,7 +18,7 @@ admin.site.register(Sentence)
 admin.site.register(Channel)
 admin.site.register(ChannelVote)
 admin.site.register(Recording)
-admin.site.register(TranslationModel)
+admin.site.register(AIModel)
 admin.site.register(Tag)
 admin.site.register(StorageObject)
 admin.site.register(Dictionary)

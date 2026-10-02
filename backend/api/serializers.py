@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording, TranslationModel, Channel
+from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording, AIModel, Channel
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone 
 
@@ -164,12 +164,13 @@ class RecordingSerializer(serializers.ModelSerializer):
         return None
 
 
-class TranslationModelSerializer(serializers.ModelSerializer):
+class AIModelSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TranslationModel
+        model = AIModel
         fields = [
             "id",
             "name",
+            "purpose",
             "model_type",
             "model_name",
         ]
