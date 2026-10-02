@@ -319,6 +319,10 @@ export default function SettingsScreen({ navigation }) {
           </Picker>
         </View>
 
+        <Text style={styles.label}>
+          Translation Model
+        </Text>
+
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={selectedModel}
@@ -326,10 +330,7 @@ export default function SettingsScreen({ navigation }) {
             style={styles.picker}
             dropdownIconColor="white"
           >
-            <Picker.Item
-              label="Translation Model"
-              value=""
-            />
+            
 
             {loadedModels.map((mod) => (
 

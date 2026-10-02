@@ -1,0 +1,2 @@
+chmod +x linux/*.sh
+
