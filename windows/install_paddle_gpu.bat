@@ -170,7 +170,8 @@ echo  Installing PaddlePaddle GPU
 echo ========================================
 echo.
 
-env\Scripts\python.exe -m pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+env\Scripts\python.exe -m pip install -r "dependencies\requirements-gpu.txt"
+
 
 if errorlevel 1 (
     echo.

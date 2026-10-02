@@ -1,6 +1,9 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LANGUE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+cd "$LANGUE_DIR" || exit 1
 
 while true; do
 
@@ -11,6 +14,36 @@ while true; do
     echo " Langue Installation"
     echo "========================================"
     echo
+
+    # ----------------------------------------
+    # Check Python environment
+    # ----------------------------------------
+
+    if [ ! -f "env/bin/python" ]; then
+        echo "ERROR: Python virtual environment not found."
+        echo "Expected: $LANGUE_DIR/env/bin/python"
+        echo
+        read -p "Press Enter to quit..."
+        exit 1
+    fi
+
+    echo "Installing common Langue dependencies..."
+    echo
+
+    env/bin/python -m pip install -r "dependencies/requirements.txt"
+
+    if [ $? -ne 0 ]; then
+        echo
+        echo "ERROR: Common dependency installation failed."
+        echo
+        read -p "Press Enter to quit..."
+        exit 1
+    fi
+
+    echo
+    echo "Common Langue dependencies installed successfully."
+    echo
+
     echo "Choose installation type:"
     echo
     echo "  1. GPU (NVIDIA)"

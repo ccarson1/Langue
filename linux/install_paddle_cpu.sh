@@ -39,23 +39,11 @@ echo "Python virtual environment:"
 echo "    $LANGUE_DIR/env/bin/python"
 echo
 
-# ----------------------------------------
-# Get Python information
-# ----------------------------------------
-
 PYTHON_VERSION=$(env/bin/python --version 2>&1)
 
 echo "Python version:"
 echo "    $PYTHON_VERSION"
 echo
-
-if [ $? -ne 0 ]; then
-    echo
-    echo "ERROR: Unable to determine Python version."
-    echo
-    read -p "Press Enter to return..."
-    exit 1
-fi
 
 # ----------------------------------------
 # Paddle information
@@ -75,7 +63,7 @@ echo "    CPU"
 echo
 
 echo "Installation source:"
-echo "    https://www.paddlepaddle.org.cn/packages/stable/cpu/"
+echo "    PyPI"
 echo
 
 # ----------------------------------------
@@ -140,8 +128,7 @@ echo "========================================"
 echo
 
 env/bin/python -m pip install \
-    paddlepaddle==3.2.2 \
-    -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+    -r "dependencies/requirements-cpu.txt"
 
 if [ $? -ne 0 ]; then
     echo

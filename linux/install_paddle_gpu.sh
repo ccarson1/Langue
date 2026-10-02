@@ -200,7 +200,7 @@ echo "========================================"
 echo
 
 env/bin/python -m pip install \
-    paddlepaddle-gpu==3.2.2 \
+    -r "dependencies/requirements-gpu.txt" \
     -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
 
 if [ $? -ne 0 ]; then

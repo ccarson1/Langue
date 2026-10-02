@@ -117,7 +117,7 @@ echo  Installing PaddlePaddle CPU
 echo ========================================
 echo.
 
-env\Scripts\python.exe -m pip install paddlepaddle==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+env\Scripts\python.exe -m pip install -r "dependencies\requirements-cpu.txt" 
 
 if errorlevel 1 (
     echo.
