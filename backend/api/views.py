@@ -2070,16 +2070,36 @@ def ocr_image(request):
     # --- Get user's target language ---
     try:
         settings = UserSetting.objects.get(user=user)
+
         lang_code = settings.target_language.tesseract_langcode
         native_lang_code = settings.native_language.tesseract_langcode
+        paddle_lang_code = settings.target_language.yt_dlp_lang
+
+        image_to_text_model = settings.imageToTextModel
+
         print("lang_code:", lang_code)
         print("native_lang_code:", native_lang_code)
+
+        if image_to_text_model:
+            print(
+                "Image to Text Model:",
+                image_to_text_model.model_type
+            )
+        else:
+            print(
+                "Image to Text Model: None"
+            )
+
     except UserSetting.DoesNotExist:
-        lang_code = "eng"  # fallback
+
+        lang_code = "eng"
+        native_lang_code = "eng"
+        image_to_text_model = None
 
     # --- Run OCR ---
-    ocr = OCR(image_file, lang_code, native_lang_code)
-    text = ocr.pytesseract()
+    model_type = ( image_to_text_model.model_type if image_to_text_model else "tesseract" )
+    ocr = OCR( image_file, lang_code, native_lang_code, paddle_lang_code, model_type=model_type )
+    text = ocr.image_to_text( ocr.image )
 
     if translateText:
         load_user_model(user)

@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from django.core.management.base import BaseCommand
 
@@ -36,6 +37,46 @@ class Command(BaseCommand):
             "target_language": None,
         },
     }
+
+    TESSERACT_CONFIG = {
+        "name": "Tesseract",
+        "purpose": "image_to_text",
+        "model_type": "tesseract",
+        "model_name": "Tesseract OCR",
+        "source_language": None,
+        "target_language": None,
+    }
+
+    def find_tesseract(self):
+
+        # Check PATH first
+        tesseract_path = shutil.which("tesseract")
+
+        if tesseract_path:
+            return tesseract_path
+
+        # Common Windows installation locations
+        if os.name == "nt":
+
+            possible_paths = [
+                os.path.join(
+                    os.environ.get("ProgramFiles", ""),
+                    "Tesseract-OCR",
+                    "tesseract.exe",
+                ),
+                os.path.join(
+                    os.environ.get("ProgramFiles(x86)", ""),
+                    "Tesseract-OCR",
+                    "tesseract.exe",
+                ),
+            ]
+
+            for path in possible_paths:
+
+                if os.path.isfile(path):
+                    return path
+
+        return None
 
     def handle(self, *args, **options):
 
@@ -79,6 +120,67 @@ class Command(BaseCommand):
         found_models = 0
         added_models = 0
         updated_models = 0
+
+        # ----------------------------------------
+        # Check Tesseract
+        # ----------------------------------------
+
+        tesseract_path = self.find_tesseract()
+
+        config = self.TESSERACT_CONFIG
+
+        model, created = AIModel.objects.update_or_create(
+            model_type=config["model_type"],
+            defaults={
+                "name": config["name"],
+                "purpose": config["purpose"],
+                "model_name": config["model_name"],
+                "save_path": tesseract_path,
+                "source_language": config["source_language"],
+                "target_language": config["target_language"],
+                "is_active": bool(tesseract_path),
+            }
+        )
+
+        if created:
+
+            added_models += 1
+
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "Added: Tesseract"
+                )
+            )
+
+        else:
+
+            updated_models += 1
+
+            self.stdout.write(
+                "Updated: Tesseract"
+            )
+
+        self.stdout.write(
+            f"  Purpose: {config['purpose']}"
+        )
+
+        self.stdout.write(
+            f"  Type: {config['model_type']}"
+        )
+
+        self.stdout.write(
+            f"  Path: {tesseract_path}"
+        )
+
+        self.stdout.write(
+            f"  Active: {bool(tesseract_path)}"
+        )
+
+        self.stdout.write("")
+
+        # ----------------------------------------
+        # Scan model directory
+        # ----------------------------------------
 
         for folder_name in sorted(
             os.listdir(models_dir)

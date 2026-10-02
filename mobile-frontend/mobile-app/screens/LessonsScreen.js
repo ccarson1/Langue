@@ -736,7 +736,7 @@ export default function LessonsScreen({ navigation }) {
                 {displayedLessons.length === 0 && (
                     <View style={styles.noResults}>
                         <AntDesign
-                            name="search1"
+                            name="file-search"
                             size={35}
                             color="#888"
                         />

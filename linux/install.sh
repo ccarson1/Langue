@@ -1,9 +1,76 @@
+```bash
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LANGUE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$LANGUE_DIR" || exit 1
+
+# ----------------------------------------
+# Check Python environment
+# ----------------------------------------
+
+if [ ! -f "env/bin/python" ]; then
+    echo
+    echo "ERROR: Python virtual environment not found."
+    echo "Expected: $LANGUE_DIR/env/bin/python"
+    echo
+    read -p "Press Enter to quit..."
+    exit 1
+fi
+
+# ----------------------------------------
+# Install common Langue dependencies
+# ----------------------------------------
+
+echo
+echo "========================================"
+echo " Langue Installation"
+echo "========================================"
+echo
+
+echo "Installing common Langue dependencies..."
+echo
+
+env/bin/python -m pip install -r "dependencies/requirements.txt"
+
+if [ $? -ne 0 ]; then
+    echo
+    echo "ERROR: Common dependency installation failed."
+    echo
+    read -p "Press Enter to quit..."
+    exit 1
+fi
+
+echo
+echo "Common Langue dependencies installed successfully."
+echo
+
+# ----------------------------------------
+# Install Tesseract OCR
+# ----------------------------------------
+
+echo "Installing Tesseract OCR..."
+echo
+
+bash "$SCRIPT_DIR/install_tesseract_linux.sh"
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo
+    echo "ERROR: Tesseract installation failed."
+    echo
+    read -p "Press Enter to quit..."
+    exit 1
+fi
+
+echo
+echo "Tesseract OCR installation completed."
+echo
+
+# ----------------------------------------
+# Installation menu
+# ----------------------------------------
 
 while true; do
 
@@ -13,35 +80,6 @@ while true; do
     echo "========================================"
     echo " Langue Installation"
     echo "========================================"
-    echo
-
-    # ----------------------------------------
-    # Check Python environment
-    # ----------------------------------------
-
-    if [ ! -f "env/bin/python" ]; then
-        echo "ERROR: Python virtual environment not found."
-        echo "Expected: $LANGUE_DIR/env/bin/python"
-        echo
-        read -p "Press Enter to quit..."
-        exit 1
-    fi
-
-    echo "Installing common Langue dependencies..."
-    echo
-
-    env/bin/python -m pip install -r "dependencies/requirements.txt"
-
-    if [ $? -ne 0 ]; then
-        echo
-        echo "ERROR: Common dependency installation failed."
-        echo
-        read -p "Press Enter to quit..."
-        exit 1
-    fi
-
-    echo
-    echo "Common Langue dependencies installed successfully."
     echo
 
     echo "Choose installation type:"
@@ -179,3 +217,4 @@ while true; do
     esac
 
 done
+```

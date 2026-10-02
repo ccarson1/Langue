@@ -137,6 +137,9 @@ adb kill-server && adb start-server
 //   },
 // ];
 
+# Update AI Models entries
+python manage.py scan_models 
+
 
 
 # Fonts
