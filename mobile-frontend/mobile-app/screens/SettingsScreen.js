@@ -15,6 +15,7 @@ import { jwtDecode } from 'jwt-decode';
 import styles from './styles/SettingsStyles';
 import { getServerIP } from '../utils/config';
 import LoadingOverlay from './components/LoadingOverlay';
+import Tooltip from './components/Tooltip';
 
 
 export default function SettingsScreen({ navigation }) {
@@ -296,7 +297,15 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
 
-        <Text style={styles.label}>Target Language</Text>
+        <View style={styles.labelContainer}>
+          <Text style={styles.label}>Target Language</Text>
+          <Tooltip text="Language set for Lessons, reading, speaking and channels.">
+            <Text style={styles.infoIcon}>
+              <AntDesign name="tool" />
+            </Text>
+          </Tooltip>
+        </View>
+
         <View style={styles.pickerWrapper}>
           <Picker
             selectedValue={targetLanguage}
@@ -314,9 +323,14 @@ export default function SettingsScreen({ navigation }) {
 
         </View>
 
-        <Text style={styles.label}>
-          Dictionary
-        </Text>
+        <View style={styles.labelContainer}>
+          <Text style={styles.label}>Dictionary</Text>
+          <Tooltip text="Uploaded dictionaries and websites used to get more information about a translation. Turn on 'Enable Scraper' to use.">
+            <Text style={styles.infoIcon}>
+              <AntDesign name="tool" />
+            </Text>
+          </Tooltip>
+        </View>
 
         <View style={styles.pickerWrapper}>
           <Picker

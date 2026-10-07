@@ -1044,49 +1044,40 @@ def user_settings(request):
             settings, _ = UserSetting.objects.get_or_create(user=user)
 
             user_dictionary = None
-            if user_dictionary_id is not None:
+            if user_dictionary_id:
                 user_dictionary = get_object_or_404( Dictionary, id=user_dictionary_id )
 
-            speech_to_text_model = None
             if speech_to_text_model_id:
-                speech_to_text_model = get_object_or_404(
+                settings.speechToTextModel = get_object_or_404(
                     AIModel,
                     id=speech_to_text_model_id,
                     purpose='speech_to_text',
                     is_active=True
                 )
 
-            text_to_text_model = None
             if text_to_text_model_id:
-                text_to_text_model = get_object_or_404(
+                settings.textToTextModel = get_object_or_404(
                     AIModel,
                     id=text_to_text_model_id,
                     purpose='text_to_text',
                     is_active=True
                 )
 
-            text_to_speech_model = None
             if text_to_speech_model_id:
-                text_to_speech_model = get_object_or_404(
+                settings.textToSpeechModel = get_object_or_404(
                     AIModel,
                     id=text_to_speech_model_id,
                     purpose='text_to_speech',
                     is_active=True
                 )
 
-            image_to_text_model = None
             if image_to_text_model_id:
-                image_to_text_model = get_object_or_404(
+                settings.imageToTextModel = get_object_or_404(
                     AIModel,
                     id=image_to_text_model_id,
                     purpose='image_to_text',
                     is_active=True
                 )
-
-            settings.speechToTextModel = speech_to_text_model
-            settings.textToTextModel = text_to_text_model
-            settings.textToSpeechModel = text_to_speech_model
-            settings.imageToTextModel = image_to_text_model
 
 
             settings.native_language = native_lang

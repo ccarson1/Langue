@@ -26,6 +26,7 @@ import ButtonGroup from './components/ButtonGroup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getServerIP } from '../utils/config';
 import ProgressBar from './components/ProgressBar';
+import Tooltip from './components/Tooltip';
 // import PDFConverterPopup from './components/PDFConverterPopup';
 
 console.log('ButtonGroup:', ButtonGroup);
@@ -686,7 +687,15 @@ export default function ImportScreen({ navigation, route }) {
 
 
 
-          <Text style={styles.label}>Native Language</Text>
+          
+          <View style={styles.labelContainer}>
+                    <Text style={styles.label}>Native Language</Text>
+                    <Tooltip text="User's native language">
+                      <Text style={styles.infoIcon}>
+                        <AntDesign name="tool" />
+                      </Text>
+                    </Tooltip>
+                  </View>
           <View style={styles.pickerWrapper}>
 
             <Picker

@@ -98,5 +98,12 @@ export const createStyles = (insets) => {
       marginLeft: 10,
       fontSize: 15,
     },
+    labelContainer: {
+      flexDirection: 'row',
+      alignItems: 'end',
+    },
+    infoIcon: {
+      marginLeft: 8,
+    },
   });
 };

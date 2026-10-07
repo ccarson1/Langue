@@ -92,12 +92,19 @@ export default StyleSheet.create({
     fontSize: 16,
   },
   settingInput: {
-        marginTop: 5,
-        backgroundColor: '#393e46',
-        borderRadius: 10,
-        padding: 8,
-        color: '#eeeeee',
-        borderWidth: 1,
-        borderColor: '#4b525c',
-    },
+    marginTop: 5,
+    backgroundColor: '#393e46',
+    borderRadius: 10,
+    padding: 8,
+    color: '#eeeeee',
+    borderWidth: 1,
+    borderColor: '#4b525c',
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'end',
+  },
+  infoIcon: {
+    marginLeft: 8,
+  },
 });
