@@ -46,6 +46,7 @@ urlpatterns = [
     path( "ai-models/", views.AIModelListView.as_view(), name="ai-models" ),
     path('tags/', views.tags, name='tags'),
     path('dictionary-entry/', views.dictionary_entry, name="dictionary_entry"),
+    path('generate-audio/', views.generate_audio, name="generate_audio"),
     path("books/", views.books_list, name="books-list"),
     path("books/<str:book_id>/", views.book_detail, name="book-detail"),
     re_path( r'^books/(?P<book_id>[^/]+)/pages/(?P<page>[^/]+)/images/(?P<path>.*)$', views.serve_book_image, name='book-image', ),

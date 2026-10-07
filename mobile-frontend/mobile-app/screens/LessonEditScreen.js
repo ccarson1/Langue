@@ -42,6 +42,8 @@ export default function LessonEditScreen({ route, navigation }) {
     const [lessonImage, setLessonImage] = useState(null);
     const [imageName, setImageName] = useState('');
     const [creationDate, setcreationDate] = useState(null);
+    const [isVideoFormat, setIsVideoFormat] = useState(false);
+    const [isAudioUploaded, setIsAudioUploaded] = useState(false);
     const [sentences, setSentences] = useState([]);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [dragY, setDragY] = useState(0);
@@ -50,6 +52,11 @@ export default function LessonEditScreen({ route, navigation }) {
     const [serverIP, setServerIP] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [showDeletePopup, setShowDeletePopup] = useState(false);
+    const [showGeneratePopup, setShowGeneratePopup] = useState(false);
+    const [showGenerateErrorPopup, setShowGenerateErrorPopup] = useState(false);
+    const [showGenerateWarningPopup, setShowGenerateWarningPopup] = useState(false);
+    const [generatingAudio, setGeneratingAudio] = useState(false);
+    const [sentencesReordered, setSentencesReordered] = useState(false);
 
     // ── BottomAudioMenu state (showToggles=false so only sliders are used) ──
     const [volume, setVolume] = useState(1);
@@ -108,8 +115,11 @@ export default function LessonEditScreen({ route, navigation }) {
             setLessonPrivate(data.lesson_private || false);
             setSentences(data.sentences || []);
             setLessonImage(data.image_data);
-            setImageName(data.image_name)
-            setAudioName(data.audio_name)
+            setImageName(data.image_name);
+            setAudioName(data.audio_name);
+            setcreationDate(data.created_at);
+            setIsVideoFormat(data.video_format);
+            setIsAudioUploaded(data.audio_uploaded);
             setcreationDate(data.created_at);
 
             // If your API returns audio duration, set it here:
@@ -231,6 +241,7 @@ export default function LessonEditScreen({ route, navigation }) {
 
                 return updated;
             });
+            setSentencesReordered(true);
         }
 
         setDraggedIndex(null);
@@ -301,7 +312,9 @@ export default function LessonEditScreen({ route, navigation }) {
             formData.append('title', title);
             formData.append('url', url);
             formData.append('lesson_private', lessonPrivate);
+            formData.append('sentencesReordered', sentencesReordered);
             formData.append('sentences', JSON.stringify(sentences));
+            
 
             if (imageFile) {
                 if (Platform.OS === 'web') {
@@ -344,6 +357,13 @@ export default function LessonEditScreen({ route, navigation }) {
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Update failed');
+
+            setSentences((prev) =>
+                prev.map(sentence => ({
+                    ...sentence,
+                    isNew: false,
+                }))
+            );
 
             Alert.alert('Success', 'Lesson updated');
             navigation.goBack();
@@ -426,6 +446,76 @@ export default function LessonEditScreen({ route, navigation }) {
         } catch (error) {
             console.error(error);
             Alert.alert('Error', 'Failed to export transcript');
+        }
+    };
+
+    const confirmGenerateAudio = () => {
+
+        const unsavedSentences = sentences.some(
+            sentence => sentence.isNew
+        );
+
+        if (unsavedSentences) {
+            setShowGenerateErrorPopup(true);
+            return;
+        }
+
+        if (isVideoFormat || isAudioUploaded) {
+            setShowGenerateWarningPopup(true);
+            return;
+        }
+
+        generateAudio();
+    };
+
+    const generateAudio = async () => {
+
+        const unsavedSentences = sentences.some(
+            sentence => sentence.isNew
+        );
+
+        if (unsavedSentences) {
+            setShowGenerateErrorPopup(true);
+            return;
+        }
+
+        setGeneratingAudio(true);
+
+        try {
+
+            const token = await AsyncStorage.getItem('accessToken');
+            const formData = new FormData();
+            formData.append('lesson_id', lessonId.toString());
+            console.log(lessonId)
+
+            const res = await fetch(
+                `http://${serverIP}:8000/api/generate-audio/`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: formData,
+                }
+            );
+
+            const data = await res.json();
+
+            console.log('GENERATE AUDIO STATUS:', res.status);
+            console.log('GENERATE AUDIO RESPONSE:', data);
+            if (res.status === 200) {
+                console.log('SHOWING GENERATE POPUP');
+                setShowGeneratePopup(true);
+            }
+
+        } catch (error) {
+
+            console.error('Generate audio error:', error);
+
+        } finally {
+
+            setGeneratingAudio(false);
+
         }
     };
 
@@ -529,21 +619,35 @@ export default function LessonEditScreen({ route, navigation }) {
                     </Text>
                 </TouchableOpacity>
 
-                <View style={styles.downloadRow}>
-                    <TouchableOpacity
-                        style={styles.downloadButton}
 
-                    >
-                        <Text style={styles.downloadButtonText}>
-                            Retranslate Sentences
-                        </Text>
-                    </TouchableOpacity>
-
-                </View>
 
 
                 {sentencesExpanded && (
+
                     <>
+                        <View style={styles.downloadRow}>
+                            <TouchableOpacity
+                                style={styles.downloadButton}
+
+                            >
+                                <Text style={styles.downloadButtonText}>
+                                    Retranslate Sentences
+                                </Text>
+                            </TouchableOpacity>
+
+                        </View>
+                        <View style={styles.downloadRow}>
+                            <TouchableOpacity
+                                style={styles.downloadButton}
+                                onPress={confirmGenerateAudio}
+
+                            >
+                                <Text style={styles.downloadButtonText}>
+                                    Generate Audio
+                                </Text>
+                            </TouchableOpacity>
+
+                        </View>
                         <View style={styles.tableHeader}>
                             <Text style={styles.headerColumnSmall}>#</Text>
                             <Text style={styles.headerColumn}>Native</Text>
@@ -567,6 +671,7 @@ export default function LessonEditScreen({ route, navigation }) {
                                     <View
                                         style={[
                                             styles.row,
+                                            item.isNew && styles.newSentenceRow,
                                             draggedIndex === index && styles.draggingRow,
                                             draggedIndex === index && {
                                                 transform: [{ translateY: dragY }],
@@ -652,7 +757,13 @@ export default function LessonEditScreen({ route, navigation }) {
                         onPress={() =>
                             navigation.navigate('AddSentence', {
                                 onSave: (newSentences) => {
-                                    setSentences((prev) => [...prev, ...newSentences]);
+                                    setSentences((prev) => [
+                                        ...prev,
+                                        ...newSentences.map(sentence => ({
+                                            ...sentence,
+                                            isNew: true,
+                                        })),
+                                    ]);
                                 },
                             })
                         }
@@ -680,6 +791,7 @@ export default function LessonEditScreen({ route, navigation }) {
             </ScrollView>
 
             <LoadingOverlay visible={deleting} />
+            <LoadingOverlay visible={generatingAudio} />
 
             <CustomPopup
                 visible={showDeletePopup}
@@ -696,6 +808,44 @@ export default function LessonEditScreen({ route, navigation }) {
                     setShowDeletePopup(false);
                 }}
             />
+
+            <CustomPopup
+                visible={showGeneratePopup}
+                message="Generate Audio request received."
+                type="success"
+                showButtons={false}
+                onClose={() => {
+                    setShowGeneratePopup(false);
+                }}
+            />
+
+            <CustomPopup
+                visible={showGenerateErrorPopup}
+                message="Please save the lesson before generating audio."
+                type="error"
+                showButtons={false}
+                onClose={() => {
+                    setShowGenerateErrorPopup(false);
+                }}
+            />
+
+            <CustomPopup
+                visible={showGenerateWarningPopup}
+                message="This lesson already has video or uploaded audio. Generating audio may replace the existing audio. Do you want to continue?"
+                type="caution"
+                showButtons={true}
+                acceptText="Continue"
+                declineText="Cancel"
+                onAccept={() => {
+                    setShowGenerateWarningPopup(false);
+                    generateAudio();
+                }}
+                onDecline={() => {
+                    setShowGenerateWarningPopup(false);
+                }}
+            />
+
+
 
             {/* ── BottomAudioMenu: showToggles=false (no repeat/shuffle/etc) ─ */}
             <BottomAudioMenu

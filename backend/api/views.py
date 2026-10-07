@@ -51,6 +51,12 @@ import base64
 import random
 from .utils.pronunciation_evaluator import evaluate_pronunciation
 from .utils.storage import StorageManager
+import io
+import wave
+import subprocess
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 lesson_import_progress = {}
 RECORDINGS = {}
@@ -628,6 +634,7 @@ def edit_lesson(request, lesson_id, sentence_id=None):
         print("EDIT SENTENCE lesson_id:", lesson_id)
         print("EDIT SENTENCE user:", request.user)
         print("EDIT SENTENCE user_id:", request.user.id)
+        
         print("LESSON WITH ID:", Lesson.objects.filter(id=lesson_id).values(
             'id', 'user_id', 'uuid'
         ))
@@ -699,7 +706,9 @@ def edit_lesson(request, lesson_id, sentence_id=None):
             'image_data': image_data,
             'image_name': os.path.basename(lesson.image.name) if lesson.image else None,
             'audio_name': os.path.basename(lesson.media_file.name) if lesson.media_file else None,
-
+            'video_format': lesson.videoFormat,
+            'audio_uploaded': lesson.audioUploaded,
+            'sentencesReordered': lesson.sentencesReordered,
             'sentences': [
                 {
                     'id': s.id,
@@ -719,10 +728,12 @@ def edit_lesson(request, lesson_id, sentence_id=None):
 
         print("FILES:", request.FILES)
         print("DATA:", request.data)
+        print("Sentences Reordered", request.data.get('sentencesReordered'))
 
         lesson.title = request.data.get( 'title', lesson.title )
         lesson.url = request.data.get( 'url', lesson.url )
         lesson.lesson_private = str_to_bool(request.data.get('lesson_private'))
+        lesson.sentencesReordered = str_to_bool(request.data.get('sentencesReordered'))
 
         if 'image' in request.FILES:
             lesson.image = request.FILES['image']
@@ -2050,6 +2061,8 @@ def ocr_image(request):
     image_file = request.FILES.get("image")
     translateText = request.POST.get("translateText")
     generateAudio = request.POST.get("generateAudio")
+    print("translateText value:", repr(translateText))
+    print("translateText type:", type(translateText))
     print("Translating Text:", translateText)
     print("Generate Audio", generateAudio)
 
@@ -3113,3 +3126,221 @@ def serve_book_image(request, book_id, page, path):
         open(image_file, "rb")
     )
 
+def append_wav(existing_wav, new_wav):
+
+    existing = wave.open(io.BytesIO(existing_wav), 'rb')
+    new = wave.open(io.BytesIO(new_wav), 'rb')
+
+    if (
+        existing.getnchannels() != new.getnchannels()
+        or existing.getsampwidth() != new.getsampwidth()
+        or existing.getframerate() != new.getframerate()
+    ):
+        existing.close()
+        new.close()
+        raise ValueError("WAV files have different audio formats.")
+
+    output = io.BytesIO()
+
+    with wave.open(output, 'wb') as wav:
+        wav.setnchannels(existing.getnchannels())
+        wav.setsampwidth(existing.getsampwidth())
+        wav.setframerate(existing.getframerate())
+
+        wav.writeframes(existing.readframes(existing.getnframes()))
+        wav.writeframes(new.readframes(new.getnframes()))
+
+    existing.close()
+    new.close()
+
+    return output.getvalue()
+
+def get_wav_duration_ms(wav_data):
+
+    wav = wave.open(io.BytesIO(wav_data), 'rb')
+
+    frames = wav.getnframes()
+    frame_rate = wav.getframerate()
+
+    duration_ms = int((frames / frame_rate) * 1000)
+
+    wav.close()
+
+    return duration_ms
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def generate_audio(request):
+
+    user_id = request.user.id
+    lesson_id = request.data.get('lesson_id')
+
+    print(request.data)
+    print("user id:", user_id)
+    print("lesson id:", lesson_id)
+
+    lesson = Lesson.objects.filter(
+        id=lesson_id,
+        user=user_id
+    ).first()
+
+    if not lesson:
+        return Response({
+            'success': False,
+            'message': 'Lesson not found.'
+        }, status=404)
+
+    print("Lesson Title:", lesson.title)
+    print("Media File:", lesson.media_file)
+    print("Video Format:", lesson.videoFormat)
+    print("Audio Generated:", lesson.audioGenerated)
+    print("Sentence Reordered:", lesson.sentencesReordered)
+
+    sentences = Sentence.objects.filter(
+        lesson=lesson
+    ).order_by('position')
+
+    print("sentence count:", sentences.count())
+
+    if not sentences.exists():
+        return Response({
+            'success': False,
+            'message': 'Lesson has no sentences.'
+        }, status=400)
+
+    # ------------------------------------------------------------
+    # TTS
+    # ------------------------------------------------------------
+
+    from api.tts import TTS
+
+    tts = TTS()
+
+    combined_audio = None
+    current_position_ms = 0
+
+    for sentence in sentences:
+
+        print(
+            sentence.id,
+            sentence.position,
+            sentence.sentence
+        )
+
+        # Generate audio for this sentence
+        sentence_audio = tts.synthesize(
+            [sentence.sentence],
+            model="piper"
+        )
+
+        # Get duration of this sentence
+        duration_ms = get_wav_duration_ms(sentence_audio)
+
+        start_ms = current_position_ms
+        end_ms = current_position_ms + duration_ms
+
+        # Store timing on the sentence
+        sentence.start_ms = start_ms
+        sentence.end_ms = end_ms
+        sentence.save(update_fields=['start_ms', 'end_ms'])
+
+        print(
+            f"Sentence {sentence.id}: "
+            f"{start_ms}ms -> {end_ms}ms "
+            f"({duration_ms}ms)"
+        )
+
+        # Append this sentence to the combined audio
+        if combined_audio is None:
+
+            combined_audio = sentence_audio
+
+        else:
+
+            combined_audio = append_wav(
+                combined_audio,
+                sentence_audio
+            )
+
+        current_position_ms = end_ms
+
+    # ------------------------------------------------------------
+    # Convert combined WAV to MP3
+    # ------------------------------------------------------------
+
+    try:
+
+        result = subprocess.run(
+            [
+                'ffmpeg',
+                '-y',
+                '-f', 'wav',
+                '-i', 'pipe:0',
+                '-f', 'mp3',
+                '-codec:a', 'libmp3lame',
+                '-b:a', '192k',
+                'pipe:1'
+            ],
+            input=combined_audio,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True
+        )
+
+        mp3_audio = result.stdout
+
+    except subprocess.CalledProcessError as error:
+
+        print("FFmpeg error:")
+        print(error.stderr.decode(errors='ignore'))
+
+        return Response({
+            'success': False,
+            'message': 'Failed to convert generated audio to MP3.'
+        }, status=500)
+
+    # ------------------------------------------------------------
+    # Save audio
+    # ------------------------------------------------------------
+
+    uuid_folder = str(lesson.uuid)
+
+    audio_path = f"lessons/{uuid_folder}/{lesson.uuid}.mp3"
+
+    print("Audio path:", audio_path)
+
+    # Remove existing audio if necessary
+    if default_storage.exists(audio_path):
+        default_storage.delete(audio_path)
+
+    default_storage.save(
+        audio_path,
+        ContentFile(mp3_audio)
+    )
+
+    # ------------------------------------------------------------
+    # Update lesson
+    # ------------------------------------------------------------
+
+    lesson.media_file.name = audio_path
+    lesson.media_folder = f"lessons/{uuid_folder}"
+    lesson.audioGenerated = True
+
+    lesson.save(update_fields=[
+        'media_file',
+        'media_folder',
+        'audioGenerated'
+    ])
+
+    print("Audio generated successfully.")
+    print("Audio file:", lesson.media_file.name)
+    print("Audio folder:", lesson.media_folder)
+    print("Total duration:", current_position_ms, "ms")
+
+    return Response({
+        'success': True,
+        'lesson_id': lesson.id,
+        'sentence_count': sentences.count(),
+        'audio_file': lesson.media_file.name,
+        'duration_ms': current_position_ms,
+    }, status=200)

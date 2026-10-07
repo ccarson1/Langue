@@ -1,9 +1,11 @@
 import io
 import os
 import wave
+import sys
 
 import numpy as np
 from piper import PiperVoice
+sys.path.insert( 0, os.path.join( os.path.dirname(os.path.dirname(__file__)), 'models', 'piper', 'lt_LT-reginute1-medium' ) )
 
 from phonemize_lithuanian import LithuanianPhonemizer
 from synth_reginute import ReginuteSynth, i_int16

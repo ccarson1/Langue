@@ -348,5 +348,9 @@ export const createStyles = (insets, width = 390) => {
             borderRadius: 2,
             backgroundColor: colors.accent,
         },
+        newSentenceRow: {
+            borderWidth: 2,
+            borderColor: '#00adb5',
+        },
     });
 };
