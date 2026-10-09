@@ -2537,58 +2537,73 @@ def get_video(request):
     )
 
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def statistics(request):
-
     user = request.user
-    total_lessons = Lesson.objects.filter( user=user ).count()
-    total_words = UserWord.objects.filter( user=user ).count()
-    total_phrases = PhraseTranslation.objects.filter( user=user ).count()
-    total_recordings = Recording.objects.filter( user=user ).count()
-    completed_lessons = UserLessonsProgress.objects.filter( user=user, current_lesson_index__gt=0 ).count()
 
+    settings = UserSetting.objects.filter(user=user).select_related(
+        "target_language"
+    ).first()
 
+    target_language = (
+        settings.target_language.lang_name
+        if settings and settings.target_language
+        else None
+    )
+
+    language = request.query_params.get("language") or target_language
+
+    words = UserWord.objects.filter(user=user)
+
+    if language:
+        words = words.filter(word__language__lang_name=language)
+
+    total_lessons = Lesson.objects.filter(user=user).count()
+    total_words = words.count()
+    total_phrases = PhraseTranslation.objects.filter(user=user).count()
+    total_recordings = Recording.objects.filter(user=user).count()
+
+    completed_lessons = UserLessonsProgress.objects.filter(
+        user=user,
+        current_lesson_index__gt=0
+    ).count()
 
     words_by_date = (
-        UserWord.objects
-        .filter(user=user)
+        words
         .values("creation_date")
         .annotate(count=Count("id"))
         .order_by("creation_date")
     )
 
-
-    language_distribution = (
+    languages = (
         UserWord.objects
         .filter(user=user)
-        .values( "word__language__lang_name" )
-        .annotate( count=Count("id") )
+        .values("word__language__lang_name")
+        .annotate(count=Count("id"))
+        .order_by("word__language__lang_name")
     )
 
-
     return Response({
-
+        "selected_language": language,
+        "target_language": target_language,
         "summary": {
             "lessons": total_lessons,
             "words": total_words,
             "phrases": total_phrases,
             "recordings": total_recordings,
-            "completed": completed_lessons
+            "completed": completed_lessons,
         },
-
-
         "words_over_time": [
             {
                 "date": row["creation_date"],
-                "count": row["count"]
+                "count": row["count"],
             }
             for row in words_by_date
         ],
-        "languages": list(language_distribution)
-
+        "languages": list(languages),
     })
-
 
 
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
