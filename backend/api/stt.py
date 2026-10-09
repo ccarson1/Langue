@@ -2,10 +2,13 @@ from faster_whisper import WhisperModel
 
 
 class SpeechToText:
-    def __init__( self, model_size="medium", device="cpu", compute_type="int8", ):
+    def __init__( self, lesson_import_progress, progress_process_workload, user_id, model_size="medium", device="cpu", compute_type="int8"):
         """ model_size: tiny, base, small, medium, large-v3 device: cuda or cpu compute_type: float16, int8_float16, int8 """
 
         self.model = WhisperModel( model_size, device=device, compute_type=compute_type, )
+        self.lesson_import_progress = lesson_import_progress
+        self.progress_process_workload = progress_process_workload
+        self.user_id = user_id
 
     def transcribe( self, audio_file, language=None, beam_size=5, ):
         """ Returns plain text transcript. """
@@ -22,7 +25,19 @@ class SpeechToText:
         results = []
 
         for segment in segments:
-            results.append( { "start": segment.start, "end": segment.end, "text": segment.text.strip(), "translated": "" } )
+            for segment in segments:
+                results.append({
+                    "start": segment.start,
+                    "end": segment.end,
+                    "text": segment.text.strip(),
+                    "translated": ""
+                })
+
+                self.lesson_import_progress[self.user_id] += (
+                    70 / self.progress_process_workload / len(results)
+                )
+
+                print("Progress:", self.lesson_import_progress[self.user_id])
             print("start: ", segment.start, "end: ", segment.end, "text: ", segment.text.strip())
         return { "segments": results, "language": info.language, "language_probability": info.language_probability, }
     

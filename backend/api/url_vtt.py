@@ -11,10 +11,11 @@ from django.conf import settings
 import uuid
 from django.core.files import File
 from .utils.storage import StorageManager
+from api.stt import SpeechToText
 
 class URL_VTT():
     
-    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_uuid, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, translateTarget):
+    def __init__(self, YOUTUBE_URL, lesson_id, lesson_language_id, translate_language_id, lesson_uuid, lesson_import_progress, progress_process_workload, user_id, alwaysGenerateCaptions, videoFormat, translateTarget):
         
         def normalize_youtube_url(url):
             if "youtube.com/shorts/" in url:
@@ -52,6 +53,7 @@ class URL_VTT():
         self.yt_dlp_tar_lang = self.target_id.yt_dlp_lang
 
         self.lesson_import_progress = lesson_import_progress
+        self.progress_process_workload = progress_process_workload
         self.user_id = user_id
 
         print(f"Lesson language: {self.yt_dlp_lang}")
@@ -449,42 +451,29 @@ class URL_VTT():
 
             if native_subtitle_found:
 
-                print(
-                    "Using downloaded native subtitles..."
-                )
+                print( "Using downloaded native subtitles..." )
 
-                segments = self.parse_vtt_to_segments(
-                    self.NATIVE_CAPTIONS_FILE
-                )
+                segments = self.parse_vtt_to_segments( self.NATIVE_CAPTIONS_FILE )
 
             else:
 
-                print(
-                    "Native subtitles unavailable."
+                print( "Native subtitles unavailable." )
+                print("Generating native captions with Whisper...")
+
+                stt = SpeechToText(
+                    self.lesson_import_progress,
+                    self.progress_process_workload,
+                    self.user_id,
+                    model_size="medium",
+                    device="cpu",
+                    compute_type="int8",
                 )
 
-                print(
-                    "Generating native captions with Whisper..."
-                )
+                result = stt.transcribe_with_timestamps( self.AUDIO_FILE, language=self.yt_dlp_lang, )
 
-                model = whisper.load_model("small")
+                segments = result["segments"]
 
-                result = model.transcribe(
-                    self.AUDIO_FILE
-                )
-
-                segments = [
-                    {
-                        "start": seg["start"],
-                        "end": seg["end"],
-                        "text": seg["text"]
-                    }
-                    for seg in result["segments"]
-                ]
-
-            print(
-                f"Found {len(segments)} native segments."
-            )
+            print( f"Found {len(segments)} native segments." )
 
             # --------------------------------------------------
             # Get target translations

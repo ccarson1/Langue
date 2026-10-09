@@ -103,6 +103,7 @@ function ScrollableRow({
   const [contentWidth, setContentWidth] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
 
+
   const maxScroll = Math.max(0, contentWidth - containerWidth);
   const canScrollLeft = scrollX > 4;
   const canScrollRight = scrollX < maxScroll - 4;
@@ -235,8 +236,9 @@ export default function LiveTVPlayer({ navigation }) {
   const [isChannelPublic, setIsChannelPublic] = useState(false);
   const [isRecordingPublic, setIsRecordingPublic] = useState(false);
   const [showTagPopup, setShowTagPopup] = useState(false);
+  const [isNewChannelPublic, setIsNewChannelPublic] = useState(false);
 
-  
+
 
   const { width } = useWindowDimensions();
   const isWideScreen = width >= WIDE_LAYOUT_BREAKPOINT;
@@ -845,6 +847,7 @@ export default function LiveTVPlayer({ navigation }) {
 
       formData.append('channel_name', newChannelName.trim());
       formData.append('channel_url', newChannelUrl.trim());
+      formData.append('channel_public', isNewChannelPublic);
 
       if (channelImage) {
         await appendFileToFormData(formData, 'channel_img', channelImage);
@@ -872,6 +875,7 @@ export default function LiveTVPlayer({ navigation }) {
       setNewChannelName('');
       setNewChannelUrl('');
       setChannelImage(null);
+      setIsNewChannelPublic(false);
     } catch (error) {
       console.error('Add channel error:', error);
     } finally {
@@ -1165,10 +1169,10 @@ export default function LiveTVPlayer({ navigation }) {
 
               <Text style={styles.label}>Public</Text>
 
-                        <Switch
-                          value={isRecordingPublic}
-                          onValueChange={updateRecordingPublic}
-                        />
+              <Switch
+                value={isNewChannelPublic}
+                onValueChange={setIsNewChannelPublic}
+              />
 
               <View style={styles.formActions}>
                 <Pressable
@@ -1242,7 +1246,7 @@ export default function LiveTVPlayer({ navigation }) {
                   : undefined
               }
             />
-            
+
           )}
         />
 
@@ -1252,7 +1256,7 @@ export default function LiveTVPlayer({ navigation }) {
           keyExtractor={(item) => item.id.toString()}
           emptyText="No channels yet — add one below."
           renderItem={({ item }) => (
-            
+
             <ChannelCard
               item={item}
               active={selectedChannel.id === item.id}
@@ -1267,7 +1271,7 @@ export default function LiveTVPlayer({ navigation }) {
                   : undefined
               }
             />
-            
+
           )}
         />
 

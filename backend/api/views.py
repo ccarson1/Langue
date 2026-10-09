@@ -419,6 +419,14 @@ def import_lesson(request):
             lessonEmpty = request.data.get('lessonEmpty')
             alwaysGenerateCaptions = request.data.get('alwaysGenerateCaptions')
 
+            progress_process_workload = 0
+            if generateAudio:
+                progress_process_workload += 1
+            if alwaysGenerateCaptions:
+                progress_process_workload += 1
+            if translateTarget:
+                progress_process_workload +=1
+
             # CREATE LESSON
             lesson = Lesson.objects.create(
                 user=request.user,
@@ -474,6 +482,7 @@ def import_lesson(request):
                     lesson.native_language.id,
                     lesson.uuid,
                     lesson_import_progress,
+                    progress_process_workload,
                     user_id,
                     alwaysGenerateCaptions,
                     videoFormat,
@@ -499,7 +508,7 @@ def import_lesson(request):
                     print("lesson.native_language:", lesson.native_language)
                     ocr = OCR( None, targetLang.tesseract_langcode, nativeLang.tesseract_langcode)
 
-                    ocr.process_pdf( lesson_file, lesson, lesson.target_language, lesson.native_language, translateTarget, user_id, lesson_import_progress )
+                    ocr.process_pdf( lesson_file, lesson, lesson.target_language, lesson.native_language, translateTarget, user_id, lesson_import_progress, progress_process_workload)
                 elif fileType == 'csv':
                     print("csv uploaded")
 
@@ -516,6 +525,7 @@ def import_lesson(request):
                     lesson.native_language.id,
                     lesson.uuid,
                     lesson_import_progress,
+                    progress_process_workload,
                     user_id,
                     alwaysGenerateCaptions,
                     videoFormat,
@@ -2340,6 +2350,10 @@ def channels(request, channel_id=None):
         channel_name = request.data.get('channel_name')
         channel_url = request.data.get('channel_url')
         channel_img = request.FILES.get('channel_img')
+        channel_public = request.data.get('channel_public', False)
+
+        if isinstance(channel_public, str):
+            channel_public = channel_public.lower() == 'true'
 
         if not channel_name or not channel_url:
             return Response(
@@ -2352,7 +2366,7 @@ def channels(request, channel_id=None):
             channel_name=channel_name,
             channel_url=channel_url,
             native_language_id=user_settings.target_language_id,
-            is_public=False,
+            is_public=channel_public,
             is_favorite=False
         )
 

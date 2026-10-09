@@ -17,7 +17,7 @@ from .utils.storage import StorageManager
 
 class VTT():
     
-    def __init__(self, lesson_file, lesson_id, lesson_language_id, translate_language_id, lesson_uuid, lesson_import_progress, user_id, alwaysGenerateCaptions, videoFormat, media_file, translateTarget):
+    def __init__(self, lesson_file, lesson_id, lesson_language_id, translate_language_id, lesson_uuid, lesson_import_progress,  progress_process_workload, user_id, alwaysGenerateCaptions, videoFormat, media_file, translateTarget):
         
         self.uuid = str(lesson_uuid)
         self.AUDIO_FILE = os.path.join(settings.MEDIA_ROOT, "lessons", self.uuid, f"{self.uuid}.mp3")
@@ -55,6 +55,8 @@ class VTT():
         self.yt_dlp_tar_lang = self.target_id.yt_dlp_lang
 
         self.lesson_import_progress = lesson_import_progress
+        self.progress_process_workload = progress_process_workload
+        self.progress_increment = ( 70 / progress_process_workload if progress_process_workload > 0 else 0 )
         self.user_id = user_id
 
         
@@ -81,7 +83,7 @@ class VTT():
             else:
                 translated = seg["translated"]
 
-            self.lesson_import_progress[self.user_id] += 70 / len(segments)
+            self.lesson_import_progress[self.user_id] += ( self.progress_increment / len(segments) )
             print(f"Progress: {self.lesson_import_progress[self.user_id]}%")
             print(f"Here is the lesson_language: {self.lesson_language}")
             print(f"Here is the translate_language: {self.translate_language}")
@@ -104,7 +106,7 @@ class VTT():
 
     def process_lesson(self):
 
-        stt = SpeechToText()
+        stt = SpeechToText(self.lesson_import_progress, self.progress_process_workload, self.user_id)
 
         print("Media_file:", self.media_file)
         print("Video Format: ", self.videoFormat)

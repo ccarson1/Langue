@@ -50,6 +50,7 @@ export default function ImportScreen({ navigation, route }) {
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
+  const [confirmPopup, setConfirmPopup] = useState({ visible: false, message: '' });
   const [nativeLanguage, setNativeLanguage] = useState('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [token, setToken] = useState(null);
@@ -420,19 +421,82 @@ export default function ImportScreen({ navigation, route }) {
     });
   }
 
-  const handleImport = async () => {
-    if (!url && !lessonFile && !lessonEmpty && !alwaysGenerateCaptions) {
-      showError(`Missing captions: Please provide a URL, upload a lesson file or turn on "Generate captions".`);
-      Alert.alert('Missing input', 'Please provide a URL or upload a file.');
+  const handleImport = () => {
+    const hasLessonText = uploadSource === 'manual' && fileUploaded && !!lessonFile;
+    const hasManualMedia = uploadSource === 'manual' && mediaUploaded && !!mediaFile;
+    const hasUrl = uploadSource === 'url' && urlReference && !!url.trim();
+
+    // Every lesson must have a title.
+    if (!title.trim()) {
+      showError('Missing title: Please enter a title for this lesson.');
       return;
     }
 
     if (!nativeLanguage || !targetLanguage) {
-      showError(`Missing language: Please select both languages.`);
-      Alert.alert('Missing language', 'Please select both languages.');
+      showError('Missing language: Please select both languages.');
       return;
     }
 
+    // Empty lessons do not require a file, URL, or media.
+    if (uploadType !== 'empty') {
+      if (uploadType === 'text_only') {
+        if (!fileUploaded || !lessonFile) {
+          showError('Missing lesson file: Please upload a CSV or PDF file.');
+          return;
+        }
+      } else if (uploadSource === 'manual') {
+        if (!mediaUploaded || !mediaFile) {
+          showError(`Missing ${uploadType} file: Turn on Provide Media and select a media file.`);
+          return;
+        }
+
+        if (fileUploaded && !lessonFile) {
+          showError('Missing captions/text file: Please select the CSV or PDF file, or turn off Upload Lesson File.');
+          return;
+        }
+
+        if (!hasLessonText && !alwaysGenerateCaptions) {
+          showError('Missing captions: Upload a CSV/PDF captions file or enable Generate captions from audio.');
+          return;
+        }
+      } else if (uploadSource === 'url') {
+        if (!hasUrl) {
+          showError('Missing URL: Turn on Upload Lesson URL and enter a URL.');
+          return;
+        }
+
+      }
+    }
+
+    // Build all overwrite warnings now, but show them only after Import Lesson is pressed.
+    const warnings = [];
+
+    if (uploadType === 'video' || uploadType === 'audio') {
+      if (hasLessonText && alwaysGenerateCaptions) {
+        warnings.push('The uploaded captions/text will be overwritten by captions generated from audio.');
+      }
+
+      if ((hasManualMedia || hasUrl) && generateAudio) {
+        warnings.push('The existing audio in the video/audio source may be overwritten by generated audio.');
+      }
+
+      if (hasLessonText && translateTarget) {
+        warnings.push('Existing translations in the uploaded captions/text file may be overwritten.');
+      }
+    }
+
+    if (warnings.length > 0) {
+      setConfirmPopup({
+        visible: true,
+        message: `Please confirm the following changes:\n\n${warnings.map((warning) => `• ${warning}`).join('\n\n')}\n\nDo you want to continue?`,
+      });
+      return;
+    }
+
+    performImport();
+  };
+
+  const performImport = async () => {
     const apiUrl = `http://${serverIP}:8000/api/import-lesson/`;
 
     try {
@@ -448,25 +512,25 @@ export default function ImportScreen({ navigation, route }) {
       await appendFileToFormData(formData, 'media', mediaFile);
       await appendFileToFormData(formData, 'image', imageFile);
 
-      formData.append('url', url || '');
+      formData.append('url', uploadSource === 'url' && urlReference ? url : '');
       formData.append('nativeLanguage', nativeLanguage);
       formData.append('targetLanguage', targetLanguage);
       formData.append('lessonPrivate', lessonPrivate);
-      formData.append('audioUploaded', audioUploaded);
-      formData.append('fileUploaded', fileUploaded);
+      formData.append('audioUploaded', uploadType === 'audio');
+      formData.append('fileUploaded', uploadSource === 'manual' && fileUploaded && !!lessonFile);
       formData.append('urlReference', urlReference);
       formData.append('imageReference', imageReference);
-      formData.append('title', title);
-      formData.append('lessonEmpty', lessonEmpty);
-      formData.append('videoFormat', videoFormat);
-      formData.append('alwaysGenerateCaptions', alwaysGenerateCaptions);
-      formData.append('translateTarget', translateTarget);
+      formData.append('title', title.trim());
+      formData.append('lessonEmpty', uploadType === 'empty');
+      formData.append('videoFormat', uploadType === 'video');
+      formData.append('alwaysGenerateCaptions', uploadType !== 'text_only' && uploadType !== 'empty' && alwaysGenerateCaptions);
+      formData.append('translateTarget', uploadType !== 'empty' && translateTarget);
       formData.append('showVideoCaptions', ShowVideoCaptions);
       formData.append('showVideoView', ShowVideoView);
-      formData.append('generateAudio', generateAudio);
+      formData.append('generateAudio', uploadType !== 'empty' && generateAudio);
       formData.append('fileType', fileType);
 
-      // Start polling progress
+      // Start polling progress.
       const pollingInterval = setInterval(async () => {
         try {
           const res = await fetch(progressUrl, {
@@ -498,7 +562,7 @@ export default function ImportScreen({ navigation, route }) {
         }
       }, 1000);
 
-      // **Send the POST request to import the lesson**
+      // Send the POST request to import the lesson.
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -510,22 +574,18 @@ export default function ImportScreen({ navigation, route }) {
 
       const data = await response.json();
 
-
       if (!response.ok) {
         clearInterval(pollingInterval);
         setLoading(false);
         showError(`Import failed: ${data.error || 'Unknown error'}`);
-        Alert.alert('Import failed', data.error || 'Unknown error');
         return;
-      } else {
-        showSuccess(`Success: Lesson imported successfully!`);
-        Alert.alert('Success', 'Lesson imported successfully!');
-        setProgress(100);
-        navigation.goBack();
       }
+
+      showSuccess('Success: Lesson imported successfully!');
+      setProgress(100);
+      navigation.goBack();
     } catch (error) {
       showError(`Error: ${error.message}`);
-      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -584,18 +644,25 @@ export default function ImportScreen({ navigation, route }) {
             />
           </View>
 
-          <ButtonGroup options={uploadOptions} selectedValue={uploadType} onValueChange={setUploadType} />
-          <ButtonGroup options={sourceOptions} selectedValue={uploadSource} onValueChange={setUploadSource} />
+          <ButtonGroup
+            options={uploadOptions}
+            selectedValue={uploadType}
+            onValueChange={(value) => {
+              setUploadType(value);
+              if (value === 'text_only') {
+                setUploadSource('manual');
+                setAlwaysGenerateCaptions(false);
+              }
+            }}
+          />
+          {uploadType !== 'empty' && uploadType !== 'text_only' && (
+            <ButtonGroup options={sourceOptions} selectedValue={uploadSource} onValueChange={setUploadSource} />
+          )}
 
-
-
-
-
-
-          <Text style={styles.label}>Upload Options</Text>
+          {uploadType !== 'empty' && <Text style={styles.label}>Upload Options</Text>}
 
           {/* ====================== URL SECTION ====================== */}
-          {uploadSource === 'url' && uploadType !== 'empty' && (
+          {uploadSource === 'url' && uploadType !== 'empty' && uploadType !== 'text_only' && (
             <View>
 
               <View style={styles.checkboxRow}>
@@ -626,13 +693,16 @@ export default function ImportScreen({ navigation, route }) {
           )}
 
           {/* ====================== MANUAL FILE SECTION ====================== */}
-          {uploadSource === 'manual' && uploadType !== 'empty' && (
+          {(uploadSource === 'manual' || uploadType === 'text_only') && uploadType !== 'empty' && (
             <View>
 
               <View style={styles.checkboxRow}>
                 <Switch
                   value={fileUploaded}
-                  onValueChange={setFileUploaded}
+                  onValueChange={(value) => {
+                    setFileUploaded(value);
+                    if (!value) setLessonFile(null);
+                  }}
                   trackColor={{ false: '#777', true: '#00adb5' }}
                   thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
                 />
@@ -657,24 +727,31 @@ export default function ImportScreen({ navigation, route }) {
                 </View>
               )}
 
-              <View style={styles.checkboxRow}>
-                <Switch
-                  value={mediaUploaded}
-                  onValueChange={setMediaUploaded}
-                  trackColor={{ false: '#777', true: '#00adb5' }}
-                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-                />
-                <Text style={styles.checkboxLabel}>Provide Media</Text>
-              </View>
-              {mediaUploaded && (
-                <View>
-                  <Text style={styles.label}>Media Upload</Text>
-                  <TouchableOpacity style={styles.button} onPress={handleMediaPick}>
-                    <Text style={styles.buttonText}>
-                      {mediaFile ? `Selected: ${mediaFile.name}` : 'Choose Media'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              {uploadType !== 'text_only' && (
+                <>
+                  <View style={styles.checkboxRow}>
+                    <Switch
+                      value={mediaUploaded}
+                      onValueChange={(value) => {
+                        setMediaUploaded(value);
+                        if (!value) setMediaFile(null);
+                      }}
+                      trackColor={{ false: '#777', true: '#00adb5' }}
+                      thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                    />
+                    <Text style={styles.checkboxLabel}>Provide Media</Text>
+                  </View>
+                  {mediaUploaded && (
+                    <View>
+                      <Text style={styles.label}>Media Upload</Text>
+                      <TouchableOpacity style={styles.button} onPress={handleMediaPick}>
+                        <Text style={styles.buttonText}>
+                          {mediaFile ? `Selected: ${mediaFile.name}` : 'Choose Media'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
               )}
 
             </View>
@@ -687,7 +764,7 @@ export default function ImportScreen({ navigation, route }) {
 
 
 
-          
+
           <View style={styles.labelContainer}>
                     <Text style={styles.label}>Native Language</Text>
                     <Tooltip text="User's native language">
@@ -758,35 +835,41 @@ export default function ImportScreen({ navigation, route }) {
             </View>
           )}
 
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={alwaysGenerateCaptions}
-              onValueChange={setAlwaysGenerateCaptions}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Generate captions from audio</Text>
-          </View>
+          {uploadType !== 'empty' && (
+            <>
+              <View style={styles.checkboxRow}>
+                <Switch
+                  value={alwaysGenerateCaptions}
+                  onValueChange={setAlwaysGenerateCaptions}
+                  disabled={uploadType === 'text_only'}
+                  trackColor={{ false: '#777', true: '#00adb5' }}
+                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                />
+                <Text style={styles.checkboxLabel}>Generate captions from audio</Text>
+              </View>
 
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={generateAudio}
-              onValueChange={setGenerateAudio}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Generate audio from captions</Text>
-          </View>
+              <View style={styles.checkboxRow}>
+                <Switch
+                  value={generateAudio}
+                  onValueChange={setGenerateAudio}
+                  trackColor={{ false: '#777', true: '#00adb5' }}
+                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                />
+                <Text style={styles.checkboxLabel}>Generate audio from captions</Text>
+              </View>
 
-          <View style={styles.checkboxRow}>
-            <Switch
-              value={translateTarget}
-              onValueChange={setTranslateTarget}
-              trackColor={{ false: '#777', true: '#00adb5' }}
-              thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
-            />
-            <Text style={styles.checkboxLabel}>Translate (target Language)</Text>
-          </View>
+              <View style={styles.checkboxRow}>
+                <Switch
+                  value={translateTarget}
+                  onValueChange={setTranslateTarget}
+                  disabled={uploadType !== 'text_only' && !(fileUploaded && lessonFile) && !alwaysGenerateCaptions}
+                  trackColor={{ false: '#777', true: '#00adb5' }}
+                  thumbColor={Platform.OS === 'android' ? '#eeeeee' : '#222831'}
+                />
+                <Text style={styles.checkboxLabel}>Translate (target Language)</Text>
+              </View>
+            </>
+          )}
 
 
           <View style={styles.checkboxRow}>
@@ -823,7 +906,24 @@ export default function ImportScreen({ navigation, route }) {
               visible={true}
               message={popup.message}
               type={popup.type}
-              onClose={() => setPopup({ ...popup, visible: false })}
+              onClose={() => setPopup((current) => ({ ...current, visible: false }))}
+            />
+          )}
+
+          {confirmPopup.visible && (
+            <CustomPopup
+              visible={true}
+              message={confirmPopup.message}
+              type="caution"
+              showButtons={true}
+              acceptText="Accept"
+              declineText="Decline"
+              onAccept={() => {
+                setConfirmPopup({ visible: false, message: '' });
+                performImport();
+              }}
+              onDecline={() => setConfirmPopup({ visible: false, message: '' })}
+              onClose={() => setConfirmPopup({ visible: false, message: '' })}
             />
           )}
 
@@ -849,4 +949,3 @@ export default function ImportScreen({ navigation, route }) {
     </ScrollView>
   );
 }
-
