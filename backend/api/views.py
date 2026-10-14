@@ -12,7 +12,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, AIModelSerializer
@@ -54,6 +54,7 @@ from .utils.storage import StorageManager
 import io
 import wave
 import subprocess
+from .rss_reader import RSSReader
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -3364,3 +3365,120 @@ def generate_audio(request):
         'audio_file': lesson.media_file.name,
         'duration_ms': current_position_ms,
     }, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def rss_feed(request):
+    reader = RSSReader()
+
+    try:
+        feed_id = request.query_params.get("feed_id")
+
+        if feed_id:
+            try:
+                feed_id = int(feed_id)
+            except (TypeError, ValueError):
+                return Response(
+                    {"error": "Invalid feed_id."},
+                    status=400
+                )
+
+            try:
+                settings = UserSetting.objects.get(user=request.user)
+            except UserSetting.DoesNotExist:
+                return Response(
+                    {"error": "User settings were not found."},
+                    status=404
+                )
+
+            feed = RSSFeed.objects.filter(
+                id=feed_id,
+                native_language_id=settings.target_language_id
+            ).filter(
+                Q(user=request.user) | Q(is_public=True)
+            ).first()
+
+            if not feed:
+                return Response(
+                    {"error": "RSS feed not found or unavailable."},
+                    status=404
+                )
+
+            if not feed.rssfeed_url:
+                return Response(
+                    {"error": "This RSS feed does not have a URL."},
+                    status=400
+                )
+
+            rss_data = reader.get_rss_data(feed.rssfeed_url)
+            rss_data["feed_title"] = feed.rssfeed_name
+
+        else:
+            rss_data = reader.get_rss_data()
+
+        return Response(rss_data)
+
+    except requests.RequestException:
+        return Response(
+            {"error": "Could not retrieve the RSS feed."},
+            status=502
+        )
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def rss_article(request):
+    url = request.query_params.get("url", "")
+
+    if not url:
+        return Response( {"error": "An article URL is required."}, status=400 )
+
+    reader = RSSReader()
+
+    try:
+        article_data = reader.get_article_data(url)
+        return Response(article_data)
+
+    except ValueError:
+        return Response( {"error": "Invalid LRT article URL."}, status=400 )
+
+    except requests.RequestException:
+        return Response( {"error": "Could not retrieve the article from LRT."}, status=502 )
+
+
+
+# Get RSS feeds for the user's target language
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def rss_feeds(request):
+    try:
+        settings = UserSetting.objects.get(user=request.user)
+    except UserSetting.DoesNotExist:
+        return Response(
+            {"error": "User settings were not found."},
+            status=404
+        )
+
+    language_id = settings.target_language_id
+
+    feeds = RSSFeed.objects.filter(
+        native_language_id=language_id
+    ).filter(
+        Q(user=request.user) | Q(is_public=True)
+    ).order_by("rssfeed_name")
+
+    data = [
+        {
+            "id": feed.id,
+            "name": feed.rssfeed_name,
+            "url": feed.rssfeed_url,
+            "image": feed.rssfeed_img,
+            "is_public": feed.is_public,
+            "is_favorite": feed.is_favorite,
+        }
+        for feed in feeds
+    ]
+
+    return Response(data)

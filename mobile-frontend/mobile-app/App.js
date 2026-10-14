@@ -23,6 +23,8 @@ import GrammarScreen from './screens/GrammarScreen';
 import StatisticsScreen from './screens/StatisticsScreen';
 import LibraryScreen from "./screens/LibraryScreen";
 import BookViewerScreen from "./screens/BookViewerScreen";
+import RSSScreen from "./screens/RSSScreen";
+import RSSArticleScreen from "./screens/RSSArticleScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -72,6 +74,8 @@ export default function App() {
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen name="ResetPasswordConfirm" component={ResetPasswordConfirmScreen} />
           <Stack.Screen name="LiveTVScreen" component={LiveTVScreen} />
+          <Stack.Screen name="RSS" component={RSSScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="RSSArticle" component={RSSArticleScreen} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

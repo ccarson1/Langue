@@ -1720,6 +1720,21 @@ export default function HomeScreen({ navigation, route }) {
                             </TouchableOpacity>
                         )}
 
+                        {/* ---------------- News ---------------- */}
+
+                        {user && (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    navigation.navigate('RSS');
+                                    setMenuOpen(false);
+                                }}
+                            >
+                                <Text style={styles.navText}>
+                                    RSS Feeds
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
 
                         {/* ---------------- Grammar ---------------- */}
 

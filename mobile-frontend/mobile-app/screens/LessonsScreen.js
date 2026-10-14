@@ -727,6 +727,52 @@ export default function LessonsScreen({ navigation }) {
                             </Text>
                         </TouchableOpacity>
 
+
+                        {/* Lesson Progress */}
+                        <View style={{ width: '100%', marginTop: 10 }}>
+                            <Text style={{
+                                color: 'white',
+                                fontSize: 12,
+                                marginBottom: 5,
+                            }}>
+                                {Math.min(
+                                    Math.max(Number(lesson.current_lesson_index) || 0, 0),
+                                    Number(lesson.sentence_count) || 0
+                                )} / {Number(lesson.sentence_count) || 0}
+
+                                {'  '}
+                                {Number(lesson.sentence_count) > 0
+                                    ? Math.round(
+                                        Math.min(
+                                            Math.max(Number(lesson.current_lesson_index) || 0, 0),
+                                            Number(lesson.sentence_count)
+                                        ) / Number(lesson.sentence_count) * 100
+                                    )
+                                    : 0}%
+                            </Text>
+
+                            <View style={{
+                                height: 8,
+                                backgroundColor: '#444',
+                                borderRadius: 4,
+                                overflow: 'hidden',
+                            }}>
+                                <View style={{
+                                    height: '100%',
+                                    width: `${Number(lesson.sentence_count) > 0
+                                            ? Math.min(
+                                                Math.max(Number(lesson.current_lesson_index) || 0, 0),
+                                                Number(lesson.sentence_count)
+                                            ) / Number(lesson.sentence_count) * 100
+                                            : 0
+                                        }%`,
+                                    backgroundColor: '#4CAF50',
+                                    borderRadius: 4,
+                                }} />
+                            </View>
+                        </View>
+
+
                     </View>
 
                 ))}

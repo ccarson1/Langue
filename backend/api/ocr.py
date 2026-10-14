@@ -4,13 +4,14 @@ import os
 import re
 import shutil
 
-import fitz
+#import fitz
+import pymupdf
 import pytesseract
 
 from PIL import Image
 from io import BytesIO
 
-from paddleocr import PaddleOCR
+
 
 from api.models import Sentence, Lesson, Language
 
@@ -86,6 +87,8 @@ class OCR():
         # ----------------------------------------
 
         elif self.model_type == "paddleocr":
+
+            from paddleocr import PaddleOCR
 
             self.paddleocr_engine = PaddleOCR(
                 lang=self.paddle_lang_code

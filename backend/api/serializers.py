@@ -108,6 +108,9 @@ class SentenceSerializer(serializers.ModelSerializer):
 class LessonSerializer(serializers.ModelSerializer):
     #sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
     image = serializers.SerializerMethodField()
+    current_lesson_index = serializers.SerializerMethodField()
+    last_viewed = serializers.SerializerMethodField()
+    sentence_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
@@ -129,9 +132,27 @@ class LessonSerializer(serializers.ModelSerializer):
             'urlReference',
             'created_at',
             'videoFormat',
-            'tags'
-            
+            'tags',
+            'current_lesson_index',
+            'last_viewed',
+            'sentence_count',
         ]
+
+    def get_sentence_count(self, obj):
+        return Sentence.objects.filter(lesson=obj).count()
+
+    def get_current_lesson_index(self, obj):
+        user = self.context['request'].user
+
+        progress = UserLessonsProgress.objects.filter( user=user, lesson=obj ).first()
+
+        return progress.current_lesson_index if progress else 0
+
+    def get_last_viewed(self, obj):
+        user = self.context['request'].user
+
+        progress = UserLessonsProgress.objects.filter( user=user, lesson=obj ).first()
+        return progress.last_viewed if progress else None
 
     def get_image(self, obj):
         request = self.context.get('request')

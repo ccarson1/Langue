@@ -432,6 +432,16 @@ class StorageObject(models.Model):
     def __str__(self):
         return f"{self.user.username}: {self.path} ({self.size} bytes)"
 
+class RSSFeed(models.Model):
+    id = models.AutoField(primary_key=True, db_column='ID')
+    user = models.ForeignKey( User, db_column='user_id', on_delete=models.CASCADE, related_name='rss_feeds' )
+    native_language = models.ForeignKey(Language, db_column='nat_id', on_delete=models.CASCADE, related_name='rssfeed_native')
+    rssfeed_img = models.CharField(max_length=255, blank=True, null=True)
+    rssfeed_name = models.CharField(max_length=30)
+    rssfeed_url = models.URLField(max_length=1000, blank=True, null=True)
+    is_public = models.BooleanField(default=False)
+    is_favorite = models.BooleanField(default=False, db_column='is_favorite')
+    tags = models.ManyToManyField(Tag, blank=True, related_name='rssfeed_tags')
 
     
 
