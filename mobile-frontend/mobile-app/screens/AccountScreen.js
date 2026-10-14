@@ -100,6 +100,16 @@ export default function AccountScreen({ navigation }) {
     ? Math.min(Math.max(Math.round((storageUsed / storageTotal) * 100), 0), 100) 
     : 0;
 
+  const formatStorage = (mb) => {
+    const value = Number(mb) || 0;
+
+    if (value >= 1024) {
+      return `${(value / 1024).toFixed(2)} GB`;
+    }
+
+    return `${value.toFixed(2)} MB`;
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
@@ -124,7 +134,7 @@ export default function AccountScreen({ navigation }) {
           </View>
           <View style={styles.storageInfo}>
             <Text style={styles.storageText}>
-              {storageUsed} MB of {storageTotal} MB used
+              {formatStorage(storageUsed)} of {formatStorage(storageTotal)} used
             </Text>
             <Text style={styles.storagePercentage}>
               {storagePercentage}%

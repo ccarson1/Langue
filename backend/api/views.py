@@ -3482,3 +3482,68 @@ def rss_feeds(request):
     ]
 
     return Response(data)
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def rss_feed_create(request):
+    feed_name = request.data.get("rssfeed_name", "").strip()
+    feed_url = request.data.get("rssfeed_url", "").strip()
+    is_public_value = request.data.get("is_public", "false")
+
+    is_public = str(is_public_value).lower() in ("true", "1", "yes")
+
+    if not feed_name or not feed_url:
+        return Response(
+            {"error": "A feed name and RSS URL are required."},
+            status=400
+        )
+
+    if len(feed_name) > 30:
+        return Response(
+            {"error": "The feed name cannot exceed 30 characters."},
+            status=400
+        )
+
+    from urllib.parse import urlparse
+
+    parsed_url = urlparse(feed_url)
+
+    if (
+        parsed_url.scheme not in ("http", "https")
+        or not parsed_url.netloc
+        or parsed_url.username
+        or parsed_url.password
+    ):
+        return Response(
+            {"error": "Please enter a valid RSS feed URL."},
+            status=400
+        )
+
+    try:
+        settings = UserSetting.objects.get(user=request.user)
+    except UserSetting.DoesNotExist:
+        return Response(
+            {"error": "User settings were not found."},
+            status=404
+        )
+
+    rss_feed = RSSFeed.objects.create(
+        user=request.user,
+        native_language_id=settings.target_language_id,
+        rssfeed_name=feed_name,
+        rssfeed_url=feed_url,
+        is_public=is_public,
+    )
+
+    return Response(
+        {
+            "id": rss_feed.id,
+            "name": rss_feed.rssfeed_name,
+            "url": rss_feed.rssfeed_url,
+            "image": rss_feed.rssfeed_img,
+            "is_public": rss_feed.is_public,
+            "is_favorite": rss_feed.is_favorite,
+        },
+        status=201
+    )

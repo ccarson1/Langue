@@ -108,6 +108,28 @@ class Report(models.Model):
     class Meta:
         db_table = 'Reports'
 
+class ReadingLevelScale(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    description = models.TextField(blank=True)
+    measurement_type = models.CharField(max_length=30)
+
+    def __str__(self):
+        return self.name
+
+class ReadingLevel(models.Model):
+    scale = models.ForeignKey( ReadingLevelScale, on_delete=models.PROTECT, related_name="levels", )
+    name = models.CharField(max_length=50)
+    value = models.FloatField()
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [ models.UniqueConstraint( fields=["scale", "name"], name="unique_reading_level_name_per_scale", ), ]
+        ordering = ["sort_order"]
+
+    def __str__(self):
+        return f"{self.name} ({self.scale.code})"
+
 
 class Lesson(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
@@ -130,7 +152,7 @@ class Lesson(models.Model):
     urlReference = models.BooleanField(default=False)
     videoFormat = models.BooleanField(default=False)
     tags = models.ManyToManyField(Tag, blank=True, related_name='lesson_tags')
-    
+    reading_level = models.ForeignKey(ReadingLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name="lessons",)
     
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -35,6 +35,8 @@ export default function LessonsScreen({ navigation }) {
     const [searchText, setSearchText] = useState('');
     const [sortMenuVisible, setSortMenuVisible] = useState(false);
     const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+    const [selectedReadingLevels, setSelectedReadingLevels] = useState([]);
+    const [includeNoReadingLevel, setIncludeNoReadingLevel] = useState(false);
 
     const [sortOrder, setSortOrder] = useState('newest');
 
@@ -228,12 +230,41 @@ export default function LessonsScreen({ navigation }) {
             );
         }
 
+        if (selectedReadingLevels.length > 0 || includeNoReadingLevel) {
+            result = result.filter((lesson) => {
+                if (!lesson.reading_level) {
+                    return includeNoReadingLevel;
+                }
+
+                return selectedReadingLevels.includes(lesson.reading_level.name);
+            });
+        }
+
+
 
         // -------------------------
         // SORT
         // -------------------------
 
         result.sort((a, b) => {
+            if (sortOrder === 'reading_level_asc' ||
+                sortOrder === 'reading_level_desc') {
+
+                const levelA = Number(a.reading_level?.value);
+                const levelB = Number(b.reading_level?.value);
+
+                const missingA = a.reading_level?.value == null;
+                const missingB = b.reading_level?.value == null;
+
+                // Put lessons without a reading level at the end.
+                if (missingA && missingB) return 0;
+                if (missingA) return 1;
+                if (missingB) return -1;
+
+                return sortOrder === 'reading_level_asc'
+                    ? levelA - levelB
+                    : levelB - levelA;
+            }
 
             const dateA = new Date(a.created_at).getTime();
             const dateB = new Date(b.created_at).getTime();
@@ -248,7 +279,7 @@ export default function LessonsScreen({ navigation }) {
 
         return result;
 
-    }, [lessons, searchText, filters, sortOrder]);
+    }, [lessons, searchText, filters, sortOrder, selectedReadingLevels, includeNoReadingLevel]);
 
 
     // ---------------------------------------------------------
@@ -272,6 +303,9 @@ export default function LessonsScreen({ navigation }) {
             url: false,
             file: false,
         });
+
+        setSelectedReadingLevels([]);
+        setIncludeNoReadingLevel(false);
     };
 
 
@@ -279,7 +313,8 @@ export default function LessonsScreen({ navigation }) {
         filters.audio ||
         filters.video ||
         filters.url ||
-        filters.file;
+        filters.file ||
+        selectedReadingLevels.length > 0 || includeNoReadingLevel;
 
 
     // ---------------------------------------------------------
@@ -378,7 +413,7 @@ export default function LessonsScreen({ navigation }) {
                         <View style={styles.filterBadge}>
                             <Text style={styles.filterBadgeText}>
                                 {
-                                    Object.values(filters).filter(Boolean).length
+                                    Object.values(filters).filter(Boolean).length + (selectedReadingLevels.length > 0 || includeNoReadingLevel ? 1 : 0)
                                 }
                             </Text>
                         </View>
@@ -437,6 +472,40 @@ export default function LessonsScreen({ navigation }) {
 
                         <Text style={styles.menuText}>
                             Oldest
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => {
+                            setSortOrder('reading_level_asc');
+                            setSortMenuVisible(false);
+                        }}
+                    >
+                        <AntDesign
+                            name={sortOrder === 'reading_level_asc' ? 'check' : 'down'}
+                            size={18}
+                            color="white"
+                        />
+                        <Text style={styles.menuText}>
+                            Reading Level (Lowest First)
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => {
+                            setSortOrder('reading_level_desc');
+                            setSortMenuVisible(false);
+                        }}
+                    >
+                        <AntDesign
+                            name={sortOrder === 'reading_level_desc' ? 'check' : 'up'}
+                            size={18}
+                            color="white"
+                        />
+                        <Text style={styles.menuText}>
+                            Reading Level (Highest First)
                         </Text>
                     </TouchableOpacity>
 
@@ -569,6 +638,80 @@ export default function LessonsScreen({ navigation }) {
                     </TouchableOpacity>
 
 
+                    {/* Reading Level */}
+                    <View style={{ paddingVertical: 6 }}>
+                        <Text style={[styles.menuText, { marginBottom: 8 }]}>
+                            Reading Level
+                        </Text>
+
+                        <ScrollView
+                            style={{ maxHeight: 160 }}
+                            nestedScrollEnabled={true}
+                            showsVerticalScrollIndicator={true}
+                        >
+                            {/* All Levels */}
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setSelectedReadingLevels([]);
+                                    setIncludeNoReadingLevel(false);
+                                }}
+                            >
+                                <View style={styles.checkbox}>
+                                    {selectedReadingLevels.length === 0 &&
+                                        !includeNoReadingLevel && (
+                                            <AntDesign name="check" size={16} color="white" />
+                                        )}
+                                </View>
+                                <Text style={styles.menuText}>All Levels</Text>
+                            </TouchableOpacity>
+
+                            {/* Available Reading Levels */}
+                            {[...new Map(
+                                lessons
+                                    .filter((lesson) => lesson.reading_level)
+                                    .map((lesson) => [
+                                        lesson.reading_level.name,
+                                        lesson.reading_level,
+                                    ])
+                            ).values()]
+                                .sort((a, b) => a.value - b.value)
+                                .map((level) => (
+                                    <TouchableOpacity
+                                        key={level.id}
+                                        style={styles.menuItem}
+                                        onPress={() => {
+                                            setSelectedReadingLevels((current) =>
+                                                current.includes(level.name)
+                                                    ? current.filter((name) => name !== level.name)
+                                                    : [...current, level.name]
+                                            );
+                                        }}
+                                    >
+                                        <View style={styles.checkbox}>
+                                            {selectedReadingLevels.includes(level.name) && (
+                                                <AntDesign name="check" size={16} color="white" />
+                                            )}
+                                        </View>
+                                        <Text style={styles.menuText}>{level.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+
+                            {/* No Reading Level */}
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => setIncludeNoReadingLevel((current) => !current)}
+                            >
+                                <View style={styles.checkbox}>
+                                    {includeNoReadingLevel && (
+                                        <AntDesign name="check" size={16} color="white" />
+                                    )}
+                                </View>
+                                <Text style={styles.menuText}>No Reading Level</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+
                     {/* Close */}
                     <TouchableOpacity
                         style={styles.doneButton}
@@ -632,9 +775,36 @@ export default function LessonsScreen({ navigation }) {
                         </Text>
 
 
-                        <Text style={styles.title}>
-                            {lesson.title}
-                        </Text>
+                        {lesson.reading_level && (
+                            <View style={{
+                                alignSelf: 'flex-start',
+                                backgroundColor: '#E8F5E9',
+                                borderRadius: 12,
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
+                                marginTop: 6,
+                                marginBottom: 8,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                            }}>
+                                <Text style={{
+                                    color: '#388E3C',
+                                    fontSize: 11,
+                                    fontWeight: '600',
+                                    marginRight: 5,
+                                }}>
+                                    READING LEVEL
+                                </Text>
+
+                                <Text style={{
+                                    color: '#1B5E20',
+                                    fontSize: 12,
+                                    fontWeight: 'bold',
+                                }}>
+                                    {lesson.reading_level.name}
+                                </Text>
+                            </View>
+                        )}
 
 
                         {lesson.image && (
@@ -760,11 +930,11 @@ export default function LessonsScreen({ navigation }) {
                                 <View style={{
                                     height: '100%',
                                     width: `${Number(lesson.sentence_count) > 0
-                                            ? Math.min(
-                                                Math.max(Number(lesson.current_lesson_index) || 0, 0),
-                                                Number(lesson.sentence_count)
-                                            ) / Number(lesson.sentence_count) * 100
-                                            : 0
+                                        ? Math.min(
+                                            Math.max(Number(lesson.current_lesson_index) || 0, 0),
+                                            Number(lesson.sentence_count)
+                                        ) / Number(lesson.sentence_count) * 100
+                                        : 0
                                         }%`,
                                     backgroundColor: '#4CAF50',
                                     borderRadius: 4,

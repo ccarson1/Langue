@@ -1,6 +1,6 @@
 # serializers.py
 from rest_framework import serializers
-from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording, AIModel, Channel
+from .models import User, Language, Word, WordTranslation, UserSetting, Profile, Lesson, UserLessonsProgress, Sentence, Recording, AIModel, Channel, ReadingLevel
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone 
 
@@ -105,12 +105,27 @@ class SentenceSerializer(serializers.ModelSerializer):
         model = Sentence
         fields = ['id','sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms']
 
+class ReadingLevelSerializer(serializers.ModelSerializer):
+    scale_name = serializers.CharField(source='scale.name', read_only=True)
+    scale_code = serializers.CharField(source='scale.code', read_only=True)
+
+    class Meta:
+        model = ReadingLevel
+        fields = [
+            'id',
+            'name',
+            'value',
+            'scale_name',
+            'scale_code',
+        ]
+
 class LessonSerializer(serializers.ModelSerializer):
     #sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
     image = serializers.SerializerMethodField()
     current_lesson_index = serializers.SerializerMethodField()
     last_viewed = serializers.SerializerMethodField()
     sentence_count = serializers.SerializerMethodField()
+    reading_level = ReadingLevelSerializer(read_only=True)
 
     class Meta:
         model = Lesson
@@ -136,6 +151,7 @@ class LessonSerializer(serializers.ModelSerializer):
             'current_lesson_index',
             'last_viewed',
             'sentence_count',
+            'reading_level',
         ]
 
     def get_sentence_count(self, obj):

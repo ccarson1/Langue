@@ -155,6 +155,25 @@ export const createStyles = (insets, width = 390) => {
             lineHeight: 32,
         },
 
+        addFeedButton: {
+            width: isSmall ? 40 : 44,
+            height: isSmall ? 40 : 44,
+            borderRadius: 12,
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+
+
+        addFeedButtonText: {
+            color: colors.accent,
+            fontSize: 28,
+            fontWeight: '600',
+            lineHeight: 32,
+        },
+
 
         // ─────────────────────────────────────────────────────────────
         // ARTICLE CARD

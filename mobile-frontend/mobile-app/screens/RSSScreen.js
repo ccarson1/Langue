@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getServerIP } from "../utils/config";
 import { createStyles } from "./styles/RSSStyles";
+import AddFeedPopup from "./components/AddFeedPopup";
 
 const colors = {
     accent: "#00adb5",
@@ -37,6 +38,7 @@ export default function RSSScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
+    const [addFeedVisible, setAddFeedVisible] = useState(false);
 
     const contentWidth =
         width >= 900 ? 760 : width >= 600 ? 680 : width - 32;
@@ -164,6 +166,21 @@ export default function RSSScreen({ navigation }) {
         setDropdownOpen(false);
     };
 
+    const openAddFeedPopup = () => {
+        setAddFeedVisible(true);
+    };
+
+    const handleFeedSaved = (newFeed) => {
+        setFeeds((currentFeeds) =>
+            [...currentFeeds, newFeed].sort((a, b) =>
+                a.name.localeCompare(b.name)
+            )
+        );
+
+        setSelectedFeed(newFeed);
+        setError("");
+    };
+
     return (
         <View
             style={[
@@ -214,6 +231,18 @@ export default function RSSScreen({ navigation }) {
                         accessibilityLabel="Refresh news"
                     >
                         <Text style={styles.refreshButtonText}>↻</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.addFeedButton}
+                        onPress={openAddFeedPopup}
+                        accessibilityRole="button"
+                        accessibilityLabel="Add RSS feed"
+                    >
+                        <AntDesign
+                            name="plus"
+                            size={22}
+                            color="#00adb5"
+                        />
                     </TouchableOpacity>
                 </View>
 
@@ -376,6 +405,13 @@ export default function RSSScreen({ navigation }) {
                     </>
                 )}
             </ScrollView>
+            <AddFeedPopup
+                visible={addFeedVisible}
+                onClose={() => setAddFeedVisible(false)}
+                serverIP={serverIP}
+                token={token}
+                onSaved={handleFeedSaved}
+            />
         </View>
     );
 }
