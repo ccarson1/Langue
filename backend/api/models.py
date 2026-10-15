@@ -465,6 +465,149 @@ class RSSFeed(models.Model):
     is_favorite = models.BooleanField(default=False, db_column='is_favorite')
     tags = models.ManyToManyField(Tag, blank=True, related_name='rssfeed_tags')
 
+
+class GrammarCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name_plural = "Grammar categories"
+
+    def __str__(self):
+        return self.name
+
+
+class GrammarTopic(models.Model):
+    category = models.ForeignKey(
+        GrammarCategory,
+        on_delete=models.PROTECT,
+        related_name="topics",
+    )
+    target_language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+        related_name="grammar_topics",
+    )
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="private_grammar_topics",
+        null=True,
+        blank=True,
+    )
+    title = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "title"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["category", "target_language", "title"],
+                condition=models.Q(owner__isnull=True),
+                name="unique_shared_grammar_topic",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.target_language.lang_name})"
+
+
+class GrammarLesson(models.Model):
+    topic = models.ForeignKey(
+        GrammarTopic,
+        on_delete=models.CASCADE,
+        related_name="lessons",
+    )
+    explanation_language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+        related_name="grammar_lessons",
+    )
+    reading_level = models.ForeignKey(
+        ReadingLevel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="grammar_lessons",
+    )
+    title = models.CharField(max_length=200)
+    learning_objectives = models.JSONField(default=list, blank=True)
+    sections = models.JSONField(default=list, blank=True)
+    examples = models.JSONField(default=list, blank=True)
+    is_published = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["title"]
+        
+
+    def __str__(self):
+        return self.title
+
+
+class GrammarExercise(models.Model):
+    EXERCISE_TYPES = [
+        ("multiple_choice", "Multiple Choice"),
+        ("fill_in_the_blank", "Fill in the Blank"),
+        ("sentence_correction", "Sentence Correction"),
+    ]
+
+    lesson = models.ForeignKey(
+        GrammarLesson,
+        on_delete=models.CASCADE,
+        related_name="exercises",
+    )
+    exercise_type = models.CharField(
+        max_length=30,
+        choices=EXERCISE_TYPES,
+    )
+    instruction = models.TextField()
+    question = models.TextField()
+    options = models.JSONField(default=list, blank=True)
+    correct_answer = models.TextField()
+    accepted_answers = models.JSONField(default=list, blank=True)
+    explanation = models.TextField()
+    translation = models.TextField(blank=True)
+    missing_word = models.CharField(max_length=255, blank=True)
+    complete_answer = models.TextField(blank=True)
+    incorrect_sentence = models.TextField(blank=True)
+    corrected_sentence = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.lesson.title} - Exercise {self.id}"
+
     
 
+class GrammarAttempt(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="grammar_attempts",
+    )
+    lesson = models.ForeignKey(
+        GrammarLesson,
+        on_delete=models.CASCADE,
+        related_name="attempts",
+    )
+    answers = models.JSONField(default=dict, blank=True)
+    is_submitted = models.BooleanField(default=False)
+    score = models.PositiveIntegerField(null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.user} - {self.lesson.title}"

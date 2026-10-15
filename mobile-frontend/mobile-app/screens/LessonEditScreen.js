@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import * as DocumentPicker from 'expo-document-picker';
-
+import { Picker } from '@react-native-picker/picker';
 import BottomAudioMenu from './components/BottomAudioMenu';
 import AudioWaveVisualizer from './components/AudioWaveVisualizer';
 
@@ -34,6 +34,7 @@ export default function LessonEditScreen({ route, navigation }) {
     const { lessonId } = route.params;
 
     const [title, setTitle] = useState('');
+    const [lessonID, setLessonID] = useState(null);
     const [url, setUrl] = useState('');
     const [lessonPrivate, setLessonPrivate] = useState(false);
     const [audioFile, setAudioFile] = useState(null);
@@ -57,6 +58,10 @@ export default function LessonEditScreen({ route, navigation }) {
     const [showGenerateWarningPopup, setShowGenerateWarningPopup] = useState(false);
     const [generatingAudio, setGeneratingAudio] = useState(false);
     const [sentencesReordered, setSentencesReordered] = useState(false);
+    const [readingLevels, setReadingLevels] = useState([]);
+    const [readingLevel, setReadingLevel] = useState(null);
+    const [readingLevelScaleId, setReadingLevelScaleId] = useState(null);
+    const [readingLevelScales, setReadingLevelScales] = useState([]);
 
     // ── BottomAudioMenu state (showToggles=false so only sliders are used) ──
     const [volume, setVolume] = useState(1);
@@ -92,7 +97,6 @@ export default function LessonEditScreen({ route, navigation }) {
         fetchLesson();
     }, [serverIP]);
 
-    // ── Fetch lesson ─────────────────────────────────────────────────────────
     const fetchLesson = async () => {
         try {
             const token = await AsyncStorage.getItem('accessToken');
@@ -108,7 +112,12 @@ export default function LessonEditScreen({ route, navigation }) {
             );
 
             const data = await res.json();
-            console.log(data)
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to load lesson');
+            }
+
+            console.log(data);
 
             setTitle(data.title || '');
             setUrl(data.url || '');
@@ -120,17 +129,63 @@ export default function LessonEditScreen({ route, navigation }) {
             setcreationDate(data.created_at);
             setIsVideoFormat(data.video_format);
             setIsAudioUploaded(data.audio_uploaded);
-            setcreationDate(data.created_at);
+            setLessonID(data.id);
+            setReadingLevel(data.reading_level ?? null);
+
+            // Load all available reading-level scales.
+            const scalesResponse = await fetch(
+                `http://${serverIP}:8000/api/reading-level-scales/`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const scalesData = await scalesResponse.json();
+
+            if (!scalesResponse.ok) {
+                throw new Error('Failed to load reading-level scales');
+            }
+
+            setReadingLevelScales(scalesData);
+
+            // Use the lesson's existing scale, or the first available scale.
+            const selectedScaleId =
+                data.reading_level_scale_id ?? scalesData[0]?.id ?? null;
+
+            setReadingLevelScaleId(selectedScaleId);
+
+            // Load levels for the selected scale.
+            if (selectedScaleId !== null) {
+                const levelsResponse = await fetch(
+                    `http://${serverIP}:8000/api/reading-levels/?scale_id=${selectedScaleId}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+
+                const levelsData = await levelsResponse.json();
+
+                if (levelsResponse.ok) {
+                    setReadingLevels(levelsData);
+                } else {
+                    setReadingLevels([]);
+                }
+            } else {
+                setReadingLevels([]);
+            }
 
             // If your API returns audio duration, set it here:
             // if (data.audio_duration_ms) setAudioDurationMs(data.audio_duration_ms);
 
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'Failed to load lesson');
+            Alert.alert('Error', error.message || 'Failed to load lesson');
         }
     };
-
     // ── Sentence helpers ─────────────────────────────────────────────────────
     const updateSentence = (index, field, value) => {
         const updated = [...sentences];
@@ -314,7 +369,8 @@ export default function LessonEditScreen({ route, navigation }) {
             formData.append('lesson_private', lessonPrivate);
             formData.append('sentencesReordered', sentencesReordered);
             formData.append('sentences', JSON.stringify(sentences));
-            
+            formData.append('reading_level', readingLevel === null ? '' : String(readingLevel));
+
 
             if (imageFile) {
                 if (Platform.OS === 'web') {
@@ -529,7 +585,7 @@ export default function LessonEditScreen({ route, navigation }) {
                     <AntDesign name="left" size={22} color="white" />
                 </TouchableOpacity>
 
-                <Text style={styles.header}>Edit Lesson</Text>
+                <Text style={styles.header}>Edit Lesson {lessonID}</Text>
 
                 {/* Title */}
                 <Text style={styles.label}>Lesson Title</Text>
@@ -566,6 +622,83 @@ export default function LessonEditScreen({ route, navigation }) {
                         {imageFile ? 'Image Selected' : 'Upload Image'}
                     </Text>
                 </TouchableOpacity>
+
+                <Text style={styles.label}>Reading Level Scale</Text>
+                <View style={{
+                    borderWidth: 1,
+                    borderColor: '#CCCCCC',
+                    borderRadius: 8,
+                    marginBottom: 10,
+                    overflow: 'hidden',
+                }}>
+                    <Picker
+                        selectedValue={readingLevelScaleId}
+                        onValueChange={async (scaleId) => {
+                            if (scaleId === null) return;
+
+                            setReadingLevelScaleId(scaleId);
+                            setReadingLevel(null);
+                            setReadingLevels([]);
+
+                            const token = await AsyncStorage.getItem('accessToken');
+
+                            const response = await fetch(
+                                `http://${serverIP}:8000/api/reading-levels/?scale_id=${scaleId}`,
+                                {
+                                    headers: {
+                                        Authorization: `Bearer ${token}`,
+                                    },
+                                }
+                            );
+
+                            const levelsData = await response.json();
+
+                            if (response.ok) {
+                                setReadingLevels(levelsData);
+                            }
+                        }}
+                    >
+                        {readingLevelScales.map((scale) => (
+                            <Picker.Item
+                                key={scale.id}
+                                label={scale.name}
+                                value={scale.id}
+                            />
+                        ))}
+                    </Picker>
+                </View>
+
+                <Text style={styles.label}>Reading Level</Text>
+
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginBottom: 12 }}
+                >
+                    {readingLevels.map((level) => (
+                        <TouchableOpacity
+                            key={level.id}
+                            onPress={() => setReadingLevel(level.id)}
+                            style={{
+                                paddingVertical: 8,
+                                paddingHorizontal: 14,
+                                marginRight: 8,
+                                borderRadius: 20,
+                                backgroundColor:
+                                    readingLevel === level.id ? '#4CAF50' : '#E0E0E0',
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    color: readingLevel === level.id ? '#FFFFFF' : '#333333',
+                                    fontWeight: readingLevel === level.id ? 'bold' : 'normal',
+                                }}
+                            >
+                                {level.name}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
 
 
 

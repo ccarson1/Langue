@@ -12,7 +12,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevel, ReadingLevelScale, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, AIModelSerializer
@@ -730,7 +730,10 @@ def edit_lesson(request, lesson_id, sentence_id=None):
                     'position': s.position,
                 }
                 for s in sentences
-            ]
+            ],
+            'reading_level': lesson.reading_level_id,
+            'reading_level_name': ( lesson.reading_level.name if lesson.reading_level else None ),
+            'reading_level_scale_id': ( lesson.reading_level.scale_id if lesson.reading_level else None ),
         }
 
         return Response(data)
@@ -745,6 +748,16 @@ def edit_lesson(request, lesson_id, sentence_id=None):
         lesson.url = request.data.get( 'url', lesson.url )
         lesson.lesson_private = str_to_bool(request.data.get('lesson_private'))
         lesson.sentencesReordered = str_to_bool(request.data.get('sentencesReordered'))
+        reading_level_id = request.data.get('reading_level')
+
+        if reading_level_id is not None:
+            if reading_level_id == '':
+                lesson.reading_level = None
+            else:
+                try:
+                    lesson.reading_level = ReadingLevel.objects.get( id=reading_level_id )
+                except ReadingLevel.DoesNotExist:
+                    return Response( {'error': 'Reading level not found'}, status=status.HTTP_400_BAD_REQUEST )
 
         if 'image' in request.FILES:
             lesson.image = request.FILES['image']
@@ -3547,3 +3560,545 @@ def rss_feed_create(request):
         },
         status=201
     )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def reading_level_scales(request):
+    scales = ReadingLevelScale.objects.all().order_by('name')
+
+    data = [
+        {
+            'id': scale.id,
+            'name': scale.name,
+            'code': scale.code,
+            'measurement_type': scale.measurement_type,
+        }
+        for scale in scales
+    ]
+
+    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def reading_levels(request):
+    print("READING_LEVELS VIEW REACHED")
+    scale_id = request.query_params.get('scale_id')
+
+    levels = ReadingLevel.objects.all()
+
+    if scale_id:
+        levels = levels.filter(scale_id=scale_id)
+
+    data = [
+        {
+            'id': level.id,
+            'name': level.name,
+            'value': level.value,
+            'sort_order': level.sort_order,
+            'scale_id': level.scale_id,
+        }
+        for level in levels
+    ]
+
+    return Response(data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def grammar_categories(request):
+    categories = GrammarCategory.objects.all()
+
+    data = [
+        {
+            'id': category.id,
+            'name': category.name,
+            'description': category.description,
+            'sort_order': category.sort_order,
+        }
+        for category in categories
+    ]
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def grammar_topics(request):
+    settings = UserSetting.objects.filter(user=request.user).first()
+
+    if not settings or not settings.target_language:
+        return Response([])
+
+    topics = GrammarTopic.objects.filter(
+        target_language=settings.target_language,
+        is_active=True,
+    ).filter(
+        Q(owner__isnull=True) | Q(owner=request.user)
+    ).select_related('category', 'target_language')
+
+    data = [
+        {
+            'id': topic.id,
+            'title': topic.title,
+            'description': topic.description,
+            'category_id': topic.category_id,
+            'category_name': topic.category.name,
+            'target_language_id': topic.target_language_id,
+            'target_language': topic.target_language.lang_name,
+            'sort_order': topic.sort_order,
+        }
+        for topic in topics
+    ]
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def grammar_lessons(request):
+    settings = UserSetting.objects.filter(user=request.user).first()
+
+    if not settings or not settings.target_language:
+        return Response([])
+
+    lessons = GrammarLesson.objects.filter(
+        topic__target_language=settings.target_language,
+        topic__is_active=True,
+        is_published=True,
+    ).filter(
+        Q(topic__owner__isnull=True) | Q(topic__owner=request.user)
+    ).select_related(
+        'topic',
+        'topic__category',
+        'topic__target_language',
+        'explanation_language',
+        'reading_level',
+    )
+
+    attempts = GrammarAttempt.objects.filter(
+        user=request.user,
+        is_submitted=True,
+        lesson__in=lessons,
+    ).values_list('lesson_id', flat=True)
+
+    completed_lesson_ids = set(attempts)
+
+    data = [
+        {
+            'id': lesson.id,
+            'title': lesson.title,
+            'topic_id': lesson.topic_id,
+            'topic_title': lesson.topic.title,
+            'category_name': lesson.topic.category.name,
+            'target_language': lesson.topic.target_language.lang_name,
+            'explanation_language': lesson.explanation_language.lang_name,
+            'reading_level_id': lesson.reading_level_id,
+            'reading_level': lesson.reading_level.name if lesson.reading_level else None,
+            'completed': lesson.id in completed_lesson_ids,
+        }
+        for lesson in lessons
+    ]
+
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def grammar_lesson_detail(request, lesson_id):
+    lesson = get_object_or_404(
+        GrammarLesson.objects.select_related(
+            'topic',
+            'topic__category',
+            'topic__target_language',
+            'explanation_language',
+            'reading_level',
+        ).prefetch_related('exercises'),
+        id=lesson_id,
+        is_published=True,
+        topic__is_active=True,
+    )
+
+    if lesson.topic.owner is not None and lesson.topic.owner != request.user:
+        return Response(
+            {'detail': 'Not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    data = {
+        'id': lesson.id,
+        'title': lesson.title,
+        'topic_id': lesson.topic_id,
+        'topic_title': lesson.topic.title,
+        'category_name': lesson.topic.category.name,
+        'target_language': lesson.topic.target_language.lang_name,
+        'explanation_language': lesson.explanation_language.lang_name,
+        'reading_level_id': lesson.reading_level_id,
+        'reading_level': lesson.reading_level.name if lesson.reading_level else None,
+        'learning_objectives': lesson.learning_objectives,
+        'sections': lesson.sections,
+        'examples': lesson.examples,
+        'exercises': [
+            {
+                'id': exercise.id,
+                'exercise_type': exercise.exercise_type,
+                'instruction': exercise.instruction,
+                'question': exercise.question,
+                'options': exercise.options,
+                'correct_answer': exercise.correct_answer,
+                'accepted_answers': exercise.accepted_answers,
+                'explanation': exercise.explanation,
+                'translation': exercise.translation,
+                'missing_word': exercise.missing_word,
+                'complete_answer': exercise.complete_answer,
+                'incorrect_sentence': exercise.incorrect_sentence,
+                'corrected_sentence': exercise.corrected_sentence,
+            }
+            for exercise in lesson.exercises.all()
+        ],
+    }
+
+    return Response(data)
+
+# Import a grammar lesson from JSON
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def import_grammar_lesson(request):
+    data = request.data
+
+    required_fields = [
+        'target_language',
+        'explanation_language',
+        'category',
+        'topic',
+        'title',
+    ]
+
+    missing_fields = [
+        field for field in required_fields
+        if not data.get(field)
+    ]
+
+    if missing_fields:
+        return Response(
+            {
+                'error': 'Missing required fields.',
+                'fields': missing_fields,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not isinstance(data.get('learning_objectives', []), list):
+        return Response(
+            {'error': 'learning_objectives must be a list.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not isinstance(data.get('sections', []), list):
+        return Response(
+            {'error': 'sections must be a list.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not isinstance(data.get('examples', []), list):
+        return Response(
+            {'error': 'examples must be a list.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not isinstance(data.get('exercises', []), list):
+        return Response(
+            {'error': 'exercises must be a list.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    is_admin = request.user.is_staff or request.user.is_superuser
+
+    try:
+        target_language = Language.objects.get(
+            lang_name=data['target_language']
+        )
+
+        explanation_language = Language.objects.get(
+            lang_name=data['explanation_language']
+        )
+
+        category, _ = GrammarCategory.objects.get_or_create(
+            name=data['category'],
+        )
+
+        reading_level = None
+        reading_level_name = data.get('reading_level')
+
+        if reading_level_name:
+            reading_level = ReadingLevel.objects.filter(
+                name=reading_level_name
+            ).first()
+
+            if not reading_level:
+                return Response(
+                    {
+                        'error': (
+                            f'Reading level "{reading_level_name}" '
+                            'was not found.'
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        with transaction.atomic():
+            topic_owner = None if is_admin else request.user
+
+            topic, _ = GrammarTopic.objects.get_or_create(
+                category=category,
+                target_language=target_language,
+                owner=topic_owner,
+                title=data['topic'],
+                defaults={
+                    'description': data.get('topic_description', ''),
+                    'is_active': True,
+                },
+            )
+
+            lesson = GrammarLesson.objects.create(
+                topic=topic,
+                explanation_language=explanation_language,
+                reading_level=reading_level,
+                title=data['title'],
+                learning_objectives=data.get(
+                    'learning_objectives', []
+                ),
+                sections=data.get('sections', []),
+                examples=data.get('examples', []),
+                is_published=is_admin and data.get('publish', True),
+            )
+
+            exercises = data.get('exercises', [])
+
+            for index, exercise in enumerate(exercises):
+                required_exercise_fields = [
+                    'exercise_type',
+                    'instruction',
+                    'question',
+                    'correct_answer',
+                    'explanation',
+                ]
+
+                missing_exercise_fields = [
+                    field for field in required_exercise_fields
+                    if not exercise.get(field)
+                ]
+
+                if missing_exercise_fields:
+                    raise ValueError(
+                        f'Exercise {index + 1} is missing: '
+                        + ', '.join(missing_exercise_fields)
+                    )
+
+                if exercise['exercise_type'] not in dict(
+                    GrammarExercise.EXERCISE_TYPES
+                ):
+                    raise ValueError(
+                        f'Exercise {index + 1} has an invalid exercise_type.'
+                    )
+
+                GrammarExercise.objects.create(
+                    lesson=lesson,
+                    exercise_type=exercise['exercise_type'],
+                    instruction=exercise['instruction'],
+                    question=exercise['question'],
+                    options=exercise.get('options', []),
+                    correct_answer=exercise['correct_answer'],
+                    accepted_answers=exercise.get(
+                        'accepted_answers', []
+                    ),
+                    explanation=exercise['explanation'],
+                    translation=exercise.get('translation', ''),
+                    missing_word=exercise.get('missing_word', ''),
+                    complete_answer=exercise.get('complete_answer', ''),
+                    incorrect_sentence=exercise.get(
+                        'incorrect_sentence', ''
+                    ),
+                    corrected_sentence=exercise.get(
+                        'corrected_sentence', ''
+                    ),
+                    sort_order=index,
+                )
+
+        return Response(
+            {
+                'message': 'Grammar lesson imported successfully.',
+                'lesson_id': lesson.id,
+                'title': lesson.title,
+                'is_published': lesson.is_published,
+                'is_private': topic.owner is not None,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Language.DoesNotExist:
+        return Response(
+            {'error': 'The specified language was not found.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    except ValueError as err:
+        return Response(
+            {'error': str(err)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+        return Response(
+            {'error': f'The lesson could not be imported: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def grammar_attempt(request, lesson_id):
+    from django.utils import timezone
+    from .models import GrammarAttempt
+
+    lesson = get_object_or_404(
+        GrammarLesson.objects.filter(
+            is_published=True,
+            topic__is_active=True,
+        ),
+        id=lesson_id,
+    )
+
+    # Ensure the user can access this lesson.
+    if (
+        lesson.topic.owner is not None
+        and lesson.topic.owner != request.user
+    ):
+        return Response(
+            {'error': 'You do not have access to this lesson.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    attempt, _ = GrammarAttempt.objects.get_or_create(
+        user=request.user,
+        lesson=lesson,
+    )
+
+    if request.method == 'POST' and request.data.get('reset', False):
+        attempt.answers = {}
+        attempt.is_submitted = False
+        attempt.score = None
+        attempt.submitted_at = None
+        attempt.save()
+
+        return Response({
+            'message': 'Lesson reset successfully.',
+            'answers': attempt.answers,
+            'is_submitted': attempt.is_submitted,
+            'score': attempt.score,
+            'submitted_at': attempt.submitted_at,
+        })
+
+    if request.method == 'GET':
+        return Response({
+            'lesson_id': lesson.id,
+            'answers': attempt.answers,
+            'is_submitted': attempt.is_submitted,
+            'score': attempt.score,
+            'submitted_at': attempt.submitted_at,
+        })
+
+    if attempt.is_submitted:
+        return Response(
+            {'error': 'This lesson has already been submitted.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    answers = request.data.get('answers', {})
+    submit = request.data.get('submit', False)
+
+    if not isinstance(answers, dict):
+        return Response(
+            {'error': 'Answers must be an object.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    exercises = list(lesson.exercises.all())
+    exercise_ids = {str(exercise.id) for exercise in exercises}
+
+    # Reject answer IDs that do not belong to this lesson.
+    if not set(answers.keys()).issubset(exercise_ids):
+        return Response(
+            {'error': 'One or more answers do not belong to this lesson.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Keep only non-empty string answers.
+    if any(
+        not isinstance(answer, str)
+        for answer in answers.values()
+    ):
+        return Response(
+            {'error': 'Each answer must be a string.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    answers = {
+        key: value
+        for key, value in answers.items()
+        if value.strip()
+    }
+
+    if submit:
+        if not exercises:
+            return Response(
+                {'error': 'This lesson has no exercises to submit.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if any(str(exercise.id) not in answers for exercise in exercises):
+            return Response(
+                {'error': 'Answer every exercise before submitting.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        score = 0
+
+        for exercise in exercises:
+            user_answer = answers[str(exercise.id)].strip().casefold()
+
+            accepted_answers = [
+                exercise.correct_answer,
+                *(exercise.accepted_answers or []),
+            ]
+
+            if (
+                exercise.exercise_type == 'sentence_correction'
+                and exercise.corrected_sentence
+            ):
+                accepted_answers.append(exercise.corrected_sentence)
+
+            if any(
+                user_answer == str(answer).strip().casefold()
+                for answer in accepted_answers
+            ):
+                score += 1
+
+        attempt.answers = answers
+        attempt.is_submitted = True
+        attempt.score = score
+        attempt.submitted_at = timezone.now()
+    else:
+        attempt.answers = answers
+
+    attempt.save()
+
+    return Response({
+        'message': 'Submission successful.' if submit else 'Progress saved.',
+        'answers': attempt.answers,
+        'is_submitted': attempt.is_submitted,
+        'score': attempt.score,
+        'total_exercises': len(exercises),
+        'submitted_at': attempt.submitted_at,
+    })

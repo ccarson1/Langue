@@ -771,7 +771,7 @@ export default function LessonsScreen({ navigation }) {
 
 
                         <Text style={styles.title}>
-                            {lesson.id}
+                            {lesson.title}
                         </Text>
 
 

@@ -15,7 +15,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import { createStyles } from './styles/GrammarStyles';
 
-export default function AlphabetScreen({ navigation }) {
+export default function GrammarScreen({ navigation }) {
     const insets = useSafeAreaInsets();
     const styles = createStyles(insets);
 
@@ -226,11 +226,20 @@ export default function AlphabetScreen({ navigation }) {
                     ]}
                     onPress={() => navigation.navigate('Library')}
                 >
-                    
+
                     <Text style={styles.libraryLinkText}>
                         <AntDesign name="book" size={22} color="white" />
                         Library
-                        
+
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.menuButton}
+                    onPress={() => navigation.navigate('GrammarLessons')}
+                >
+                    <Text style={styles.menuText}>
+                        Grammar Lessons
                     </Text>
                 </TouchableOpacity>
 

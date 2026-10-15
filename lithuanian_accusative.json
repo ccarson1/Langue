@@ -1,0 +1,41 @@
+{
+  "target_language": "Lithuanian",
+  "explanation_language": "English",
+  "category": "Nouns and grammatical cases",
+  "topic": "The accusative case",
+  "topic_description": "Using the accusative case in Lithuanian",
+  "title": "Introduction to the Accusative Case",
+  "reading_level": "A1",
+  "learning_objectives": [
+    "Recognize the Lithuanian accusative case",
+    "Use the accusative case with simple nouns"
+  ],
+  "sections": [
+    {
+      "heading": "What is the accusative case?",
+      "content": "The accusative case commonly identifies the direct object of an action. For example, it answers the question 'what?' or 'whom?' after a verb."
+    }
+  ],
+  "examples": [
+    {
+      "sentence": "Aš skaitau knygą.",
+      "translation": "I am reading a book.",
+      "explanation": "Knygą is the accusative form of knyga (book)."
+    }
+  ],
+  "exercises": [
+    {
+      "exercise_type": "multiple_choice",
+      "instruction": "Choose the correct form.",
+      "question": "Aš skaitau ___ (knyga).",
+      "options": [
+        "knyga",
+        "knygą"
+      ],
+      "correct_answer": "knygą",
+      "accepted_answers": [],
+      "explanation": "Knygą is the accusative form used as the direct object.",
+      "translation": "I am reading a book."
+    }
+  ]
+}
