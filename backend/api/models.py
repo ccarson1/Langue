@@ -540,6 +540,7 @@ class GrammarLesson(models.Model):
     sections = models.JSONField(default=list, blank=True)
     examples = models.JSONField(default=list, blank=True)
     is_published = models.BooleanField(default=False)
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -551,21 +552,28 @@ class GrammarLesson(models.Model):
         return self.title
 
 
+class GrammarExerciseType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.SlugField(max_length=30, unique=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
 class GrammarExercise(models.Model):
-    EXERCISE_TYPES = [
-        ("multiple_choice", "Multiple Choice"),
-        ("fill_in_the_blank", "Fill in the Blank"),
-        ("sentence_correction", "Sentence Correction"),
-    ]
 
     lesson = models.ForeignKey(
         GrammarLesson,
         on_delete=models.CASCADE,
         related_name="exercises",
     )
-    exercise_type = models.CharField(
-        max_length=30,
-        choices=EXERCISE_TYPES,
+    exercise_type = models.ForeignKey(
+        GrammarExerciseType,
+        on_delete=models.PROTECT,
+        related_name="exercises",
     )
     instruction = models.TextField()
     question = models.TextField()

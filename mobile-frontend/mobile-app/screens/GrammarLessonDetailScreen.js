@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     TextInput,
     ActivityIndicator,
-    Alert,
     StyleSheet,
 } from 'react-native';
 
@@ -16,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
-import { useFocusEffect } from '@react-navigation/native';
+import CustomPopup from './components/CustomPopup';
 
 export default function GrammarLessonDetailScreen({ navigation, route }) {
     const insets = useSafeAreaInsets();
@@ -28,6 +27,20 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
     const [checkedAnswers, setCheckedAnswers] = useState({});
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [savingProgress, setSavingProgress] = useState(false);
+    const [submissionScore, setSubmissionScore] = useState(null);
+    const [popup, setPopup] = useState({
+        visible: false,
+        message: '',
+        type: 'success',
+    });
+
+    const showPopup = (message, type = 'success') => {
+        setPopup({
+            visible: true,
+            message,
+            type,
+        });
+    };
 
 
     useEffect(() => {
@@ -41,7 +54,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
             const token = await AsyncStorage.getItem('accessToken');
 
             if (!token) {
-                Alert.alert('Error', 'Please log in to view this lesson.');
+                showPopup('Please log in to view this lesson.', 'error');
                 return;
             }
 
@@ -125,10 +138,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
         } catch (err) {
             console.error('Failed to load grammar lesson:', err);
 
-            Alert.alert(
-                'Error',
-                err.message || 'Failed to load grammar lesson.'
-            );
+            showPopup(err.message || 'Failed to load grammar lesson.', 'error');
         } finally {
             setLoading(false);
         }
@@ -151,7 +161,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
         const userAnswer = (answers[exercise.id] || '').trim();
 
         if (!userAnswer) {
-            Alert.alert('Answer Required', 'Please enter or select an answer.');
+            showPopup('Please enter or select an answer.', 'caution');
             return;
         }
 
@@ -204,7 +214,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
             console.log('Access token found:', !!token);
 
             if (!token) {
-                Alert.alert('Error', 'Please log in first.');
+                showPopup('Please log in first.', 'error');
                 return;
             }
 
@@ -237,28 +247,61 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
 
             if (isSubmitting) {
                 setIsSubmitted(true);
+
+                const exercises = lesson?.exercises || [];
+                let correct = 0;
+
+                exercises.forEach(exercise => {
+                    const userAnswer = String(
+                        answers[exercise.id] || ''
+                    ).trim().toLowerCase();
+
+                    const acceptedAnswers = [
+                        exercise.correct_answer,
+                        ...(exercise.accepted_answers || []),
+                    ];
+
+                    if (
+                        exercise.exercise_type === 'sentence_correction' &&
+                        exercise.corrected_sentence
+                    ) {
+                        acceptedAnswers.push(exercise.corrected_sentence);
+                    }
+
+                    const isCorrect = acceptedAnswers.some(
+                        answer =>
+                            String(answer).trim().toLowerCase() === userAnswer
+                    );
+
+                    if (isCorrect) {
+                        correct++;
+                    }
+                });
+
+                const total = exercises.length;
+
+                setSubmissionScore({
+                    correct,
+                    total,
+                    percentage: total > 0
+                        ? Math.round((correct / total) * 100)
+                        : 0,
+                });
+            } else {
+                showPopup('Your progress has been saved.', 'success');
+
+                setTimeout(() => {
+                    navigation.navigate('GrammarLessons', {
+                        refresh: Date.now(),
+                    });
+                }, 1000);
             }
 
-            if (isSubmitting) {
-                setIsSubmitted(true);
-            }
 
-            window.alert(
-                isSubmitting
-                    ? 'Your lesson has been submitted.'
-                    : 'Your progress has been saved.'
-            );
-
-            navigation.navigate('GrammarLessons', {
-                refresh: Date.now(),
-            });
         } catch (err) {
             console.error('Failed to save grammar progress:', err);
 
-            Alert.alert(
-                'Error',
-                err.message || 'Failed to save grammar progress.'
-            );
+            showPopup(err.message || 'Failed to save grammar progress.', 'error');
         } finally {
             setSavingProgress(false);
         }
@@ -468,6 +511,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
+
                 <View style={styles.titleCard}>
                     <Text style={styles.lessonTitle}>
                         {lesson.title}
@@ -605,6 +649,64 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
 
                     )}
             </ScrollView>
+            {submissionScore !== null && (
+                <View style={styles.popupOverlay}>
+                    <View style={styles.submissionPopup}>
+                        <AntDesign
+                            name={
+                                submissionScore.percentage >= 70
+                                    ? 'check-circle'
+                                    : 'close-circle'
+                            }
+                            size={58}
+                            color={
+                                submissionScore.percentage >= 70
+                                    ? '#00adb5'
+                                    : '#ff8a80'
+                            }
+                        />
+
+                        <Text style={styles.popupTitle}>
+                            Lesson Submitted!
+                        </Text>
+
+                        <Text style={styles.popupScore}>
+                            {submissionScore.percentage}%
+                        </Text>
+
+                        <Text style={styles.popupDetails}>
+                            You answered {submissionScore.correct} out of{' '}
+                            {submissionScore.total} exercises correctly.
+                        </Text>
+
+                        <TouchableOpacity
+                            style={styles.popupButton}
+                            onPress={() => {
+                                setSubmissionScore(null);
+                                navigation.navigate('GrammarLessons', {
+                                    refresh: Date.now(),
+                                });
+                            }}
+                        >
+                            <Text style={styles.popupButtonText}>
+                                Return to Lessons
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+            <CustomPopup
+                visible={popup.visible}
+                message={popup.message}
+                type={popup.type}
+                duration={3000}
+                onClose={() => {
+                    setPopup(previous => ({
+                        ...previous,
+                        visible: false,
+                    }));
+                }}
+            />
         </View>
     );
 }
@@ -842,5 +944,61 @@ const styles = StyleSheet.create({
         fontSize: 16,
         textAlign: 'center',
         marginTop: 12,
+    },
+    popupOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        zIndex: 1000,
+    },
+    submissionPopup: {
+        width: '100%',
+        maxWidth: 400,
+        backgroundColor: '#2d333b',
+        borderRadius: 16,
+        padding: 28,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#555b63',
+    },
+    popupTitle: {
+        color: 'white',
+        fontSize: 23,
+        fontWeight: 'bold',
+        marginTop: 16,
+        textAlign: 'center',
+    },
+    popupScore: {
+        color: '#00adb5',
+        fontSize: 48,
+        fontWeight: 'bold',
+        marginTop: 12,
+    },
+    popupDetails: {
+        color: '#eeeeee',
+        fontSize: 16,
+        lineHeight: 24,
+        textAlign: 'center',
+        marginTop: 8,
+    },
+    popupButton: {
+        backgroundColor: '#00adb5',
+        borderRadius: 8,
+        paddingVertical: 13,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        width: '100%',
+        marginTop: 24,
+    },
+    popupButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

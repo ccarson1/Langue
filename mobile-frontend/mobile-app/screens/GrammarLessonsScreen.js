@@ -15,6 +15,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import CustomPopup from './components/CustomPopup';
 
 export default function GrammarLessonsScreen({ navigation }) {
     const insets = useSafeAreaInsets();
@@ -24,6 +25,11 @@ export default function GrammarLessonsScreen({ navigation }) {
 
     const [serverIP, setServerIP] = useState('');
     const [expandedTopics, setExpandedTopics] = useState({});
+    const [lessonToDelete, setLessonToDelete] = useState(null);
+    const [deletePopupVisible, setDeletePopupVisible] = useState(false);
+    const [popupMessage, setPopupMessage] = useState('');
+    const [popupType, setPopupType] = useState('caution');
+    const [popupShowButtons, setPopupShowButtons] = useState(false);
 
     useEffect(() => {
         loadLessons();
@@ -79,6 +85,15 @@ export default function GrammarLessonsScreen({ navigation }) {
                 );
             }
 
+            console.log(
+                'Grammar lesson ownership:',
+                data.map(lesson => ({
+                    id: lesson.id,
+                    title: lesson.title,
+                    is_owner: lesson.is_owner,
+                }))
+            );
+
 
             setLessons(data);
 
@@ -124,6 +139,71 @@ export default function GrammarLessonsScreen({ navigation }) {
         } catch (err) {
             console.error('Failed to reset grammar lesson:', err);
             Alert.alert('Error', err.message || 'Failed to reset the lesson.');
+        }
+    };
+
+    const confirmDeleteLesson = (lesson) => {
+        setLessonToDelete(lesson);
+        setPopupMessage(`Are you sure you want to delete "${lesson.title}"?`);
+        setPopupType('caution');
+        setPopupShowButtons(true);
+        setDeletePopupVisible(true);
+    };
+
+    const deleteLesson = async () => {
+        if (!lessonToDelete) return;
+
+        try {
+            const ip = serverIP || await getServerIP();
+            const token = await AsyncStorage.getItem('accessToken');
+
+            if (!token) {
+                throw new Error('Please log in first.');
+            }
+
+            const response = await fetch(
+                `http://${ip}:8000/api/grammar/lessons/${lessonToDelete.id}/`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const responseText = await response.text();
+                let data = {};
+
+                try {
+                    data = JSON.parse(responseText);
+                } catch {
+                    // Response was not JSON.
+                }
+
+                throw new Error(
+                    data.error || data.detail || 'Failed to delete lesson.'
+                );
+            }
+
+            setLessons(currentLessons =>
+                currentLessons.filter(
+                    lesson => lesson.id !== lessonToDelete.id
+                )
+            );
+
+            setLessonToDelete(null);
+            setPopupMessage('Lesson deleted successfully.');
+            setPopupType('success');
+            setPopupShowButtons(false);
+            setDeletePopupVisible(true);
+
+        } catch (err) {
+            setLessonToDelete(null);
+            setPopupMessage(err.message || 'Failed to delete lesson.');
+            setPopupType('error');
+            setPopupShowButtons(false);
+            setDeletePopupVisible(true);
         }
     };
 
@@ -314,7 +394,32 @@ export default function GrammarLessonsScreen({ navigation }) {
                                                     marginTop: 5,
                                                 }}
                                             >
-                                                {lesson.completed ? '✓ Completed' : 'Not completed'}
+                                                {lesson.completed ? '✓ Completed' : 'In progress'}
+                                            </Text>
+
+                                            <View style={styles.progressBarBackground}>
+                                                <View
+                                                    style={[
+                                                        styles.progressBarFill,
+                                                        {
+                                                            width: `${lesson.completed
+                                                                ? 100
+                                                                : Math.max(
+                                                                    0,
+                                                                    Math.min(100, lesson.progress ?? 0)
+                                                                )
+                                                                }%`,
+                                                        },
+                                                    ]}
+                                                />
+                                            </View>
+
+                                            <Text style={styles.progressText}>
+                                                {lesson.completed
+                                                    ? '100%'
+                                                    : `${Math.round(
+                                                        Math.max(0, Math.min(100, lesson.progress ?? 0))
+                                                    )}% complete`}
                                             </Text>
                                             {lesson.reading_level ? (
                                                 <Text style={styles.levelText}>
@@ -328,8 +433,16 @@ export default function GrammarLessonsScreen({ navigation }) {
                                                 </Text>
 
                                                 <AntDesign name="right" size={16} color="#00adb5" />
-                                            </View>
 
+                                            </View>
+                                            {lesson.is_owner && (
+                                                <TouchableOpacity
+                                                    style={styles.deleteButton}
+                                                    onPress={() => confirmDeleteLesson(lesson)}
+                                                >
+                                                    <AntDesign name="close" size={16} color="#e74c3c" />
+                                                </TouchableOpacity>
+                                            )}
                                             {lesson.completed ? (
                                                 <TouchableOpacity
                                                     style={styles.retakeButton}
@@ -348,6 +461,17 @@ export default function GrammarLessonsScreen({ navigation }) {
                 </ScrollView>
 
             )}
+            <CustomPopup
+                visible={deletePopupVisible}
+                message={popupMessage}
+                type={popupType}
+                showButtons={popupShowButtons}
+                acceptText="Delete"
+                declineText="Cancel"
+                onAccept={deleteLesson}
+                onDecline={() => setLessonToDelete(null)}
+                onClose={() => setDeletePopupVisible(false)}
+            />
         </View>
     );
 }
@@ -487,6 +611,43 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     retakeButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    progressBarBackground: {
+        height: 8,
+        backgroundColor: '#555b63',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginTop: 8,
+    },
+
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#00adb5',
+        borderRadius: 4,
+    },
+
+    progressText: {
+        color: '#aaaaaa',
+        fontSize: 12,
+        marginTop: 4,
+    },
+    deleteButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        borderWidth: 1,
+        borderColor: '#e74c3c',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+    },
+    deleteButtonText: {
         color: 'white',
         fontSize: 14,
         fontWeight: 'bold',

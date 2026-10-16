@@ -39,6 +39,7 @@ export default function RSSScreen({ navigation }) {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
     const [addFeedVisible, setAddFeedVisible] = useState(false);
+    const [targetLanguage, setTargetLanguage] = useState("");
 
     const contentWidth =
         width >= 900 ? 760 : width >= 600 ? 680 : width - 32;
@@ -88,18 +89,23 @@ export default function RSSScreen({ navigation }) {
                 throw new Error(data.error || "Failed to load RSS feeds.");
             }
 
-            setFeeds(data);
+            setTargetLanguage(data.target_language);
+            setFeeds(data.feeds);
 
             setSelectedFeed((currentFeed) => {
+                const availableFeeds = data.feeds;
+
                 if (currentFeed) {
-                    const stillAvailable = data.find(
+                    const stillAvailable = availableFeeds.find(
                         (item) => item.id === currentFeed.id
                     );
 
                     if (stillAvailable) return stillAvailable;
                 }
 
-                return data.find((item) => item.is_favorite) || data[0] || null;
+                return availableFeeds.find((item) => item.is_favorite)
+                    || availableFeeds[0]
+                    || null;
             });
         } catch (error) {
             console.error("Failed to fetch RSS feeds:", error);
@@ -119,6 +125,13 @@ export default function RSSScreen({ navigation }) {
     const loadFeed = useCallback(async (isRefresh = false) => {
         if (!serverIP || !token) return;
 
+        if (!selectedFeed) {
+            setFeed(null);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
         if (isRefresh) {
             setRefreshing(true);
         } else {
@@ -128,9 +141,7 @@ export default function RSSScreen({ navigation }) {
         setError("");
 
         try {
-            const url = selectedFeed
-                ? `http://${serverIP}:8000/api/rss/?feed_id=${selectedFeed.id}`
-                : `http://${serverIP}:8000/api/rss/`;
+            const url = `http://${serverIP}:8000/api/rss/?feed_id=${selectedFeed.id}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -216,12 +227,12 @@ export default function RSSScreen({ navigation }) {
                     <View style={styles.headerTextContainer}>
                         <Text style={styles.eyebrow}>LANGUE NEWS</Text>
                         <Text style={styles.header}>
-                            {selectedFeed?.name ||
-                                feed?.feed_title ||
-                                "Lithuanian News"}
+                            {selectedFeed?.name || feed?.feed_title || "News"}
                         </Text>
                         <Text style={styles.subtitle}>
-                            Read and learn Lithuanian.
+                            {targetLanguage
+                                ? `Read and learn ${targetLanguage}.`
+                                : "Read and learn."}
                         </Text>
                     </View>
 
@@ -260,9 +271,7 @@ export default function RSSScreen({ navigation }) {
                             numberOfLines={1}
                         >
                             {selectedFeed?.name ||
-                                (feedsLoaded
-                                    ? "Default Lithuanian News"
-                                    : "Loading feeds...")}
+                                (feedsLoaded ? "No feeds available" : "Loading feeds...")}
                         </Text>
 
                         <AntDesign

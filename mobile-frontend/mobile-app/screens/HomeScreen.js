@@ -460,6 +460,7 @@ export default function HomeScreen({ navigation, route }) {
 
             setIsPlaying(true);
 
+            let segmentFinished = false;
 
             sound.setOnPlaybackStatusUpdate(async (status) => {
                 if (!status.isLoaded) return;
@@ -469,16 +470,23 @@ export default function HomeScreen({ navigation, route }) {
 
                     if (status.didJustFinish) {
                         setIsPlaying(false);
-
-                        // play next lesson here
                     }
 
                     return;
                 }
 
-                if (status.positionMillis >= segmentEnd) {
+                if (
+                    status.positionMillis >= segmentEnd &&
+                    !segmentFinished
+                ) {
+                    segmentFinished = true;
+
+                    console.log("AUDIO SEGMENT FINISHED:", {
+                        positionMillis: status.positionMillis,
+                        segmentEnd,
+                    });
+
                     await sound.pauseAsync();
-                    await sound.setPositionAsync(segmentStart);
                     setIsPlaying(false);
                 }
             });

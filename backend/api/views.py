@@ -12,7 +12,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevel, ReadingLevelScale, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevel, ReadingLevelScale, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt, GrammarExerciseType
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, AIModelSerializer
@@ -3467,14 +3467,14 @@ def rss_article(request):
 @permission_classes([IsAuthenticated])
 def rss_feeds(request):
     try:
-        settings = UserSetting.objects.get(user=request.user)
+        user_settings = UserSetting.objects.get(user=request.user)
     except UserSetting.DoesNotExist:
         return Response(
             {"error": "User settings were not found."},
             status=404
         )
 
-    language_id = settings.target_language_id
+    language_id = user_settings.target_language_id
 
     feeds = RSSFeed.objects.filter(
         native_language_id=language_id
@@ -3494,7 +3494,10 @@ def rss_feeds(request):
         for feed in feeds
     ]
 
-    return Response(data)
+    return Response({
+        "target_language": user_settings.target_language.lang_name,
+        "feeds": data,
+    })
 
 @csrf_exempt
 @api_view(["POST"])
@@ -3652,6 +3655,7 @@ def grammar_topics(request):
     return Response(data)
 
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def grammar_lessons(request):
@@ -3660,12 +3664,19 @@ def grammar_lessons(request):
     if not settings or not settings.target_language:
         return Response([])
 
+    print("Grammar target language:", settings.target_language)
+    print("Published lessons:", GrammarLesson.objects.filter(
+        is_published=True
+    ).count())
+    print("Public lessons:", GrammarLesson.objects.filter(
+        is_public=True
+    ).count())
     lessons = GrammarLesson.objects.filter(
         topic__target_language=settings.target_language,
         topic__is_active=True,
         is_published=True,
     ).filter(
-        Q(topic__owner__isnull=True) | Q(topic__owner=request.user)
+        Q(is_public=True) | Q(topic__owner=request.user)
     ).select_related(
         'topic',
         'topic__category',
@@ -3676,15 +3687,48 @@ def grammar_lessons(request):
 
     attempts = GrammarAttempt.objects.filter(
         user=request.user,
-        is_submitted=True,
         lesson__in=lessons,
-    ).values_list('lesson_id', flat=True)
+    ).values(
+        'lesson_id',
+        'answers',
+        'is_submitted',
+    )
 
-    completed_lesson_ids = set(attempts)
+    attempts_by_lesson = {
+        attempt['lesson_id']: attempt
+        for attempt in attempts
+    }
 
-    data = [
-        {
+    data = []
+
+    for lesson in lessons:
+        attempt = attempts_by_lesson.get(lesson.id, {})
+        answers = attempt.get('answers') or {}
+
+        total_exercises = lesson.exercises.count()
+
+        answered_exercises = sum(
+            1
+            for answer in answers.values()
+            if isinstance(answer, str) and answer.strip()
+        )
+
+        completed = attempt.get('is_submitted', False)
+
+        progress = (
+            round(answered_exercises / total_exercises * 100, 1)
+            if total_exercises > 0
+            else 0
+        )
+
+        if completed:
+            progress = 100
+
+        data.append({
             'id': lesson.id,
+            'is_owner': lesson.topic.owner_id == request.user.id,
+            'is_public': lesson.is_public,
+            'is_published': lesson.is_published,
             'title': lesson.title,
             'topic_id': lesson.topic_id,
             'topic_title': lesson.topic.title,
@@ -3692,16 +3736,20 @@ def grammar_lessons(request):
             'target_language': lesson.topic.target_language.lang_name,
             'explanation_language': lesson.explanation_language.lang_name,
             'reading_level_id': lesson.reading_level_id,
-            'reading_level': lesson.reading_level.name if lesson.reading_level else None,
-            'completed': lesson.id in completed_lesson_ids,
-        }
-        for lesson in lessons
-    ]
+            'reading_level': (
+                lesson.reading_level.name
+                if lesson.reading_level else None
+            ),
+            'completed': completed,
+            'answered_exercises': answered_exercises,
+            'total_exercises': total_exercises,
+            'progress': progress,
+        })
 
     return Response(data)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def grammar_lesson_detail(request, lesson_id):
     lesson = get_object_or_404(
@@ -3717,11 +3765,22 @@ def grammar_lesson_detail(request, lesson_id):
         topic__is_active=True,
     )
 
-    if lesson.topic.owner is not None and lesson.topic.owner != request.user:
+    if not lesson.is_public and lesson.topic.owner != request.user:
         return Response(
             {'detail': 'Not found.'},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+    if request.method == 'DELETE':
+        if lesson.topic.owner != request.user:
+            return Response(
+                {'error': 'You do not have permission to delete this lesson.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        lesson.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     data = {
         'id': lesson.id,
@@ -3735,11 +3794,13 @@ def grammar_lesson_detail(request, lesson_id):
         'reading_level': lesson.reading_level.name if lesson.reading_level else None,
         'learning_objectives': lesson.learning_objectives,
         'sections': lesson.sections,
+        'is_owner': lesson.topic.owner_id == request.user.id,
+        'is_public': lesson.is_public,
         'examples': lesson.examples,
         'exercises': [
             {
                 'id': exercise.id,
-                'exercise_type': exercise.exercise_type,
+                'exercise_type': exercise.exercise_type.code,
                 'instruction': exercise.instruction,
                 'question': exercise.question,
                 'options': exercise.options,
@@ -3845,7 +3906,7 @@ def import_grammar_lesson(request):
                 )
 
         with transaction.atomic():
-            topic_owner = None if is_admin else request.user
+            topic_owner = request.user
 
             topic, _ = GrammarTopic.objects.get_or_create(
                 category=category,
@@ -3893,16 +3954,19 @@ def import_grammar_lesson(request):
                         + ', '.join(missing_exercise_fields)
                     )
 
-                if exercise['exercise_type'] not in dict(
-                    GrammarExercise.EXERCISE_TYPES
-                ):
+                exercise_type = GrammarExerciseType.objects.filter(
+                    code=exercise['exercise_type']
+                ).first()
+
+                if not exercise_type:
                     raise ValueError(
-                        f'Exercise {index + 1} has an invalid exercise_type.'
+                        f'Exercise {index + 1} has an invalid exercise_type: '
+                        f'{exercise["exercise_type"]}'
                     )
 
                 GrammarExercise.objects.create(
                     lesson=lesson,
-                    exercise_type=exercise['exercise_type'],
+                    exercise_type=exercise_type,
                     instruction=exercise['instruction'],
                     question=exercise['question'],
                     options=exercise.get('options', []),
@@ -3971,10 +4035,7 @@ def grammar_attempt(request, lesson_id):
     )
 
     # Ensure the user can access this lesson.
-    if (
-        lesson.topic.owner is not None
-        and lesson.topic.owner != request.user
-    ):
+    if not lesson.is_public and lesson.topic.owner != request.user:
         return Response(
             {'error': 'You do not have access to this lesson.'},
             status=status.HTTP_403_FORBIDDEN,
