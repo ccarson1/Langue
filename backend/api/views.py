@@ -2136,6 +2136,8 @@ def ocr_image(request):
     for sentence in sentences:
         print("OCR SENTENCE:", sentence)
 
+    translated_text = ""
+
     if translateText:
         load_user_model(user)
 

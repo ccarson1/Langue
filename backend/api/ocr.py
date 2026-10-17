@@ -104,7 +104,8 @@ class OCR():
 
         text = pytesseract.image_to_string(
             self.image,
-            lang=self.lang_code
+            lang=self.lang_code,
+            config="--oem 1 --psm 6"
         )
 
         text = re.sub(
@@ -135,22 +136,55 @@ class OCR():
 
         text = " ".join(all_text)
 
-        text = re.sub(
-            r'\s+',
-            ' ',
-            text
-        ).strip()
+        text = re.sub( r'\s+', ' ', text ).strip()
 
         return text
 
     def image_to_text(self, image):
 
+        print("OCR image size:", image.size)
+        print("OCR language:", self.lang_code)
+        
         if self.model_type == "tesseract":
 
-            text = pytesseract.image_to_string(
-                image,
-                lang=self.lang_code
+            import cv2
+            import numpy as np
+
+            image_array = np.array(image.convert("RGB"))
+
+            gray = cv2.cvtColor(
+                image_array,
+                cv2.COLOR_RGB2GRAY
             )
+
+            gray = cv2.resize(
+                gray,
+                None,
+                fx=2,
+                fy=2,
+                interpolation=cv2.INTER_CUBIC
+            )
+
+            processed = cv2.GaussianBlur(
+                gray,
+                (3, 3),
+                0
+            )
+
+            text = pytesseract.image_to_string(
+                processed,
+                lang=self.lang_code,
+                config="--oem 1 --psm 6"
+            )
+
+        
+        # if self.model_type == "tesseract":
+        #     text = pytesseract.image_to_string(
+        #         image,
+        #         lang=self.lang_code,
+        #         config="--oem 1 --psm 6"
+        #     )
+
 
         elif self.model_type == "paddleocr":
 
@@ -162,11 +196,15 @@ class OCR():
                 f"Unsupported OCR model: {self.model_type}"
             )
 
-        text = re.sub(
-            r'\s+',
-            ' ',
-            text
-        ).strip()
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        if text:
+            text = text.lower()
+            text = re.sub(
+                r'(^|(?<=[.!?])\s+)(\w)',
+                lambda m: m.group(1) + m.group(2).upper(),
+                text
+            )
 
         return text
 
