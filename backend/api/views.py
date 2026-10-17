@@ -2129,11 +2129,28 @@ def ocr_image(request):
     ocr = OCR( image_file, lang_code, native_lang_code, paddle_lang_code, model_type=model_type )
     text = ocr.image_to_text( ocr.image )
 
+    sentences = ocr.text_to_sentences(text)
+
+    print("OCR SENTENCES:", len(sentences))
+
+    for sentence in sentences:
+        print("OCR SENTENCE:", sentence)
+
     if translateText:
         load_user_model(user)
-        translated_text = translate_word(text, src_lang=settings.target_language.yt_dlp_lang, tgt_lang=settings.native_language.yt_dlp_lang)
-    else:
-        translated_text = ''
+
+        translated_sentences = []
+
+        for sentence in sentences:
+            translated_sentence = translate_word(
+                sentence,
+                src_lang=settings.target_language.yt_dlp_lang,
+                tgt_lang=settings.native_language.yt_dlp_lang
+            )
+
+            translated_sentences.append(translated_sentence)
+
+        translated_text = " ".join(translated_sentences)
 
     return JsonResponse({"text": text, "translation": translated_text})
 
