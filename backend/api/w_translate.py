@@ -11,6 +11,9 @@ from transformers import (
 
 from .models import UserSetting
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+print("Translation device:", DEVICE)
 
 # =========================================================
 # Per-request model state
@@ -150,6 +153,13 @@ def translate_word(text, src_lang, tgt_lang):
     model_type = MODEL_TYPE.get()
     tokenizer = TOKENIZER.get()
     model = MODEL.get()
+
+    print("MODEL TYPE:", model_type)
+    print("SOURCE LANGUAGE:", src_lang)
+    print("TARGET LANGUAGE:", tgt_lang)
+    print("TEXT:", text)
+    print("MODEL:", type(model).__name__)
+    print("TOKENIZER:", type(tokenizer).__name__)
 
     if model_type is None:
         raise RuntimeError(
