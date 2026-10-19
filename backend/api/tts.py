@@ -142,3 +142,82 @@ class TTS:
         wav_buffer.seek(0)
 
         return wav_buffer.getvalue()
+
+    
+    def synthesize_with_timestamps(self, segments, model="piper"):
+        """
+        Generate one WAV file and timestamps for each text segment.
+
+        Args:
+            segments: List of dictionaries containing "id" and "text".
+            model: TTS model to use.
+
+        Returns:
+            Dictionary containing audio bytes and segment timestamps.
+        """
+
+        if not segments:
+            raise ValueError("No text segments were provided.")
+
+        if model == "piper":
+            return self.piper_with_timestamps(segments)
+
+        raise ValueError(f"Unsupported TTS model: {model}")
+
+    def piper_with_timestamps(self, segments):
+        self._load_piper()
+
+        audio_parts = []
+        timestamps = {}
+        sample_position = 0
+        sample_rate = self._piper_voice.config.sample_rate
+
+        for segment in segments:
+            segment_id = segment["id"]
+            text = segment["text"]
+
+            if not text:
+                continue
+
+            if segment_id in timestamps:
+                raise ValueError(f"Duplicate segment ID: {segment_id}")
+
+            audio = self._piper_synth.synthesize(text)
+
+            if audio is None or len(audio) == 0:
+                continue
+
+            start = sample_position / sample_rate
+            sample_position += len(audio)
+            end = sample_position / sample_rate
+
+            audio_parts.append(audio)
+
+            # Shorten the playback endpoint slightly.
+            end = max(start, end - 0.10)
+
+            timestamps[segment_id] = {
+                "start": start,
+                "end": end,
+            }
+
+
+        if not audio_parts:
+            raise ValueError("No audio was generated.")
+
+        combined_audio = np.concatenate(audio_parts)
+
+        wav_buffer = io.BytesIO()
+
+        with wave.open(wav_buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(i_int16(combined_audio))
+
+        wav_buffer.seek(0)
+
+        return {
+            "audio": wav_buffer.getvalue(),
+            "segments": timestamps,
+        }

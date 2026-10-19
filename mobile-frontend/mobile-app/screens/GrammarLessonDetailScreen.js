@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 import {
     View,
@@ -9,6 +9,7 @@ import {
     TextInput,
     ActivityIndicator,
     StyleSheet,
+    Platform,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,10 +17,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { getServerIP } from '../utils/config';
 import CustomPopup from './components/CustomPopup';
+import { Audio } from 'expo-av';
 
 export default function GrammarLessonDetailScreen({ navigation, route }) {
     const insets = useSafeAreaInsets();
     const lessonId = route.params?.lessonId;
+    const [audioTimestamps, setAudioTimestamps] = useState({});
+    const [audioSound, setAudioSound] = useState(null);
 
     const [lesson, setLesson] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -34,6 +38,9 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
         type: 'success',
     });
 
+    const webAudioRef = useRef(null);
+    const rafRef = useRef(null);
+
     const showPopup = (message, type = 'success') => {
         setPopup({
             visible: true,
@@ -41,6 +48,162 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
             type,
         });
     };
+
+
+
+    const playTargetText = async (segmentId) => {
+        const timestamp = audioTimestamps[segmentId];
+
+        if (!timestamp) {
+            console.warn('Timestamp not found:', segmentId);
+            return;
+        }
+
+        if (Platform.OS !== 'web' && !audioSound) {
+            console.warn('Audio not ready:', segmentId);
+            return;
+        }
+
+        if (Platform.OS === 'web') {
+            const audio = webAudioRef.current;
+
+            if (!audio) {
+                console.warn('Browser audio is not ready.');
+                return;
+            }
+
+            cancelAnimationFrame(rafRef.current);
+            audio.pause();
+
+            const begin = () => {
+                audio.play().catch(err =>
+                    console.error('Failed to play grammar audio:', err)
+                );
+
+                const tick = () => {
+                    if (audio.paused) return;
+
+                    if (audio.currentTime >= timestamp.end) {
+                        audio.pause();
+                        return;
+                    }
+                    rafRef.current = requestAnimationFrame(tick);
+                };
+                rafRef.current = requestAnimationFrame(tick);
+            };
+
+            const seekAndPlay = () => {
+                audio.currentTime = timestamp.start;
+
+                if (audio.seeking) {
+                    audio.addEventListener('seeked', begin, { once: true });
+                } else {
+                    begin();
+                }
+            };
+
+            if (audio.readyState < 1) {
+                audio.addEventListener('loadedmetadata', seekAndPlay, { once: true });
+                audio.load();
+            } else {
+                seekAndPlay();
+            }
+
+            return;
+        }
+        const startMs = Math.max(0, timestamp.start * 1000);
+        const endMs = timestamp.end * 1000;
+
+        if (endMs <= startMs) {
+            console.warn('Invalid audio timestamps:', timestamp);
+            return;
+        }
+
+        try {
+            // Stop any previous segment.
+            audioSound.setOnPlaybackStatusUpdate(null);
+            await audioSound.pauseAsync();
+
+            // Seek to the requested start timestamp.
+            await audioSound.setPositionAsync(startMs);
+            console.log('Sound properties:', Object.keys(audioSound));
+            console.log('Sound internals:', audioSound._native);
+            const position = await audioSound.getStatusAsync();
+
+            console.log('Playing segment:', segmentId);
+            console.log('Requested start:', startMs, 'ms');
+            console.log('Actual position:', position.positionMillis, 'ms');
+            console.log('End:', endMs, 'ms');
+
+            if (
+                !position.isLoaded ||
+                Math.abs(position.positionMillis - startMs) > 150
+            ) {
+                console.warn('Audio did not seek to the requested position.');
+                return;
+            }
+
+            let hasPaused = false;
+
+            audioSound.setOnPlaybackStatusUpdate((status) => {
+                if (
+                    status.isLoaded &&
+                    status.isPlaying &&
+                    !hasPaused &&
+                    status.positionMillis >= endMs
+                ) {
+                    hasPaused = true;
+                    audioSound.pauseAsync();
+                }
+            });
+
+            await audioSound.playAsync();
+
+        } catch (err) {
+            console.error('Failed to play grammar audio:', err);
+        }
+    };
+
+
+
+
+    const renderLessonText = (content, keyPrefix = 'text') => {
+        // Keep existing lessons that use plain strings compatible.
+        if (typeof content === 'string' || typeof content === 'number') {
+            return content;
+        }
+
+        // Render arrays of text segments inline.
+        if (Array.isArray(content)) {
+            return content.map((item, index) => (
+                <React.Fragment key={`${keyPrefix}-${index}`}>
+                    {renderLessonText(item, `${keyPrefix}-${index}`)}
+                </React.Fragment>
+            ));
+        }
+
+        // Handle structured text objects.
+        if (content && typeof content === 'object') {
+            if (content.type === 'target_text') {
+                return (
+                    <Text
+                        key={content.id || keyPrefix}
+                        style={styles.targetText}
+                        onPress={() => playTargetText(content.id)}
+                    >
+                        {content.text || ''}
+                    </Text>
+                );
+            }
+
+            if (content.type === 'text') {
+                return content.text || '';
+            }
+        }
+
+        return '';
+    };
+
 
 
     useEffect(() => {
@@ -83,6 +246,16 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
             }
 
             setLesson(data);
+            console.log('Grammar lesson loaded:', data.id);
+            console.log('Audio directory:', data.audio_directory);
+
+            // Load audio timestamps returned by the lesson detail API.
+            setAudioTimestamps(data.audio_timestamps || {});
+
+            console.log(
+                'Loaded audio timestamp IDs:',
+                Object.keys(data.audio_timestamps || {})
+            );
 
             // Load saved progress.
             const progressResponse = await fetch(
@@ -143,6 +316,72 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
             setLoading(false);
         }
     };
+
+
+    useEffect(() => {
+        let sound = null;
+        let blobUrl = null;
+        let cancelled = false;
+
+        const loadAudio = async () => {
+            if (!lesson?.audio_directory) return;
+
+            try {
+                const ip = await getServerIP();
+                const audioUrl = `http://${ip}:8000/${lesson.audio_directory}/audio.wav`;
+
+                if (Platform.OS === 'web') {
+                    const res = await fetch(audioUrl);
+                    if (!res.ok) throw new Error(`Audio fetch failed: ${res.status}`);
+
+                    const blob = await res.blob();
+                    if (cancelled) return;
+
+                    blobUrl = URL.createObjectURL(blob);
+                    const audio = new window.Audio(blobUrl);
+                    audio.preload = 'auto';
+                    webAudioRef.current = audio;
+                    return;
+                }
+
+                const result = await Audio.Sound.createAsync(
+                    { uri: audioUrl },
+                    { shouldPlay: false }
+                );
+                sound = result.sound;
+
+                if (cancelled) {
+                    await sound.unloadAsync();
+                    return;
+                }
+
+                await sound.setProgressUpdateIntervalAsync(50);
+                setAudioSound(sound);
+            } catch (err) {
+                console.error('Failed to load grammar audio:', err);
+            }
+        };
+
+        setAudioSound(null);
+        loadAudio();
+
+        return () => {
+            cancelled = true;
+            cancelAnimationFrame(rafRef.current);
+
+            if (webAudioRef.current) {
+                webAudioRef.current.pause();
+                webAudioRef.current = null;
+            }
+            if (blobUrl) URL.revokeObjectURL(blobUrl);
+
+            if (sound) {
+                sound.setOnPlaybackStatusUpdate(null);
+                sound.unloadAsync();
+            }
+        };
+    }, [lesson?.audio_directory]);
+
 
 
     const updateAnswer = (exerciseId, answer) => {
@@ -327,11 +566,17 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                 </Text>
 
                 <Text style={styles.exerciseInstruction}>
-                    {exercise.instruction}
+                    {renderLessonText(
+                        exercise.instruction,
+                        `instruction-${exercise.id}`
+                    )}
                 </Text>
 
                 <Text style={styles.question}>
-                    {exercise.question}
+                    {renderLessonText(
+                        exercise.question,
+                        `question-${exercise.id}`
+                    )}
                 </Text>
 
                 {exercise.exercise_type === 'multiple_choice' ? (
@@ -364,7 +609,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                                         </View>
 
                                         <Text style={styles.optionText}>
-                                            {option}
+                                            {renderLessonText(option, `option-${exercise.id}-${optionIndex}`)}
                                         </Text>
                                     </View>
                                 </TouchableOpacity>
@@ -421,19 +666,28 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
 
                         {!checked && (
                             <Text style={styles.correctAnswer}>
-                                Correct answer: {exercise.correct_answer}
+                                Correct answer: {renderLessonText(
+                                    exercise.correct_answer,
+                                    `correct-answer-${exercise.id}`
+                                )}
                             </Text>
                         )}
 
                         {exercise.explanation ? (
                             <Text style={styles.explanationText}>
-                                {exercise.explanation}
+                                {renderLessonText(
+                                    exercise.explanation,
+                                    `exercise-explanation-${exercise.id}`
+                                )}
                             </Text>
                         ) : null}
 
                         {exercise.translation ? (
                             <Text style={styles.translationText}>
-                                Translation: {exercise.translation}
+                                Translation: {renderLessonText(
+                                    exercise.translation,
+                                    `exercise-translation-${exercise.id}`
+                                )}
                             </Text>
                         ) : null}
                     </View>
@@ -556,7 +810,7 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                                         />
 
                                         <Text style={styles.bodyText}>
-                                            {objective}
+                                            {renderLessonText(objective, `objective-${index}`)}
                                         </Text>
                                     </View>
                                 )
@@ -568,11 +822,14 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                     lesson.sections.map((section, index) => (
                         <View key={index} style={styles.sectionCard}>
                             <Text style={styles.sectionTitle}>
-                                {section.heading || `Section ${index + 1}`}
+                                {renderLessonText(
+                                    section.heading || `Section ${index + 1}`,
+                                    `heading-${index}`
+                                )}
                             </Text>
 
                             <Text style={styles.bodyText}>
-                                {section.content || ''}
+                                {renderLessonText(section.content, `section-${index}`)}
                             </Text>
                         </View>
                     ))}
@@ -594,18 +851,24 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                                     </Text>
 
                                     <Text style={styles.exampleSentence}>
-                                        {example.sentence}
+                                        {renderLessonText(example.sentence, `example-${index}`)}
                                     </Text>
 
                                     {example.translation ? (
                                         <Text style={styles.translationText}>
-                                            {example.translation}
+                                            {renderLessonText(
+                                                example.translation,
+                                                `example-translation-${index}`
+                                            )}
                                         </Text>
                                     ) : null}
 
                                     {example.explanation ? (
                                         <Text style={styles.explanationText}>
-                                            {example.explanation}
+                                            {renderLessonText(
+                                                example.explanation,
+                                                `example-explanation-${index}`
+                                            )}
                                         </Text>
                                     ) : null}
                                 </View>
@@ -1000,5 +1263,9 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    targetText: {
+        color: '#00adb5',
+        textDecorationLine: 'underline',
     },
 });

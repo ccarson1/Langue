@@ -535,6 +535,11 @@ class GrammarLesson(models.Model):
         blank=True,
         related_name="grammar_lessons",
     )
+    audio_directory = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+    )
     title = models.CharField(max_length=200)
     learning_objectives = models.JSONField(default=list, blank=True)
     sections = models.JSONField(default=list, blank=True)
@@ -619,3 +624,26 @@ class GrammarAttempt(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.lesson.title}"
+
+
+class GrammarAudioTimestamp(models.Model):
+    lesson = models.ForeignKey(
+        GrammarLesson,
+        on_delete=models.CASCADE,
+        related_name="audio_timestamps",
+    )
+    segment_id = models.CharField(max_length=100)
+    start = models.FloatField()
+    end = models.FloatField()
+
+    class Meta:
+        ordering = ["start"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lesson", "segment_id"],
+                name="unique_grammar_audio_segment",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.lesson_id}: {self.segment_id}"

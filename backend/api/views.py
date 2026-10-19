@@ -12,7 +12,7 @@ from rest_framework import status
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import check_password
 from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevel, ReadingLevelScale, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt, GrammarExerciseType
+from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevel, ReadingLevelScale, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt, GrammarExerciseType, GrammarAudioTimestamp
 from django.db.models import Q, Count
 from rest_framework import generics
 from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, AIModelSerializer
@@ -3803,6 +3803,14 @@ def grammar_lesson_detail(request, lesson_id):
 
     data = {
         'id': lesson.id,
+        'audio_directory': lesson.audio_directory,
+        'audio_timestamps': {
+            timestamp.segment_id: {
+                'start': timestamp.start,
+                'end': timestamp.end,
+            }
+            for timestamp in lesson.audio_timestamps.all()
+        },
         'title': lesson.title,
         'topic_id': lesson.topic_id,
         'topic_title': lesson.topic.title,
@@ -4006,6 +4014,64 @@ def import_grammar_lesson(request):
                     sort_order=index,
                 )
 
+        
+        from api.tts import TTS
+        from pathlib import Path
+
+        # ------------------------------------------------------------
+        # Generate grammar lesson audio
+        # ------------------------------------------------------------
+
+        audio_segments = get_grammar_audio_segments(lesson)
+
+        if audio_segments:
+            tts = TTS()
+
+            audio_result = tts.synthesize_with_timestamps(
+                audio_segments,
+                model="piper",
+            )
+
+            audio_directory = (
+                Path(__file__).resolve().parent
+                / 'media'
+                / 'grammar'
+                / str(lesson.id)
+            )
+
+            audio_directory.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            audio_path = audio_directory / 'audio.wav'
+
+            with open(audio_path, 'wb') as audio_file:
+                audio_file.write(audio_result['audio'])
+
+            # Save timestamps in the database instead of JSON.
+            timestamps = audio_result['segments']
+
+            GrammarAudioTimestamp.objects.filter(
+                lesson=lesson
+            ).delete()
+
+            GrammarAudioTimestamp.objects.bulk_create([
+                GrammarAudioTimestamp(
+                    lesson=lesson,
+                    segment_id=segment_id,
+                    start=timestamp['start'],
+                    end=timestamp['end'],
+                )
+                for segment_id, timestamp in timestamps.items()
+            ])
+
+            lesson.audio_directory = (
+                f'media/grammar/{lesson.id}'
+            )
+            lesson.save(update_fields=['audio_directory'])
+
+
         return Response(
             {
                 'message': 'Grammar lesson imported successfully.',
@@ -4182,3 +4248,40 @@ def grammar_attempt(request, lesson_id):
         'total_exercises': len(exercises),
         'submitted_at': attempt.submitted_at,
     })
+
+def get_grammar_audio_segments(lesson):
+    segments = []
+
+    def extract(value):
+        if isinstance(value, dict):
+            if (
+                value.get('type') == 'target_text'
+                and value.get('id')
+                and value.get('text')
+            ):
+                segments.append({
+                    'id': value['id'],
+                    'text': value['text'],
+                })
+                return
+
+            for key, child in value.items():
+                if key not in (
+                    'options',
+                    'correct_answer',
+                    'accepted_answers',
+                ):
+                    extract(child)
+
+        elif isinstance(value, list):
+            for item in value:
+                extract(item)
+
+    extract({
+        'title': lesson.title,
+        'learning_objectives': lesson.learning_objectives,
+        'sections': lesson.sections,
+        'examples': lesson.examples,
+    })
+
+    return segments
