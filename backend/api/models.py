@@ -229,6 +229,34 @@ class AIModel(models.Model):
         return self.name
 
 
+class ModelConfig(models.Model):
+    ai_model = models.ForeignKey(
+        AIModel,
+        on_delete=models.CASCADE,
+        related_name="configs",
+    )
+
+    name = models.CharField(max_length=100)
+    engine = models.CharField(max_length=100)
+    config = models.JSONField(default=dict, blank=True)
+
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["ai_model__name", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ai_model", "name"],
+                name="unique_model_config_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.ai_model.name} - {self.name}"
+
+
+
 class Dictionary(models.Model):
     id = models.AutoField(primary_key=True, db_column='ID')
     name = models.CharField(max_length=100, unique=True)
@@ -586,6 +614,7 @@ class GrammarExercise(models.Model):
     correct_answer = models.TextField()
     accepted_answers = models.JSONField(default=list, blank=True)
     explanation = models.TextField()
+    correctable = models.BooleanField(default=True)
     translation = models.TextField(blank=True)
     missing_word = models.CharField(max_length=255, blank=True)
     complete_answer = models.TextField(blank=True)

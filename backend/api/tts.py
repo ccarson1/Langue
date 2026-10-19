@@ -24,6 +24,7 @@ class TTS:
         self._piper_phonemizer = None
         self._piper_synth = None
 
+
     def synthesize(self, texts, model="piper"):
         """
         Convert an array of text strings into one audio file.

@@ -16,6 +16,7 @@ import { getServerIP } from '../utils/config';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import CustomPopup from './components/CustomPopup';
+import LoadingOverlay from './components/LoadingOverlay';
 
 export default function GrammarLessonsScreen({ navigation }) {
     const insets = useSafeAreaInsets();
@@ -209,6 +210,7 @@ export default function GrammarLessonsScreen({ navigation }) {
 
     const importGrammarLesson = async () => {
         try {
+            setLoading(true);
             const result = await DocumentPicker.getDocumentAsync({
                 type: 'application/json',
                 copyToCacheDirectory: true,
@@ -240,6 +242,7 @@ export default function GrammarLessonsScreen({ navigation }) {
 
             if (!token) {
                 Alert.alert('Error', 'Please log in first.');
+                setLoading(false);
                 return;
             }
 
@@ -262,17 +265,18 @@ export default function GrammarLessonsScreen({ navigation }) {
                     data.error || data.detail || 'Failed to import lesson.'
                 );
             }
-
+            setLoading(false);
             Alert.alert(
                 'Import Successful',
                 `${data.title} was imported successfully.`
+
             );
 
             await loadLessons();
 
         } catch (err) {
             console.error('Grammar lesson import failed:', err);
-
+            setLoading(false);
             Alert.alert(
                 'Import Failed',
                 err.message || 'Could not import the JSON file.'
@@ -305,33 +309,31 @@ export default function GrammarLessonsScreen({ navigation }) {
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => navigation.goBack()}
+                    onPress={() => navigation.navigate('Grammar')}
                 >
                     <AntDesign name="left" size={22} color="white" />
                 </TouchableOpacity>
 
                 <Text style={styles.headerText}>Grammar Lessons</Text>
             </View>
-            <TouchableOpacity
+            {/* <TouchableOpacity
                 style={styles.importButton}
                 onPress={importGrammarLesson}
             >
                 <AntDesign name="upload" size={18} color="white" />
                 <Text style={styles.importButtonText}>Import JSON Lesson</Text>
+            </TouchableOpacity> */}
+            <TouchableOpacity
+                style={styles.importButton}
+                onPress={() => navigation.navigate('ImportGrammar')}
+            >
+                <AntDesign name="edit" size={18} color="white" />
+                <Text style={styles.importButtonText}>
+                    Create Grammar Lesson
+                </Text>
             </TouchableOpacity>
 
-            {loading ? (
-                <View style={styles.centerContent}>
-                    <ActivityIndicator size="large" color="#00adb5" />
-                    <Text style={styles.message}>Loading grammar lessons...</Text>
-                </View>
-            ) : lessons.length === 0 ? (
-                <View style={styles.centerContent}>
-                    <Text style={styles.message}>
-                        No grammar lessons are available for your target language yet.
-                    </Text>
-                </View>
-            ) : (
+            {!loading && (
 
                 <ScrollView
                     contentContainerStyle={styles.lessonList}
@@ -396,6 +398,22 @@ export default function GrammarLessonsScreen({ navigation }) {
                                             >
                                                 {lesson.completed ? '✓ Completed' : 'In progress'}
                                             </Text>
+                                            {lesson.completed && lesson.score !== null && lesson.score !== undefined ? (
+                                                <Text
+                                                    style={{
+                                                        color: '#00adb5',
+                                                        fontSize: 14,
+                                                        fontWeight: 'bold',
+                                                        marginTop: 5,
+                                                    }}
+                                                >
+                                                    Score: {lesson.score} / {lesson.total_exercises}
+                                                    {' '}(
+                                                    {lesson.total_exercises > 0
+                                                        ? Math.round(lesson.score / lesson.total_exercises * 100)
+                                                        : 0}%)
+                                                </Text>
+                                            ) : null}
 
                                             <View style={styles.progressBarBackground}>
                                                 <View
@@ -461,6 +479,7 @@ export default function GrammarLessonsScreen({ navigation }) {
                 </ScrollView>
 
             )}
+            <LoadingOverlay visible={loading} />
             <CustomPopup
                 visible={deletePopupVisible}
                 message={popupMessage}

@@ -27,6 +27,7 @@ import RSSScreen from "./screens/RSSScreen";
 import RSSArticleScreen from "./screens/RSSArticleScreen";
 import GrammarLessonsScreen from './screens/GrammarLessonsScreen';
 import GrammarLessonDetailScreen from './screens/GrammarLessonDetailScreen'
+import ImportGrammarScreen from './screens/ImportGrammarScreen'
 
 const Stack = createNativeStackNavigator();
 
@@ -72,6 +73,7 @@ export default function App() {
           <Stack.Screen name="Grammar" component={GrammarScreen} />
           <Stack.Screen name="GrammarLessons" component={GrammarLessonsScreen} />
           <Stack.Screen name="GrammarLessonDetail" component={GrammarLessonDetailScreen} />
+          <Stack.Screen name="ImportGrammar" component={ImportGrammarScreen} />
           <Stack.Screen name="Library" component={LibraryScreen} />
           <Stack.Screen name="BookViewer" component={BookViewerScreen} />
           <Stack.Screen name="Statistics" component={StatisticsScreen} />

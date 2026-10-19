@@ -5,7 +5,7 @@ import re
 import shutil
 
 #import fitz
-import pymupdf
+import pymupdf as fitz
 import pytesseract
 
 from PIL import Image
@@ -212,7 +212,8 @@ class OCR():
         self,
         pdf_file,
         user_id,
-        lesson_import_progress
+        lesson_import_progress,
+        progress_process_workload
     ):
 
         pdf_file.seek(0)
@@ -396,8 +397,7 @@ class OCR():
             target_id,
             translateTarget,
             user_id,
-            lesson_import_progress,
-            progress_process_workload
+            lesson_import_progress
         )
 
         StorageManager.recalculate_sentence_storage(

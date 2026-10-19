@@ -594,7 +594,10 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                                     onPress={() =>
                                         updateAnswer(exercise.id, option)
                                     }
-                                    disabled={isSubmitted}
+                                    disabled={
+                                        isSubmitted ||
+                                        (checked === false && !exercise.correctable)
+                                    }
                                 >
                                     <View style={styles.optionRow}>
                                         <View
@@ -623,7 +626,10 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                         onChangeText={value =>
                             updateAnswer(exercise.id, value)
                         }
-                        editable={!isSubmitted}
+                        editable={
+                            !isSubmitted &&
+                            !(checked === false && !exercise.correctable)
+                        }
                         placeholder={
                             exercise.exercise_type === 'fill_in_the_blank'
                                 ? 'Enter the missing word'
@@ -640,6 +646,10 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                 <TouchableOpacity
                     style={styles.checkButton}
                     onPress={() => checkAnswer(exercise)}
+                    disabled={
+                        checked === false &&
+                        !exercise.correctable
+                    }
                 >
                     <Text style={styles.checkButtonText}>
                         Check Answer
@@ -661,7 +671,11 @@ export default function GrammarLessonDetailScreen({ navigation, route }) {
                                 { color: checked ? '#81c784' : '#ff8a80' },
                             ]}
                         >
-                            {checked ? 'Correct!' : 'Not quite. Try again.'}
+                            {checked
+                                ? 'Correct!'
+                                : exercise.correctable
+                                    ? 'Not quite. Try again.'
+                                    : 'Incorrect.'}
                         </Text>
 
                         {!checked && (

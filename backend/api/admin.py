@@ -1,6 +1,6 @@
 
 from django.contrib import admin
-from .models import Lesson, Editor, Language, Phrase, PhraseTranslation, Report, UserWord, Word, WordTranslation, Profile, UserSetting, UserLessonsProgress, Sentence, Channel, ChannelVote, Recording, AIModel, Tag, StorageObject, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevelScale, ReadingLevel, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt, GrammarExerciseType, GrammarAudioTimestamp
+from .models import Lesson, Editor, Language, Phrase, PhraseTranslation, Report, UserWord, Word, WordTranslation, Profile, UserSetting, UserLessonsProgress, Sentence, Channel, ChannelVote, Recording, AIModel, Tag, StorageObject, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevelScale, ReadingLevel, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt, GrammarExerciseType, GrammarAudioTimestamp, ModelConfig
 
 admin.site.register(Language)
 admin.site.register(Editor)
@@ -34,3 +34,4 @@ admin.site.register(GrammarTopic)
 admin.site.register(GrammarAttempt)
 admin.site.register(GrammarExerciseType)
 admin.site.register(GrammarAudioTimestamp)
+admin.site.register(ModelConfig)

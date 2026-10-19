@@ -55,6 +55,7 @@ urlpatterns = [
     path('reading-levels/', views.reading_levels, name='reading_levels'),
     path( 'grammar/categories/', views.grammar_categories, name='grammar_categories', ),
     path( 'grammar/topics/', views.grammar_topics, name='grammar_topics', ),
+    path( 'grammar/exercise-types/', views.grammar_exercise_types, name='grammar-exercise-types', ),
     path( 'grammar/lessons/', views.grammar_lessons, name='grammar_lessons', ),
     path( 'grammar/lessons/<int:lesson_id>/', views.grammar_lesson_detail, name='grammar_lesson_detail', ),
     path('grammar/import/', views.import_grammar_lesson, name='import_grammar_lesson'),

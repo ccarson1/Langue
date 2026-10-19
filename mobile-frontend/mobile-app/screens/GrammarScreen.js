@@ -176,7 +176,7 @@ export default function GrammarScreen({ navigation }) {
 
             <TouchableOpacity
                 style={styles.backLink}
-                onPress={() => navigation.goBack()}
+                onPress={() => navigation.navigate('Home')}
             >
                 <AntDesign name="left" size={22} color="white" />
             </TouchableOpacity>

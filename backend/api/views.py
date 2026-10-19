@@ -21,7 +21,7 @@ from .w_translate import load_user_model, translate_word
 from.dictionary_lookup import DictionaryLookup
 from.dictionary_scraper import DictionaryScraper
 from django.core.files.storage import default_storage
-
+from models.model_runner import synthesize_with_timestamps, synthesize_audio_bytes, get_tts_model_id
 from django.http import FileResponse, Http404, JsonResponse
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
@@ -507,7 +507,12 @@ def import_lesson(request):
                     print("translateTarget", translateTarget)
                     print("lesson.target_language:", lesson.target_language)
                     print("lesson.native_language:", lesson.native_language)
-                    ocr = OCR( None, targetLang.tesseract_langcode, nativeLang.tesseract_langcode)
+                    ocr = OCR(
+                        None,
+                        targetLang.tesseract_langcode,
+                        nativeLang.tesseract_langcode,
+                        targetLang.yt_dlp_lang
+                    )
 
                     ocr.process_pdf( lesson_file, lesson, lesson.target_language, lesson.native_language, translateTarget, user_id, lesson_import_progress, progress_process_workload)
                 elif fileType == 'csv':
@@ -3267,7 +3272,7 @@ def generate_audio(request):
 
     from api.tts import TTS
 
-    tts = TTS()
+    #tts = TTS()
 
     combined_audio = None
     current_position_ms = 0
@@ -3281,11 +3286,12 @@ def generate_audio(request):
         )
 
         # Generate audio for this sentence
-        sentence_audio = tts.synthesize(
-            [sentence.sentence],
-            model="piper"
-        )
+        model_id = get_tts_model_id(lesson.target_language.lang_name)
 
+        sentence_audio = synthesize_audio_bytes(
+            model_id,
+            sentence.sentence
+        )
         # Get duration of this sentence
         duration_ms = get_wav_duration_ms(sentence_audio)
 
@@ -3641,6 +3647,23 @@ def grammar_categories(request):
 
     return Response(data)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def grammar_exercise_types(request):
+    exercise_types = GrammarExerciseType.objects.all()
+
+    data = [
+        {
+            'id': exercise_type.id,
+            'name': exercise_type.name,
+            'code': exercise_type.code,
+            'description': exercise_type.description,
+        }
+        for exercise_type in exercise_types
+    ]
+
+    return Response(data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -3711,6 +3734,7 @@ def grammar_lessons(request):
         'lesson_id',
         'answers',
         'is_submitted',
+        'score',
     )
 
     attempts_by_lesson = {
@@ -3761,6 +3785,7 @@ def grammar_lessons(request):
             ),
             'completed': completed,
             'answered_exercises': answered_exercises,
+            'score': attempt.get('score'),
             'total_exercises': total_exercises,
             'progress': progress,
         })
@@ -3834,6 +3859,7 @@ def grammar_lesson_detail(request, lesson_id):
                 'correct_answer': exercise.correct_answer,
                 'accepted_answers': exercise.accepted_answers,
                 'explanation': exercise.explanation,
+                'correctable': exercise.correctable,
                 'translation': exercise.translation,
                 'missing_word': exercise.missing_word,
                 'complete_answer': exercise.complete_answer,
@@ -4002,6 +4028,7 @@ def import_grammar_lesson(request):
                         'accepted_answers', []
                     ),
                     explanation=exercise['explanation'],
+                    correctable=exercise.get('correctable', True),
                     translation=exercise.get('translation', ''),
                     missing_word=exercise.get('missing_word', ''),
                     complete_answer=exercise.get('complete_answer', ''),
@@ -4022,14 +4049,15 @@ def import_grammar_lesson(request):
         # Generate grammar lesson audio
         # ------------------------------------------------------------
 
+        model_id = get_tts_model_id(lesson.target_language.lang_name)
+
         audio_segments = get_grammar_audio_segments(lesson)
 
         if audio_segments:
-            tts = TTS()
 
-            audio_result = tts.synthesize_with_timestamps(
+            audio_result = synthesize_with_timestamps(
+                model_id,
                 audio_segments,
-                model="piper",
             )
 
             audio_directory = (
