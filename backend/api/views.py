@@ -1215,8 +1215,9 @@ def user_lessons_progress_view(request):
 
 
 
+        
         # Create or update the progress
-        progress, created = UserLessonsProgress.objects.update_or_create(
+        progress, created = UserLessonsProgress.objects.get_or_create(
             user=user,
             lesson_id=lesson.id,
             defaults={
@@ -1225,6 +1226,33 @@ def user_lessons_progress_view(request):
             }
         )
 
+        if not created:
+            progress.current_lesson_index = current_index
+            progress.last_viewed = timezone.now()
+            progress.save(
+                update_fields=['current_lesson_index', 'last_viewed']
+            )
+
+        # Handle lesson completion or reset
+        if 'is_completed' in request.data:
+            completion_requested = request.data.get('is_completed')
+
+            if completion_requested is True and not progress.is_completed:
+                progress.is_completed = True
+                progress.num_of_times_read += 1
+
+            elif completion_requested is False:
+                progress.is_completed = False
+                progress.current_lesson_index = 0
+
+            progress.save(
+                update_fields=[
+                    'is_completed',
+                    'current_lesson_index',
+                    'num_of_times_read',
+                ]
+            )
+
         UserLanguageLessonIndex.objects.update_or_create(
             user=user,
             lesson_language=lesson.target_language,
@@ -1232,6 +1260,7 @@ def user_lessons_progress_view(request):
                 'lesson_progress': progress
             }
         )
+
 
 
         # Update the user's profile current_lesson FK
@@ -1252,6 +1281,8 @@ def user_lessons_progress_view(request):
             "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
             "native_lang": native_lang_data,
             "target_lang": target_lang_data,
+            "is_completed": progress.is_completed,
+            "num_of_times_read": progress.num_of_times_read,
 
         }
 
@@ -1284,7 +1315,9 @@ def user_lessons_progress_view(request):
                     "current_lesson_index": progress.current_lesson_index,
                     "last_viewed": progress.last_viewed.isoformat() if progress.last_viewed else None,
                     "native_lang": native_language_id,
-                    "target_lang": target_language_id
+                    "target_lang": target_language_id,
+                    "is_completed": progress.is_completed,
+                    "num_of_times_read": progress.num_of_times_read,
                 }
                 print(data)
                 return Response(data)
@@ -2642,6 +2675,138 @@ def statistics(request):
         ],
         "languages": list(languages),
     })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def vocabulary(request):
+    user_words = (
+        UserWord.objects
+        .filter(user=request.user)
+        .select_related("word", "word__language", "user")
+        .order_by("id")
+    )
+
+    # Pagination
+    try:
+        page = max(1, int(request.query_params.get("page", 1)))
+        page_size = int(request.query_params.get("page_size", 25))
+    except (TypeError, ValueError):
+        return Response(
+            {"error": "page and page_size must be integers"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    page_size = max(1, min(page_size, 100))
+
+    total_words = user_words.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    results = []
+
+    for user_word in user_words[start:end]:
+        results.append({
+            "id": user_word.id,
+            "word_id": user_word.word_id,
+            "word": user_word.word.word,
+            "language_id": user_word.word.language_id,
+            "language": user_word.word.language.lang_name,
+            "word_frequency": user_word.word.frequency,
+            "frequency": user_word.frequency,
+            "clicks": user_word.clicks,
+            "creation_date": user_word.creation_date,
+            "review_date": user_word.review_date,
+            "last_seen": user_word.last_seen,
+            "user_id": user_word.user_id,
+            "username": user_word.user.username,
+        })
+
+    return Response({
+        "count": total_words,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total_words + page_size - 1) // page_size,
+        "results": results,
+    })
+
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+def edit_vocabulary(request, vocabulary_id):
+    from django.shortcuts import get_object_or_404
+
+    user_word = get_object_or_404(
+        UserWord,
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    word_text = request.data.get("word")
+    language_id = request.data.get("language_id")
+
+    if not isinstance(word_text, str) or not word_text.strip():
+        return Response(
+            {"error": "Word cannot be empty."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if len(word_text.strip()) > 30:
+        return Response(
+            {"error": "Word cannot exceed 30 characters."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if language_id is None:
+        return Response(
+            {"error": "Language is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        language = Language.objects.get(id=language_id)
+    except (Language.DoesNotExist, ValueError, TypeError):
+        return Response(
+            {"error": "Invalid language."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Create a separate Word so other users' records are not changed.
+    updated_word = Word.objects.create(
+        word=word_text.strip(),
+        language=language,
+        frequency=user_word.word.frequency
+    )
+
+    user_word.word = updated_word
+    user_word.save(update_fields=["word"])
+
+    return Response({
+        "message": "Vocabulary updated successfully.",
+        "id": user_word.id,
+        "word_id": updated_word.id,
+        "word": updated_word.word,
+        "language_id": language.id,
+        "language": language.lang_name,
+    })
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_vocabulary(request, vocabulary_id):
+    from django.shortcuts import get_object_or_404
+
+    user_word = get_object_or_404(
+        UserWord,
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    user_word.delete()
+
+    return Response(
+        {"message": "Vocabulary record deleted successfully."},
+        status=status.HTTP_200_OK
+    )
 
 
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])

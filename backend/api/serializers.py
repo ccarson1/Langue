@@ -120,16 +120,15 @@ class ReadingLevelSerializer(serializers.ModelSerializer):
         ]
 
 class LessonSerializer(serializers.ModelSerializer):
-    #sentences = SentenceSerializer(source='sentence_set', many=True, read_only=True)
     image = serializers.SerializerMethodField()
     current_lesson_index = serializers.SerializerMethodField()
     last_viewed = serializers.SerializerMethodField()
     sentence_count = serializers.SerializerMethodField()
+    num_of_times_read = serializers.SerializerMethodField()
     reading_level = ReadingLevelSerializer(read_only=True)
 
     class Meta:
         model = Lesson
-
         fields = [
             'id',
             'image',
@@ -151,29 +150,47 @@ class LessonSerializer(serializers.ModelSerializer):
             'current_lesson_index',
             'last_viewed',
             'sentence_count',
+            'num_of_times_read',
             'reading_level',
         ]
+
+    def get_num_of_times_read(self, obj):
+        user = self.context['request'].user
+
+        progress = UserLessonsProgress.objects.filter(
+            user=user,
+            lesson=obj
+        ).first()
+
+        return progress.num_of_times_read if progress else 0
 
     def get_sentence_count(self, obj):
         return Sentence.objects.filter(lesson=obj).count()
 
     def get_current_lesson_index(self, obj):
         user = self.context['request'].user
-
-        progress = UserLessonsProgress.objects.filter( user=user, lesson=obj ).first()
+        progress = UserLessonsProgress.objects.filter(
+            user=user,
+            lesson=obj
+        ).first()
 
         return progress.current_lesson_index if progress else 0
 
     def get_last_viewed(self, obj):
         user = self.context['request'].user
+        progress = UserLessonsProgress.objects.filter(
+            user=user,
+            lesson=obj
+        ).first()
 
-        progress = UserLessonsProgress.objects.filter( user=user, lesson=obj ).first()
         return progress.last_viewed if progress else None
 
     def get_image(self, obj):
         request = self.context.get('request')
+
         if obj.image and request:
             return request.build_absolute_uri(obj.image.url)
+
         return None
     
 class RecordingSerializer(serializers.ModelSerializer):

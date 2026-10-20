@@ -774,6 +774,39 @@ export default function LessonsScreen({ navigation }) {
                             {lesson.title}
                         </Text>
 
+                        {/* Times Read */}
+                        {Number(lesson.num_of_times_read) > 0 && (
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    alignSelf: 'flex-start',
+                                    gap: 6,
+                                    marginTop: 6,
+                                    marginBottom: 4,
+                                }}
+                            >
+                                <AntDesign
+                                    name="check-circle"
+                                    size={16}
+                                    color="#00adb5"
+                                />
+
+                                <Text
+                                    style={{
+                                        color: '#00adb5',
+                                        fontSize: 12,
+                                        fontWeight: '600',
+                                    }}
+                                >
+                                    Read {lesson.num_of_times_read}{' '}
+                                    {Number(lesson.num_of_times_read) === 1
+                                        ? 'time'
+                                        : 'times'}
+                                </Text>
+                            </View>
+                        )}
+
 
                         {lesson.reading_level && (
                             <View style={{

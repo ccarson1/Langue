@@ -354,6 +354,10 @@ class UserLessonsProgress(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_progress')
     lesson = models.ForeignKey(Lesson, db_column='lesson_id', on_delete=models.SET_NULL, null=True, default=7)
     current_lesson_index = models.SmallIntegerField(default=0)
+    is_completed = models.BooleanField(default=False)
+    num_of_times_read = models.PositiveIntegerField(default=0)
+    total_time_read = models.PositiveIntegerField(default=0)
+    date_created = models.DateTimeField(auto_now_add=True)
     last_viewed = models.DateField(default=timezone.now)
 
     class Meta:

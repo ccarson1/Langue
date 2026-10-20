@@ -361,7 +361,7 @@ export const createStyles = (insets) =>
 
         },
 
-        editSentenceButton:{
+        editSentenceButton: {
             position: 'absolute',
             top: 10,
             right: 100,
@@ -554,6 +554,42 @@ export const createStyles = (insets) =>
             padding: 0,
             margin: 0,
             color: 'white'
+        },
+        actionButton: {
+            backgroundColor: "#00ADB5",
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            borderRadius: 6,
+            alignItems: "center",
+        },
+
+        actionButtonText: {
+            color: "#FFFFFF",
+            fontWeight: "bold",
+            fontSize: 12,
+        },
+
+        actionsMenu: {
+            position: "absolute",
+            top: 45,
+            right: 5,
+            width: 110,
+            backgroundColor: "#393E46",
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: "#00ADB5",
+            zIndex: 2000,
+            elevation: 15,
+        },
+
+        actionsMenuItem: {
+            paddingVertical: 12,
+            paddingHorizontal: 10,
+        },
+
+        actionsMenuText: {
+            color: "#FFFFFF",
+            fontSize: 14,
         },
 
     });

@@ -112,6 +112,8 @@ export default function HomeScreen({ navigation, route }) {
     const insets = useSafeAreaInsets();
     const styles = createStyles(insets);
     const [lessonData, setLessonData] = useState(null);
+    const [lessonCompleted, setLessonCompleted] = useState(false);
+    const [resettingCompletion, setResettingCompletion] = useState(false);
     const isLessonOwner = !!user && !!lessonData && Number(lessonData.user_id) === Number(user.id);
     const sentenceLongPressRef = useRef(false);
     const sentencePopupRef = useRef(null);
@@ -349,8 +351,11 @@ export default function HomeScreen({ navigation, route }) {
 
         fetchWordFrequencies(rows[newIndex][0]);
 
-        // Optional:
-        updateLessonProgress(newIndex);
+        if (newIndex === rows.length - 1) {
+            markLessonCompleted();
+        } else {
+            updateLessonProgress(newIndex);
+        }
     };
 
     // --- Clipboard helper ---
@@ -358,6 +363,96 @@ export default function HomeScreen({ navigation, route }) {
         await Clipboard.setStringAsync(selectedText);
         showSuccess('Text copied to clipboard!');
     };
+
+    const completedLessonRef = useRef(null);
+
+    const markLessonCompleted = async () => {
+        if (!token || !currentLesson) return;
+
+        // Prevent duplicate increments during this lesson visit.
+        if (completedLessonRef.current === currentLesson) return;
+
+        completedLessonRef.current = currentLesson;
+
+        try {
+            const response = await fetch(
+                `http://${serverIP}:8000/api/user-progress/`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        lesson_id: currentLesson,
+                        current_lesson_index: rows.length - 1,
+                        is_completed: true,
+                    }),
+                }
+            );
+
+            if (response.ok) {
+                setLessonCompleted(true);
+            } else {
+                completedLessonRef.current = null;
+                console.error(
+                    "Failed to mark lesson completed:",
+                    await response.text()
+                );
+            }
+        } catch (err) {
+            completedLessonRef.current = null;
+            console.error("Failed to complete lesson:", err);
+        }
+    };
+
+    const resetLessonCompletion = async () => {
+        if (!token || !currentLesson || resettingCompletion) return;
+
+        setResettingCompletion(true);
+
+        try {
+            const response = await fetch(
+                `http://${serverIP}:8000/api/user-progress/`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        lesson_id: currentLesson,
+                        current_lesson_index: 0,
+                        is_completed: false,
+                    }),
+                }
+            );
+
+            if (!response.ok) {
+                console.error(
+                    "Failed to reset lesson completion:",
+                    await response.text()
+                );
+                return;
+            }
+
+            setLessonCompleted(false);
+            completedLessonRef.current = null;
+
+            indexRef.current = 0;
+            setIndex(0);
+
+            if (rows.length > 0) {
+                setStartMs(rows[0][3]);
+                setEndMs(rows[0][4]);
+            }
+        } catch (err) {
+            console.error("Failed to reset lesson completion:", err);
+        } finally {
+            setResettingCompletion(false);
+        }
+    };
+
 
 
     const updateLessonProgress = async (newIndex) => {
@@ -625,7 +720,12 @@ export default function HomeScreen({ navigation, route }) {
         setSelectedFrequency(0);
 
         fetchWordFrequencies(row[0]);
-        updateLessonProgress(newIndex);
+
+        if (newIndex === rows.length - 1) {
+            markLessonCompleted();
+        } else {
+            updateLessonProgress(newIndex);
+        }
 
         if (ShowVideoView && videoFormat) {
             await videoRef.current?.seek(row[3]);
@@ -844,6 +944,7 @@ export default function HomeScreen({ navigation, route }) {
                     setTargetLanguage(progressData.target_lang);
 
                     const savedIndex = progressData.current_lesson_index || 0;
+                    setLessonCompleted(progressData.is_completed ?? false);
 
                     indexRef.current = savedIndex;
                     restoringLessonRef.current = true;
@@ -1210,13 +1311,37 @@ export default function HomeScreen({ navigation, route }) {
 
                         {/* ---------------- PROGRESS BAR ---------------- */}
 
-                        <ProgressBar
-                            progress={
-                                rows.length > 1
-                                    ? index / (rows.length - 1)
-                                    : 0
-                            }
-                        />
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 10,
+                            }}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <ProgressBar
+                                    progress={
+                                        rows.length > 1
+                                            ? index / (rows.length - 1)
+                                            : 0
+                                    }
+                                />
+                            </View>
+
+                            {lessonCompleted && (
+                                <TouchableOpacity
+                                    onPress={resetLessonCompletion}
+                                    disabled={resettingCompletion}
+                                    style={{ padding: 5 }}
+                                >
+                                    <AntDesign
+                                        name="check-circle"
+                                        size={25}
+                                        color="#00adb5"
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        </View>
 
 
                         {/* ---------------- WORD CONTAINER ---------------- */}
@@ -1758,6 +1883,8 @@ export default function HomeScreen({ navigation, route }) {
                                 </Text>
                             </TouchableOpacity>
                         )}
+
+
 
 
 
