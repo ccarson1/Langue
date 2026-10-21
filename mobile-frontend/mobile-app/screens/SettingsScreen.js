@@ -118,33 +118,34 @@ export default function SettingsScreen({ navigation }) {
     loadIP();
   }, []);
 
+
   useEffect(() => {
-    if (!serverIP) return;
     const loadTokenAndSettings = async () => {
-
       try {
+        const storedOfflineMode = await AsyncStorage.getItem('offlineMode');
+        const isOffline = storedOfflineMode === 'true';
 
-        const storedToken = await AsyncStorage.getItem(
-          'accessToken'
-        );
+        setOfflineMode(isOffline);
 
-        if (!storedToken) {
+        const storedToken = await AsyncStorage.getItem('accessToken');
+        if (storedToken) {
+          setToken(storedToken);
+        }
 
-          Alert.alert(
-            'Error',
-            'No access token found. Please log in.'
-          );
-
+        // Do not request anything from the server in offline mode.
+        if (isOffline || !serverIP) {
           return;
         }
 
-        setToken(storedToken);
+        if (!storedToken) {
+          Alert.alert('Error', 'No access token found. Please log in.');
+          return;
+        }
 
         const response = await fetch(
           `http://${serverIP}:8000/api/settings/`,
           {
             method: 'GET',
-
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${storedToken}`,
@@ -152,49 +153,46 @@ export default function SettingsScreen({ navigation }) {
           }
         );
 
+        if (!response.ok) {
+          throw new Error('Failed to load settings.');
+        }
+
         const settings = await response.json();
-        console.log(settings);
+
         setNativeLanguage(settings.native_language);
         setTargetLanguage(settings.target_language);
-        setOfflineMode(settings.offline_mode ?? false);
         setNotificationsEnabled(settings.notifications ?? false);
         setProfilePrivate(settings.privacy ?? false);
         setSelectedDictionary(settings.user_dictionary || '');
-        setSelectedSpeechToTextModel(
-          settings.speech_to_text_model || ''
-        );
+        setSelectedSpeechToTextModel(settings.speech_to_text_model || '');
+        setSelectedTextToTextModel(settings.text_to_text_model || '');
+        setSelectedTextToSpeechModel(settings.text_to_speech_model || '');
+        setSelectedImageToTextModel(settings.image_to_text_model || '');
+        setDictionaries(settings.public_dictionaries || []);
 
-        setSelectedTextToTextModel(
-          settings.text_to_text_model || ''
-        );
-
-        setSelectedTextToSpeechModel(
-          settings.text_to_speech_model || ''
-        );
-
-        setSelectedImageToTextModel(
-          settings.image_to_text_model || ''
-        );
-        setDictionaries(settings.public_dictionaries);
-        console.log(dictionaries);
+        await fetchLanguages();
+        await fetchTranslationModels();
       } catch (err) {
-
-        Alert.alert(
-          'Error',
-          'Failed to load settings: ' + err.message
-        );
+        console.error('Failed to load settings:', err);
+        Alert.alert('Error', 'Failed to load settings: ' + err.message);
       }
     };
 
-    fetchLanguages();
-    fetchTranslationModels();
     loadTokenAndSettings();
-
   }, [serverIP]);
 
 
 
+
   const handleSave = async () => {
+    if (offlineMode) {
+      await AsyncStorage.setItem('offlineMode', 'true');
+      navigation.navigate('Home', { offlineMode: true });
+      return;
+    }
+
+    await AsyncStorage.setItem('offlineMode', 'false');
+    
     if (!token) {
       Alert.alert('Error', 'No access token found. Please log in.');
       return;
@@ -459,7 +457,10 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.checkboxRow}>
           <Switch
             value={offlineMode}
-            onValueChange={setOfflineMode}
+            onValueChange={async (value) => {
+              setOfflineMode(value);
+              await AsyncStorage.setItem('offlineMode', String(value));
+            }}
             trackColor={{ false: '#777', true: '#00adb5' }}
             thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
           />

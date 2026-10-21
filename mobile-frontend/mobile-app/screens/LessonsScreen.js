@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -8,6 +9,8 @@ import {
     Alert,
     TextInput,
     useWindowDimensions,
+    Platform,
+    ActivityIndicator
 } from 'react-native';
 
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -16,7 +19,17 @@ import { jwtDecode } from 'jwt-decode';
 import { getServerIP } from '../utils/config';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createStyles } from './styles/LessonsStyles';
+import * as FileSystem from 'expo-file-system/legacy';
+import {
+    saveOfflineLesson,
+    getDownloadedLessonIds,
+    getOfflineLesson
+} from '../utils/offlineLessons';
 
+import {
+    initLocalDatabase,
+    getLocalDatabase,
+} from '../utils/localDatabase';
 
 export default function LessonsScreen({ navigation }) {
     const [languages, setLanguages] = useState([]);
@@ -37,6 +50,9 @@ export default function LessonsScreen({ navigation }) {
     const [filterMenuVisible, setFilterMenuVisible] = useState(false);
     const [selectedReadingLevels, setSelectedReadingLevels] = useState([]);
     const [includeNoReadingLevel, setIncludeNoReadingLevel] = useState(false);
+    const [downloadedLessons, setDownloadedLessons] = useState([]);
+    const [downloadingLesson, setDownloadingLesson] = useState(null);
+    const [offlineMode, setOfflineMode] = useState(false);
 
     const [sortOrder, setSortOrder] = useState('newest');
 
@@ -50,6 +66,94 @@ export default function LessonsScreen({ navigation }) {
 
     const fetchLessons = async () => {
         try {
+            const storedOfflineMode = await AsyncStorage.getItem('offlineMode');
+            const isOffline = storedOfflineMode === 'true';
+
+            setOfflineMode(isOffline);
+
+
+            if (isOffline) {
+                await initLocalDatabase();
+
+                const db = await getLocalDatabase();
+
+                const lessonIds = await getDownloadedLessonIds();
+
+                const offlineLessons = (
+                    await Promise.all(
+                        lessonIds.map(id => getOfflineLesson(id))
+                    )
+                ).filter(Boolean);
+
+
+
+                const progressRows = await db.getAllAsync(
+                    `SELECT lesson_id, current_lesson_index, is_completed,
+            num_of_times_read, total_time_read
+     FROM user_lessons_progress
+     WHERE user_id IN (0, 1)`
+                );
+
+                const progressByLesson = new Map(
+                    progressRows.map(progress => [
+                        Number(progress.lesson_id),
+                        progress,
+                    ])
+                );
+
+                const lessonsWithProgress = await Promise.all(
+                    offlineLessons.map(async lesson => {
+                        const progress = progressByLesson.get(Number(lesson.id));
+
+                        const sentenceCount = await db.getFirstAsync(
+                            `SELECT COUNT(*) AS sentence_count
+                 FROM sentences
+                 WHERE lesson_id = ?`,
+                            Number(lesson.id)
+                        );
+
+                        return {
+                            ...lesson,
+                            current_lesson_index: progress
+                                ? progress.current_lesson_index
+                                : Number(lesson.current_lesson_index) || 0,
+                            is_completed: progress
+                                ? Boolean(progress.is_completed)
+                                : Boolean(lesson.is_completed),
+                            num_of_times_read: progress
+                                ? progress.num_of_times_read
+                                : Number(lesson.num_of_times_read) || 0,
+                            total_time_read: progress
+                                ? progress.total_time_read
+                                : Number(lesson.total_time_read) || 0,
+                            sentence_count: sentenceCount?.sentence_count
+                                ?? lesson.sentence_count
+                                ?? lesson.sentences?.length
+                                ?? 0,
+                        };
+                    })
+                );
+
+                setLessons(lessonsWithProgress);
+
+                console.log('Offline lessons loaded:', lessonsWithProgress.length);
+                console.log(
+                    'Offline lesson progress:',
+                    lessonsWithProgress.map(lesson => ({
+                        id: lesson.id,
+                        title: lesson.title,
+                        current_lesson_index: lesson.current_lesson_index,
+                        is_completed: lesson.is_completed,
+                        sentence_count: lesson.sentence_count,
+                    }))
+                );
+
+                return;
+            }
+
+
+            if (!serverIP) return;
+
             const token = await AsyncStorage.getItem('accessToken');
 
             const res = await fetch(`http://${serverIP}:8000/api/lessons/`, {
@@ -59,16 +163,16 @@ export default function LessonsScreen({ navigation }) {
                 }
             });
 
+            if (!res.ok) {
+                throw new Error(`Failed to load lessons: ${res.status}`);
+            }
+
             const data = await res.json();
 
-            const jsonSize = JSON.stringify(data).length;
-
-            console.log("Lessons count:", data.length);
-            console.log("Lessons data size:", jsonSize, "characters");
-            console.log("Lessons data size:", (jsonSize / 1024).toFixed(2), "KB");
+            console.log('LESSON DOWNLOAD DATA:', JSON.stringify(data[0], null, 2));
+            console.log('Lessons count:', data.length);
 
             setLessons(data);
-            console.log(data);
 
         } catch (err) {
             console.error('Failed to fetch Lessons:', err);
@@ -136,11 +240,26 @@ export default function LessonsScreen({ navigation }) {
             }
         };
 
-        fetchLessons();
-        fetchLanguages();
-        loadTokenAndSettings();
+        const loadScreenData = async () => {
+            const offline = await AsyncStorage.getItem('offlineMode');
+
+            await fetchLessons();
+
+            if (offline !== 'true') {
+                fetchLanguages();
+                loadTokenAndSettings();
+            }
+        };
+
+        loadScreenData();
 
     }, [serverIP]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchLessons();
+        }, [serverIP])
+    );
 
 
     const decodeToken = (token) => {
@@ -179,6 +298,96 @@ export default function LessonsScreen({ navigation }) {
 
         init();
     }, []);
+
+
+    const downloadLesson = async (lesson) => {
+        try {
+            setDownloadingLesson(lesson.id);
+
+            const storedToken = await AsyncStorage.getItem('accessToken');
+
+            if (!storedToken) {
+                throw new Error('Please log in before downloading lessons.');
+            }
+
+            // Retrieve the lesson and its sentences.
+            const response = await fetch(
+                `http://${serverIP}:8000/api/lesson/${lesson.id}/`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${storedToken}`,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Could not retrieve lesson details.');
+            }
+
+            const detail = await response.json();
+
+            // Keep files in persistent app storage, not temporary cache.
+            const folder = `${FileSystem.documentDirectory}offline-lessons/${lesson.id}/`;
+
+            await FileSystem.makeDirectoryAsync(folder, {
+                intermediates: true,
+            });
+
+            const downloadFile = async (url, filename) => {
+                if (!url) return null;
+
+                const fullUrl = url.startsWith('http')
+                    ? url
+                    : `http://${serverIP}:8000${url}`;
+
+                const path = `${folder}${filename}`;
+
+                const result = await FileSystem.downloadAsync(fullUrl, path);
+
+                if (result.status < 200 || result.status >= 300) {
+                    throw new Error(`Failed to download ${filename}.`);
+                }
+
+                return result.uri;
+            };
+
+            const audioPath = await downloadFile(
+                lesson.media_file || detail.audio_file,
+                'audio.mp3'
+            );
+
+            const imagePath = await downloadFile(
+                lesson.image,
+                'image'
+            );
+
+            const docPath = await downloadFile(
+                lesson.doc_file || detail.doc_file,
+                'document'
+            );
+
+            // Preserve the lesson fields and add local file locations.
+            await saveOfflineLesson({
+                ...lesson,
+                ...detail,
+                id: lesson.id,
+                audio_path: audioPath,
+                image_path: imagePath,
+                doc_path: docPath,
+            });
+
+            const ids = await getDownloadedLessonIds();
+            setDownloadedLessons(ids);
+
+            Alert.alert('Download complete', `${lesson.title} is saved offline.`);
+        } catch (error) {
+            console.error('Lesson download failed:', error);
+            Alert.alert('Download failed', error.message);
+        } finally {
+            setDownloadingLesson(null);
+        }
+    };
+
 
 
     // ---------------------------------------------------------
@@ -307,6 +516,16 @@ export default function LessonsScreen({ navigation }) {
         setSelectedReadingLevels([]);
         setIncludeNoReadingLevel(false);
     };
+
+    useEffect(() => {
+        if (Platform.OS === 'web') return;
+
+        getDownloadedLessonIds()
+            .then(setDownloadedLessons)
+            .catch(error =>
+                console.error('Failed to load downloaded lessons:', error)
+            );
+    }, []);
 
 
     const hasActiveFilters =
@@ -748,6 +967,29 @@ export default function LessonsScreen({ navigation }) {
                         key={lesson.id}
                         style={styles.card}
                     >
+                        {Platform.OS !== 'web' && !offlineMode && (
+                            <TouchableOpacity
+                                onPress={() => downloadLesson(lesson)}
+                                style={{
+                                    backgroundColor: '#393e46',
+                                    padding: 12,
+                                    borderRadius: 8,
+                                    marginTop: 10,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <AntDesign name="download" size={18} color="#00adb5" />
+                                <Text style={{
+                                    color: '#eeeeee',
+                                    marginLeft: 8,
+                                    fontWeight: '600',
+                                }}>
+                                    Download for Offline
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         {user &&
                             Number(lesson.user) === Number(user.user_id) && (
@@ -852,77 +1094,52 @@ export default function LessonsScreen({ navigation }) {
                         <TouchableOpacity
                             style={styles.button}
                             onPress={async () => {
-
                                 try {
+                                    const offlineMode = await AsyncStorage.getItem('offlineMode');
 
-                                    const storedToken =
-                                        await AsyncStorage.getItem('accessToken');
-
-                                    console.log(storedToken);
-
-                                    if (!storedToken) {
-                                        Alert.alert(
-                                            "Error",
-                                            "No access token found."
-                                        );
+                                    // Offline: open the downloaded lesson directly.
+                                    if (offlineMode === 'true') {
+                                        navigation.navigate('Home', {
+                                            lessonId: Number(lesson.id),
+                                        });
                                         return;
                                     }
 
+                                    // Online: keep the existing server behavior.
+                                    const storedToken = await AsyncStorage.getItem('accessToken');
+
+                                    if (!storedToken) {
+                                        Alert.alert('Error', 'No access token found.');
+                                        return;
+                                    }
 
                                     const res = await fetch(
                                         `http://${serverIP}:8000/api/change-lesson/`,
                                         {
                                             method: 'POST',
-
                                             headers: {
-                                                'Content-Type':
-                                                    'application/json',
-
-                                                Authorization:
-                                                    `Bearer ${storedToken}`
+                                                'Content-Type': 'application/json',
+                                                Authorization: `Bearer ${storedToken}`,
                                             },
-
                                             body: JSON.stringify({
-                                                lesson_id:
-                                                    parseInt(lesson.id)
-                                            })
+                                                lesson_id: Number(lesson.id),
+                                            }),
                                         }
                                     );
 
-
                                     if (!res.ok) {
-
-                                        const errorData =
-                                            await res.json();
-
+                                        const errorData = await res.json();
                                         throw new Error(
-                                            errorData.detail ||
-                                            'Failed to update progress'
+                                            errorData.detail || 'Failed to update progress'
                                         );
-
-                                    } else {
-
-                                        const data =
-                                            await res.json();
-
-                                        console.log(data);
-
-                                        navigation.navigate("Home");
                                     }
 
+                                    navigation.navigate('Home');
+
                                 } catch (error) {
-
-                                    console.error(
-                                        "Progress update error:",
-                                        error
-                                    );
-
-                                    Alert.alert(
-                                        "Error",
-                                        error.message
-                                    );
+                                    console.error('Progress update error:', error);
+                                    Alert.alert('Error', error.message);
                                 }
-
                             }}
                         >
                             <Text style={styles.buttonText}>

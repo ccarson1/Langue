@@ -63,6 +63,7 @@ urlpatterns = [
     path( 'grammar/lessons/<int:lesson_id>/', views.grammar_lesson_detail, name='grammar_lesson_detail', ),
     path('grammar/import/', views.import_grammar_lesson, name='import_grammar_lesson'),
     path( 'grammar/lessons/<int:lesson_id>/attempt/', views.grammar_attempt, name='grammar_attempt', ),
+    path( 'user-progress/sync/', views.sync_lesson_progress_view, name='sync_lesson_progress', ),
     path("books/", views.books_list, name="books-list"),
     path("books/<str:book_id>/", views.book_detail, name="book-detail"),
     re_path( r'^books/(?P<book_id>[^/]+)/pages/(?P<page>[^/]+)/images/(?P<path>.*)$', views.serve_book_image, name='book-image', ),

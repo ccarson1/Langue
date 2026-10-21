@@ -680,3 +680,27 @@ class GrammarAudioTimestamp(models.Model):
 
     def __str__(self):
         return f"{self.lesson_id}: {self.segment_id}"
+
+
+class ProgressSyncEvent(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='progress_sync_events',
+    )
+    event_id = models.UUIDField()
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.CASCADE,
+    )
+    event_type = models.CharField(max_length=30)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'event_id'],
+                name='unique_progress_sync_event_per_user',
+            ),
+        ]

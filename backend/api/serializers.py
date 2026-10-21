@@ -103,7 +103,7 @@ class LanguageSerializer(serializers.ModelSerializer):
 class SentenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sentence
-        fields = ['id','sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms']
+        fields = ['id','sentence', 'translated_sentence', 'lesson_language', 'translate_language', 'start_ms', 'end_ms','position']
 
 class ReadingLevelSerializer(serializers.ModelSerializer):
     scale_name = serializers.CharField(source='scale.name', read_only=True)

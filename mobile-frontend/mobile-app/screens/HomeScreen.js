@@ -31,14 +31,26 @@ import { getServerIP } from '../utils/config';
 import BottomAudioMenu from "./components/BottomAudioMenu";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createStyles } from './styles/HomeStyles';
+import {
+    initProgressSync,
+    checkProgressDatabase,
+    testLocalProgressQueue,
+    exportProgressDatabase,
+    saveProgressEvent,
+} from '../utils/progressSync';
+import {
+    initLocalDatabase,
+    getLocalDatabase,
+} from '../utils/localDatabase';
 //SplashScreen.preventAutoHideAsync();
 
 export default function HomeScreen({ navigation, route }) {
     const { width, height } = useWindowDimensions();
     const isLargeScreen = width >= 900;
     const [offlineMode, setOfflineMode] = useState(route.params?.offlineMode ?? false);
+    const offlineModeRef = useRef(route.params?.offlineMode ?? false);
     console.log("OFFLINE MODE:", offlineMode);
-
+    console.log("HOMESCREEN COMPONENT RENDERED");
     // State
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
@@ -96,6 +108,45 @@ export default function HomeScreen({ navigation, route }) {
     const [isPhraseMode, setIsPhraseMode] = useState(true);
 
 
+    useEffect(() => {
+        const loadOfflineMode = async () => {
+            const savedMode = await AsyncStorage.getItem('offlineMode');
+            const isOffline = savedMode === 'true';
+
+            offlineModeRef.current = isOffline;
+            setOfflineMode(isOffline);
+        };
+
+        loadOfflineMode();
+    }, []);
+
+    useEffect(() => {
+        if (!offlineMode || user) return;
+
+        const loadCachedUser = async () => {
+            try {
+                const cachedUser = await AsyncStorage.getItem('cachedUserProfile');
+
+                if (cachedUser) {
+                    const userData = JSON.parse(cachedUser);
+
+                    setUser(userData);
+
+                    if (userData.current_lesson) {
+                        setCurrentLesson(userData.current_lesson);
+                    }
+
+                    console.log('OFFLINE USER RESTORED:', userData.username);
+                } else {
+                    console.log('No cached user profile found. Log in online first.');
+                }
+            } catch (error) {
+                console.error('Failed to restore cached user:', error);
+            }
+        };
+
+        loadCachedUser();
+    }, [offlineMode, user]);
 
     useEffect(() => {
         setEditableSelectedText(selectedText);
@@ -275,6 +326,7 @@ export default function HomeScreen({ navigation, route }) {
     };
 
     const fetchWordFrequencies = async (sentenceId) => {
+        if (offlineModeRef.current || !token) return;
         try {
             const response = await fetch(
                 `http://${serverIP}:8000/api/sentence-word-frequency/`,
@@ -349,7 +401,9 @@ export default function HomeScreen({ navigation, route }) {
         indexRef.current = newIndex;
         setIndex(newIndex);
 
-        fetchWordFrequencies(rows[newIndex][0]);
+        if (!offlineModeRef.current && token) {
+            fetchWordFrequencies(rows[newIndex][0]);
+        }
 
         if (newIndex === rows.length - 1) {
             markLessonCompleted();
@@ -366,13 +420,100 @@ export default function HomeScreen({ navigation, route }) {
 
     const completedLessonRef = useRef(null);
 
-    const markLessonCompleted = async () => {
-        if (!token || !currentLesson) return;
 
-        // Prevent duplicate increments during this lesson visit.
+    const saveLessonProgressLocally = async (lessonIndex, isCompleted) => {
+        try {
+            await initLocalDatabase();
+            const db = await getLocalDatabase();
+
+            let userId = user?.id ?? user?.user_id;
+
+            if (!userId && currentLesson) {
+                const existingProgress = await db.getFirstAsync(
+                    `SELECT user_id
+                 FROM user_lessons_progress
+                 WHERE lesson_id = ?
+                 ORDER BY last_viewed DESC
+                 LIMIT 1`,
+                    Number(currentLesson)
+                );
+
+                userId = existingProgress?.user_id;
+            }
+
+            // Use a local-only ID when offline and not logged in.
+            if (!userId && offlineModeRef.current) {
+                userId = 0;
+            }
+
+            if (userId == null || !currentLesson) {
+                console.error('Cannot save local progress:', {
+                    userId,
+                    currentLesson,
+                });
+                return;
+            }
+
+            const now = new Date().toISOString();
+
+            await db.runAsync(
+                `INSERT INTO user_lessons_progress (
+                user_id, lesson_id, current_lesson_index,
+                is_completed, date_created, last_viewed
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, lesson_id) DO UPDATE SET
+                current_lesson_index = excluded.current_lesson_index,
+                is_completed = excluded.is_completed,
+                last_viewed = excluded.last_viewed`,
+                Number(userId),
+                Number(currentLesson),
+                Number(lessonIndex),
+                isCompleted ? 1 : 0,
+                now,
+                now
+            );
+
+            if (offlineModeRef.current) {
+                await saveProgressEvent({
+                    lessonId: Number(currentLesson),
+                    eventType: 'lesson_progress',
+                    payload: {
+                        user_id: Number(userId),
+                        lesson_id: Number(currentLesson),
+                        current_lesson_index: Number(lessonIndex),
+                        is_completed: isCompleted,
+                    },
+                });
+            }
+
+            console.log('LOCAL LESSON PROGRESS SAVED:', {
+                lessonId: currentLesson,
+                index: lessonIndex,
+                completed: isCompleted,
+            });
+        } catch (error) {
+            console.error('Failed to save local lesson progress:', error);
+        }
+    };
+
+    const markLessonCompleted = async () => {
+        if (!currentLesson) return;
+
         if (completedLessonRef.current === currentLesson) return;
 
         completedLessonRef.current = currentLesson;
+
+        await saveLessonProgressLocally(
+            Math.max(0, rows.length - 1),
+            true
+        );
+
+        setLessonCompleted(true);
+
+        if (offlineModeRef.current) return;
+        if (!token) return;
+
 
         try {
             const response = await fetch(
@@ -407,9 +548,27 @@ export default function HomeScreen({ navigation, route }) {
     };
 
     const resetLessonCompletion = async () => {
-        if (!token || !currentLesson || resettingCompletion) return;
+        if (!currentLesson || resettingCompletion) return;
 
         setResettingCompletion(true);
+
+        await saveLessonProgressLocally(0, false);
+
+        if (offlineModeRef.current) {
+            setLessonCompleted(false);
+            completedLessonRef.current = null;
+            indexRef.current = 0;
+            setIndex(0);
+
+            if (rows.length > 0) {
+                setStartMs(rows[0][3]);
+                setEndMs(rows[0][4]);
+            }
+
+            return;
+        }
+
+        if (!token) return;
 
         try {
             const response = await fetch(
@@ -456,7 +615,12 @@ export default function HomeScreen({ navigation, route }) {
 
 
     const updateLessonProgress = async (newIndex) => {
-        if (!token || !currentLesson) return;
+        if (!currentLesson) return;
+
+        await saveLessonProgressLocally(newIndex, false);
+
+        if (offlineModeRef.current) return;
+        if (!token) return;
 
         try {
             const response = await fetch(
@@ -829,7 +993,7 @@ export default function HomeScreen({ navigation, route }) {
 
 
     useEffect(() => {
-        if (!token || !serverIP) return;
+        if (offlineMode || !token || !serverIP) return;
         const fetchSettings = async () => {
             try {
                 const res = await fetch(`http://${serverIP}:8000/api/settings/`, {
@@ -856,10 +1020,10 @@ export default function HomeScreen({ navigation, route }) {
                     setUserDictionary(data.user_dictionary);
                     setSettingsLoaded(true);
 
-                    console.log("Captions after load: ", ShowVideoCaptions);
-                    console.log("Datatype: ", typeof (ShowVideoCaptions))
-                    console.log("Video View after load: ", ShowVideoView);
-                    console.log("Datatype: ", typeof (ShowVideoView))
+                    // console.log("Captions after load: ", ShowVideoCaptions);
+                    // console.log("Datatype: ", typeof (ShowVideoCaptions))
+                    // console.log("Video View after load: ", ShowVideoView);
+                    // console.log("Datatype: ", typeof (ShowVideoView))
                 }
             } catch (e) {
                 console.error("Failed to load settings:", e);
@@ -867,7 +1031,7 @@ export default function HomeScreen({ navigation, route }) {
         };
 
         fetchSettings();
-    }, [token]);
+    }, [token, serverIP, offlineMode]);
 
 
     // --- Initialization ---
@@ -883,6 +1047,7 @@ export default function HomeScreen({ navigation, route }) {
                 setServerIP(ip);
 
                 const storedToken = await AsyncStorage.getItem('accessToken');
+                console.log("Langue access token:", storedToken);
                 if (storedToken) {
                     setToken(storedToken);
                     const decoded = decodeToken(storedToken);
@@ -916,8 +1081,14 @@ export default function HomeScreen({ navigation, route }) {
 
                 if (res.ok) {
                     const userData = await res.json();
+
                     setUser(userData);
                     setCurrentLesson(userData.current_lesson);
+
+                    await AsyncStorage.setItem(
+                        'cachedUserProfile',
+                        JSON.stringify(userData)
+                    );
                 }
             } catch (err) {
                 console.error(err);
@@ -928,7 +1099,206 @@ export default function HomeScreen({ navigation, route }) {
     }, [token]);
 
     useEffect(() => {
-        if (!token || !currentLesson) return;
+        async function setupLocalDatabase() {
+            try {
+                await initLocalDatabase();
+                await initProgressSync();
+                await checkProgressDatabase();
+
+                console.log('Local Langue database ready');
+            } catch (error) {
+                console.error('Local database initialization failed:', error);
+            }
+        }
+
+        setupLocalDatabase();
+    }, []);
+
+    useEffect(() => {
+        if (!offlineMode) return;
+
+        let cancelled = false;
+
+        const loadOfflineLesson = async () => {
+            try {
+                setLessonReady(false);
+
+                await initLocalDatabase();
+
+                const db = await getLocalDatabase();
+
+                let lessonId =
+                    route.params?.lessonId ??
+                    route.params?.currentLesson ??
+                    currentLesson;
+
+                let offlineRecord = null;
+
+                if (lessonId) {
+                    offlineRecord = await db.getFirstAsync(
+                        `SELECT * FROM offline_lessons WHERE lesson_id = ?`,
+                        Number(lessonId)
+                    );
+                }
+
+                // If no selected lesson is downloaded, use the most recent download.
+                if (!offlineRecord) {
+                    offlineRecord = await db.getFirstAsync(`
+                    SELECT *
+                    FROM offline_lessons
+                    ORDER BY downloaded_at DESC
+                    LIMIT 1
+                `);
+                }
+
+                if (!offlineRecord) {
+                    console.log('No downloaded lessons found');
+                    setLessonReady(false);
+                    return;
+                }
+
+                lessonId = offlineRecord.lesson_id;
+
+                const savedLesson = JSON.parse(
+                    offlineRecord.lesson_data
+                );
+
+                const localLesson = await db.getFirstAsync(
+                    'SELECT * FROM lessons WHERE id = ?',
+                    Number(lessonId)
+                );
+
+                const sentenceRows = await db.getAllAsync(
+                    `SELECT *
+                 FROM sentences
+                 WHERE lesson_id = ?
+                 ORDER BY position ASC`,
+                    Number(lessonId)
+                );
+
+                const sentences = sentenceRows.map(sentence => ({
+                    id: sentence.id,
+                    sentence: sentence.sentence,
+                    translated_sentence: sentence.translated_sentence,
+                    start_ms: sentence.start_ms,
+                    end_ms: sentence.end_ms,
+                    position: sentence.position,
+                }));
+
+                const loadedLesson = {
+                    ...savedLesson,
+                    ...(localLesson || {}),
+                    id: Number(lessonId),
+                    sentences,
+                    audioUploaded: Boolean(
+                        localLesson?.audioUploaded ??
+                        savedLesson.audioUploaded
+                    ),
+                    videoFormat: Boolean(
+                        localLesson?.videoFormat ??
+                        savedLesson.videoFormat
+                    ),
+                };
+
+
+                if (cancelled) return;
+
+                // Load saved progress for this lesson.
+
+                // Load saved progress for this lesson.
+                const userId = user?.id ?? user?.user_id;
+
+                const progressRows = await db.getAllAsync(
+                    `SELECT user_id, lesson_id, current_lesson_index, is_completed, last_viewed
+                     FROM user_lessons_progress
+                     WHERE lesson_id = ?
+                     ORDER BY last_viewed DESC`,
+                    Number(lessonId)
+                );
+
+                console.log(
+                    'PROGRESS ROWS FOR LOADED LESSON:',
+                    progressRows
+                );
+                console.log('CURRENT USER ID:', userId);
+
+                let savedProgress = null;
+
+                if (userId) {
+                    savedProgress = progressRows.find(
+                        row => Number(row.user_id) === Number(userId)
+                    ) ?? null;
+                } else {
+                    savedProgress = progressRows[0] ?? null;
+                }
+
+                console.log('SELECTED SAVED PROGRESS:', savedProgress);
+
+                if (cancelled) return;
+
+
+
+                // Keep the saved index within the lesson's sentence range.
+                const savedIndex = savedProgress
+                    ? Math.min(
+                        Math.max(0, savedProgress.current_lesson_index),
+                        Math.max(0, sentences.length - 1)
+                    )
+                    : 0;
+
+                setCurrentLesson(Number(lessonId));
+                setLessonData(loadedLesson);
+
+                setRows(
+                    sentences.map(sentence => [
+                        sentence.id,
+                        sentence.sentence,
+                        sentence.translated_sentence,
+                        sentence.start_ms,
+                        sentence.end_ms,
+                        sentence.position,
+                    ])
+                );
+
+                indexRef.current = savedIndex;
+                setIndex(savedIndex);
+                setLessonCompleted(savedProgress?.is_completed === 1);
+
+                if (sentences.length > 0) {
+                    setStartMs(sentences[savedIndex].start_ms ?? 0);
+                    setEndMs(sentences[savedIndex].end_ms ?? 0);
+                }
+
+                console.log('OFFLINE LESSON LOADED:', lessonId);
+                console.log('OFFLINE SENTENCES LOADED:', sentences.length);
+                console.log('RESTORED LOCAL PROGRESS:', {
+                    savedIndex,
+                    isCompleted: savedProgress?.is_completed === 1,
+                });
+
+
+                setHasAudio(Boolean(offlineRecord.audio_path));
+                setLessonAudio(offlineRecord.audio_path || null);
+                setVideoFormat(loadedLesson.videoFormat);
+
+                console.log('OFFLINE LESSON LOADED:', lessonId);
+                console.log('OFFLINE SENTENCES LOADED:', sentences.length);
+
+                setLessonReady(true);
+            } catch (error) {
+                console.error('Failed to load offline lesson:', error);
+            }
+        };
+
+        loadOfflineLesson();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [offlineMode, user]);
+
+    useEffect(() => {
+        if (offlineMode || !token || !currentLesson || !serverIP) return;
 
         const fetchLessonData = async () => {
             try {
@@ -969,8 +1339,8 @@ export default function HomeScreen({ navigation, route }) {
                             s.position
                         ]);
 
-                    console.log("Fetched lesson data:", parsed);
-                    console.log("Current Lesson:", lessonData);
+                    // console.log("Fetched lesson data:", parsed);
+                    // console.log("Current Lesson:", lessonData);
 
                     setRows(parsed);
 
@@ -987,7 +1357,7 @@ export default function HomeScreen({ navigation, route }) {
 
                     setHasAudio(lessonData.audioUploaded);
                     setVideoFormat(lessonData.videoFormat);
-                    console.log(lessonData.audioUploaded);
+                    //console.log(lessonData.audioUploaded);
                     setLessonReady(true);
                 }
             } catch (err) {
@@ -998,7 +1368,7 @@ export default function HomeScreen({ navigation, route }) {
     }, [token, currentLesson]);
 
     useEffect(() => {
-        if (!token || !currentLesson || !serverIP) return;
+        if (offlineMode || !token || !currentLesson || !serverIP) return;
         //if (hasAudio === false) return;
 
         const fetchAudio = async () => {
@@ -1060,7 +1430,7 @@ export default function HomeScreen({ navigation, route }) {
         };
 
         fetchAudio();
-    }, [token, currentLesson, serverIP]);
+    }, [token, currentLesson, serverIP, offlineMode]);
 
     useEffect(() => {
         const updateAudioSettings = async () => {
@@ -1103,7 +1473,7 @@ export default function HomeScreen({ navigation, route }) {
 
 
     useEffect(() => {
-        if (!rows.length || !token) return;
+        if (offlineMode || !rows.length || !token) return;
 
         const sentenceId = rows[index]?.[0];
 
@@ -1486,6 +1856,26 @@ export default function HomeScreen({ navigation, route }) {
                                         Scraper
                                     </Text>
                                 </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={async () => {
+                                        try {
+                                            await exportProgressDatabase();
+                                        } catch (error) {
+                                            console.error('Database export failed:', error);
+                                            window.alert(error.message);
+                                        }
+                                    }}
+                                    style={{
+                                        backgroundColor: '#00adb5',
+                                        padding: 12,
+                                        margin: 10,
+                                        borderRadius: 8,
+                                    }}
+                                >
+                                    <Text style={{ color: '#ffffff' }}>
+                                        Export Progress Database
+                                    </Text>
+                                </TouchableOpacity>
 
                             </View>
 
@@ -1565,8 +1955,6 @@ export default function HomeScreen({ navigation, route }) {
 
                                         <View style={styles.rightTextContainer}>
 
-                                            {console.log("USER OBJECT:", user)}
-                                            {console.log("LESSON DATA OBJECT:", lessonData)}
                                             {isLessonOwner ? (
 
                                                 <TextInput

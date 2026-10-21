@@ -22,10 +22,23 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ visible: false, message: '', type: 'success' });
   const [offlineMode, setOfflineMode] = useState(false)
+  const [offlineModeLoaded, setOfflineModeLoaded] = useState(false);
 
-  // Load saved IP on mount
+  // Load saved settings on mount
   useEffect(() => {
-    getServerIP().then(ip => setServerIP(ip));
+    const loadSavedSettings = async () => {
+      try {
+        const ip = await getServerIP();
+        setServerIP(ip);
+
+        const savedOfflineMode = await AsyncStorage.getItem('offlineMode');
+        setOfflineMode(savedOfflineMode === 'true');
+      } catch (err) {
+        console.error('Error loading saved settings:', err);
+      }
+    };
+
+    loadSavedSettings();
   }, []);
 
   const showError = (message) => {
@@ -65,6 +78,16 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  const handleOfflineModeChange = async (value) => {
+    setOfflineMode(value);
+
+    try {
+      await AsyncStorage.setItem('offlineMode', String(value));
+    } catch (err) {
+      console.error('Error saving offline mode:', err);
+    }
+  };
+
   const handleLogin = async () => {
 
     if (offlineMode) { navigation.replace('Home', { offlineMode: true, }); return; }
@@ -92,7 +115,7 @@ export default function LoginScreen({ navigation }) {
         await AsyncStorage.setItem('accessToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
         Alert.alert('Success', 'Login successful!');
-        navigation.replace('Home', {offlineMode: offlineMode});
+        navigation.replace('Home', { offlineMode: offlineMode });
       } else {
         showError(`Error: ${data.error || 'Login failed.'}`);
       }
@@ -153,15 +176,17 @@ export default function LoginScreen({ navigation }) {
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
           <Text style={styles.buttonText}>Log In</Text>
         </TouchableOpacity>
-        <View style={styles.checkboxRow}>
-          <Switch
-            value={offlineMode}
-            onValueChange={setOfflineMode}
-            trackColor={{ false: '#777', true: '#00adb5' }}
-            thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
-          />
-          <Text style={styles.checkboxLabel}>Offline Mode</Text>
-        </View>
+        {Platform.OS !== 'web' && (
+          <View style={styles.checkboxRow}>
+            <Switch
+              value={offlineMode}
+              onValueChange={handleOfflineModeChange}
+              trackColor={{ false: '#777', true: '#00adb5' }}
+              thumbColor={Platform.OS === 'android' ? '#eeeeee' : ''}
+            />
+            <Text style={styles.checkboxLabel}>Offline Mode</Text>
+          </View>
+        )}
 
         <TouchableOpacity onPress={() => navigation.navigate('ResetPassword')}>
           <Text style={styles.forgot}>Forgot password?</Text>

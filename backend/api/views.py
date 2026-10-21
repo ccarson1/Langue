@@ -1,60 +1,110 @@
 # backend/api/views.py
 
-from pathlib import Path
-import subprocess
-
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.decorators import api_view, authentication_classes, parser_classes
-from rest_framework import status
-from django.contrib.auth.hashers import make_password
-from django.contrib.auth.hashers import check_password
-from django.db.models.functions import TruncDate
-from .models import User, Language, UserSetting, Word, WordTranslation, Lesson, UserLessonsProgress, Profile, Sentence, UserWord, Channel, Recording, PhraseTranslation, AIModel, Tag, Dictionary, DictionaryEntry, UserLanguageLessonIndex, RSSFeed, ReadingLevel, ReadingLevelScale, GrammarCategory, GrammarTopic, GrammarLesson, GrammarExercise, GrammarAttempt, GrammarExerciseType, GrammarAudioTimestamp
-from django.db.models import Q, Count
-from rest_framework import generics
-from .serializers import UserSerializer, SignupSerializer, LanguageSerializer, LessonSerializer, UserLessonsProgressSerializer, RecordingSerializer, AIModelSerializer
-from django.views.generic import TemplateView
-from .w_translate import load_user_model, translate_word
-from.dictionary_lookup import DictionaryLookup
-from.dictionary_scraper import DictionaryScraper
-from django.core.files.storage import default_storage
-from models.model_runner import synthesize_with_timestamps, synthesize_audio_bytes, get_tts_model_id
-from django.http import FileResponse, Http404, JsonResponse
-from rest_framework.views import APIView
-from rest_framework.authentication import TokenAuthentication
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import AllowAny
-from django.shortcuts import get_object_or_404
-from rest_framework.parsers import MultiPartParser, FormParser
-import os
-from django.conf import settings
-from .url_vtt import URL_VTT
-from .vtt import VTT
-from django.utils import timezone
-import requests
-from django.core.files.base import ContentFile
-from urllib.parse import urlparse, parse_qs
-import uuid
-import json
-import shutil
-from django.db import transaction
-from pydub import AudioSegment
-import numpy as np
-import signal
-import re
-from datetime import timedelta
-from .ocr import OCR
+# Standard library
 import base64
+import io
+import json
+import os
 import random
+import re
+import shutil
+import signal
+import subprocess
+import uuid
+import wave
+from datetime import timedelta
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+# Third-party packages
+import numpy as np
+import requests
+from pydub import AudioSegment
+
+# Django
+from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.db import transaction
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
+from django.http import FileResponse, Http404, JsonResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.generic import TemplateView
+
+# Django REST Framework
+from rest_framework import generics, status
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    parser_classes,
+    permission_classes,
+)
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+# Local application imports
+from models.model_runner import (
+    get_tts_model_id,
+    synthesize_audio_bytes,
+    synthesize_with_timestamps,
+)
+from .dictionary_lookup import DictionaryLookup
+from .dictionary_scraper import DictionaryScraper
+from .models import (
+    AIModel,
+    Channel,
+    Dictionary,
+    DictionaryEntry,
+    GrammarAttempt,
+    GrammarAudioTimestamp,
+    GrammarCategory,
+    GrammarExercise,
+    GrammarExerciseType,
+    GrammarLesson,
+    GrammarTopic,
+    Language,
+    Lesson,
+    PhraseTranslation,
+    Profile,
+    ReadingLevel,
+    ReadingLevelScale,
+    Recording,
+    RSSFeed,
+    Sentence,
+    Tag,
+    User,
+    UserLanguageLessonIndex,
+    UserLessonsProgress,
+    UserSetting,
+    UserWord,
+    Word,
+    WordTranslation,
+    ProgressSyncEvent
+)
+from .ocr import OCR
+from .rss_reader import RSSReader
+from .serializers import (
+    AIModelSerializer,
+    LanguageSerializer,
+    LessonSerializer,
+    RecordingSerializer,
+    SignupSerializer,
+    UserLessonsProgressSerializer,
+    UserSerializer,
+)
+from .url_vtt import URL_VTT
 from .utils.pronunciation_evaluator import evaluate_pronunciation
 from .utils.storage import StorageManager
-import io
-import wave
-import subprocess
-from .rss_reader import RSSReader
+from .vtt import VTT
+from .w_translate import load_user_model, translate_word
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -4478,3 +4528,110 @@ def get_grammar_audio_segments(lesson):
     })
 
     return segments
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def sync_lesson_progress_view(request):
+    user = request.user
+    events = request.data.get('events', [])
+
+    if not isinstance(events, list):
+        return Response(
+            {'error': 'events must be a list.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    results = []
+
+    for event in events:
+        event_id = event.get('event_id')
+        lesson_id = event.get('lesson_id')
+        event_type = event.get('event_type')
+        occurred_at = event.get('occurred_at')
+        payload = event.get('payload', {})
+
+        if not event_id or not lesson_id or event_type not in (
+            'position',
+            'completed',
+            'reset',
+        ):
+            return Response(
+                {'error': 'Each event needs event_id, lesson_id, and a valid event_type.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            event_id = uuid.UUID(str(event_id))
+            lesson = Lesson.objects.get(id=lesson_id)
+        except (ValueError, TypeError, Lesson.DoesNotExist):
+            return Response(
+                {'error': 'Invalid event_id or lesson_id.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            with transaction.atomic():
+                sync_event, created = ProgressSyncEvent.objects.get_or_create(
+                    user=user,
+                    event_id=event_id,
+                    defaults={
+                        'lesson': lesson,
+                        'event_type': event_type,
+                        'payload': payload,
+                    },
+                )
+
+                if not created:
+                    results.append({
+                        'event_id': str(event_id),
+                        'status': 'already_processed',
+                    })
+                    continue
+
+                progress, _ = UserLessonsProgress.objects.get_or_create(
+                    user=user,
+                    lesson=lesson,
+                    defaults={
+                        'current_lesson_index': 0,
+                        'last_viewed': timezone.localdate(),
+                    },
+                )
+
+                if event_type == 'position':
+                    current_index = payload.get('current_lesson_index')
+
+                    if not isinstance(current_index, int) or current_index < 0:
+                        return Response(
+                            {'error': 'Invalid current_lesson_index.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                    progress.current_lesson_index = current_index
+
+                elif event_type == 'completed':
+                    # Each unique completion event counts as one completed read.
+                    progress.num_of_times_read += 1
+                    progress.is_completed = True
+
+                elif event_type == 'reset':
+                    progress.current_lesson_index = 0
+                    progress.is_completed = False
+
+                progress.last_viewed = timezone.localdate()
+                progress.save()
+
+                results.append({
+                    'event_id': str(event_id),
+                    'status': 'processed',
+                })
+
+        except Exception:
+            # Log the exception in your Django server output while debugging.
+            raise
+
+    return Response({
+        'success': True,
+        'results': results,
+    })

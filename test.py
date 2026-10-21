@@ -1,69 +1,51 @@
-# import os
 
-# os.environ["PADDLE_PDX_CACHE_HOME"] = os.path.abspath(
-#     "backend/models/paddleocr"
-# )
+import requests
+import uuid
+import getpass
+import json
 
-# from paddleocr import PaddleOCR
+url = "http://127.0.0.1:8000/api/user-progress/sync/"
 
-# IMAGE_PATH = r"20260525_123916.jpg"
+token = getpass.getpass("Paste your Langue access token: ")
 
-# ocr = PaddleOCR(lang="lt")
+event_id = str(uuid.uuid4())
 
-# result = ocr.predict(IMAGE_PATH)
+body = {
+    "events": [
+        {
+            "event_id": event_id,
+            "lesson_id": 67,
+            "event_type": "completed",
+            "occurred_at": "2026-10-21T12:00:00Z",
+            "payload": {}
+        }
+    ]
+}
 
-# for page in result:
-#     print(page)
+headers = {
+    "Authorization": f"Bearer {token}",
+    "Content-Type": "application/json"
+}
 
+print("\nSending first request...")
 
-
-import os
-
-os.environ["PADDLE_PDX_CACHE_HOME"] = os.path.abspath(
-    "backend/models/paddleocr"
+response = requests.post(
+    url,
+    headers=headers,
+    json=body
 )
 
-from paddleocr import PaddleOCR
+print("HTTP status:", response.status_code)
+print(json.dumps(response.json(), indent=2))
 
+if response.ok:
+    print("\nSending the same event again...")
 
-IMAGE_PATH = r"20260525_123916.jpg"
+    response = requests.post(
+        url,
+        headers=headers,
+        json=body
+    )
 
-
-# --------------------------------------------------
-# Current Lithuanian model
-# --------------------------------------------------
-
-print()
-print("=" * 60)
-print("CURRENT MODEL")
-print("=" * 60)
-
-ocr = PaddleOCR(
-    lang="lt"
-)
-
-result = ocr.predict(IMAGE_PATH)
-
-for page in result:
-
-    print(page["rec_texts"])
-
-
-# --------------------------------------------------
-# Latin PP-OCRv5 model
-# --------------------------------------------------
-
-print()
-print("=" * 60)
-print("LATIN PP-OCRv5 MODEL")
-print("=" * 60)
-
-ocr = PaddleOCR(
-    text_recognition_model_name="latin_PP-OCRv5_mobile_rec"
-)
-
-result = ocr.predict(IMAGE_PATH)
-
-for page in result:
-
-    print(page["rec_texts"])
+    print("HTTP status:", response.status_code)
+    print(json.dumps(response.json(), indent=2))
